@@ -1,6 +1,6 @@
 [package]
-name = "ore-api"
-description = "API for interacting with the ORE program"
+name = "ore-pool-api"
+description = "API for interacting with the ORE mining pool program"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
