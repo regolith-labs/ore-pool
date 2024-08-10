@@ -6,7 +6,7 @@ use solana_program::{
     {self},
 };
 
-/// Claim allows a member to claim their due rewards from the pool.
+/// Claim allows a member to claim their ORE from the pool.
 pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = ClaimArgs::try_from_bytes(data)?;

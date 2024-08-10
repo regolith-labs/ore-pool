@@ -4,13 +4,15 @@ use crate::utils::{impl_account_from_bytes, impl_to_bytes, Discriminator};
 
 use super::AccountDiscriminator;
 
-/// Member ...
+/// Member records the participant's claimable balance in the mining pool.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Member {
+    /// The authority allowed to claim this balance.
     pub authority: Pubkey,
+
+    /// The balance amount which may be claimed.
     pub balance: u64,
-    pub is_kicked: u64,
 }
 
 impl Discriminator for Member {
