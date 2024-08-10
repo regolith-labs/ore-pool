@@ -12,11 +12,8 @@ pub fn process_kick<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) 
     let [signer, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
-    // load_operator(signer)?;
-    // load_any(miner_info)?;
-    // load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
-    // load_program(system_program, system_program::id())?;
+    load_operator(signer)?;
+    load_any_member(member_info, true)?;
 
     // Reject kicked pool members
     let mut member_data = member_info.try_borrow_mut_data()?;

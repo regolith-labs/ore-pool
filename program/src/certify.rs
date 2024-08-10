@@ -18,13 +18,9 @@ pub fn process_certify<'a, 'info>(
     let [signer, batch_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
-    // load_operator(signer)?;
-    // load_signer(miner_info)?;
-    // load_program(ore_program, ore_api::id())?;
-    // load_program(system_program, system_program::id())?;
-    // load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
-    // load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
+    load_operator(signer)?;
+    load_any_batch(batch_info, true)?;
+    load_any_member(member_info, false)?;
 
     // TODO If batch is already certified, then exit
     let mut batch_data = batch_info.data.borrow_mut();

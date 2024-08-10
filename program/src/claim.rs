@@ -13,16 +13,19 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
-    let [signer, authority_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
+    let [signer, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
-    // load_operator(signer)?;
-    // load_any(miner_info)?;
-    // load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
-    // load_program(system_program, system_program::id())?;
+    load_signer(signer)?;
+    load_token_account(beneficiary_info, None, &MINT_ADDRESS, true)?;
+    load_member(member_info, signer.key, true)?;
+    load_pool(pool_info, false)?;
+    load_treasury(treasury_info, false)?:
+    load_treasury_tokens(treasury_tokens_info, true)?;
+    load_program(ore_program, ore_api::id())?;
+    load_program(token_program, spl_token::id())?;
 
     // Reject members who have been kicked from the pool
     let mut member_data = member_info.try_borrow_mut_data()?;

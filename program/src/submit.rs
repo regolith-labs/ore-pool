@@ -12,18 +12,21 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     let args = SubmitArgs::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer, batch_info, bus_info, config_info, miner_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
+    let [signer, batch_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
-    // load_operator(signer)?;
-    // load_signer(miner_info)?;
-    // load_program(ore_program, ore_api::id())?;
-    // load_program(system_program, system_program::id())?;
-    // load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
-    // load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
+    load_operator(signer)?;
+    load_uninitialized_pda(batch_info, &[BATCH], args.batch_bump, &ore_pool_api::id())?;
+    load_any_bus(bus_info, true)?;
+    load_config(config_info, false)?;
+    load_pool(pool_info, true)?;
+    load_proof(proof_info, pool_info.key, true)?;
+    load_program(ore_program, ore_api::id())?;
+    load_program(system_program, system_program::id())?;
+    load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
+    load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
 
     // Load pool data
     let pool_data = pool_info.data.borrow();

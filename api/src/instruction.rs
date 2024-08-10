@@ -31,16 +31,16 @@ impl PoolInstruction {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct ClaimArgs {
-    pub amount: [u8; 8],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct CertifyArgs {
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
     pub signature: [u8; 32],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ClaimArgs {
+    pub amount: [u8; 8],
 }
 
 #[repr(C)]
@@ -53,6 +53,12 @@ pub struct CommitArgs {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct InitializeArgs {
     pub pool_bump: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct OpenArgs {
+    pub member_bump: u8,
 }
 
 #[repr(C)]

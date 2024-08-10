@@ -12,10 +12,15 @@ pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) 
     let [signer, authority_info, member_info, pool_info, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
-    // load_operator(signer)?;
-    // load_any(miner_info)?;
-    // load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
+    load_signer(signer)?;
+    load_any(authority_info)?;
+    load_uninitialized_pda(
+        pool_info,
+        &[MEMBER, authority_info.key.as_ref()],
+        args.member_bump,
+        &ore_pool_api::id(),
+    )?;
+    load_pool(pool_info, true)?;
     load_program(system_program, system_program::id())?;
 
     // Initialize member account

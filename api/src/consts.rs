@@ -5,6 +5,12 @@ use solana_program::{pubkey, pubkey::Pubkey};
 /// The authority allowed to operate the pool.
 pub const OPERATOR_ADDRESS: Pubkey = pubkey!("HBUh9g46wk2X89CvaNN15UmsznP59rh6od1h8JwYAopk");
 
+/// The seed of the batch account PDA.
+pub const BATCH: &[u8] = b"batch";
+
+/// The seed of the member account PDA.
+pub const MEMBER: &[u8] = b"member";
+
 /// The seed of the pool account PDA.
 pub const POOL: &[u8] = b"pool";
 

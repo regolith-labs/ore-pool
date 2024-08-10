@@ -15,7 +15,9 @@ pub fn process_commit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     let [signer, batch_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    // TODO Account loaders
+    load_operator(signer)?;
+    load_any_batch(batch_info, true)?;
+    load_any_member(member_info, false)?;
 
     // If batch is not certified, then exit
     let batch_data = batch_info.data.borrow();
