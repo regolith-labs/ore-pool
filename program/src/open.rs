@@ -6,7 +6,7 @@ use solana_program::{
     {self},
 };
 
-/// Open ...
+/// Open creates a new account for a pool participant.
 pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Load accounts.
     let [signer, authority_info, member_info, pool_info, system_program] = accounts else {

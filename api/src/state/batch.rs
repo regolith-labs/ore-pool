@@ -11,7 +11,6 @@ pub struct Batch {
     pub amount: u64,
     pub attestation: [u8; 32],
     pub best_difficulty: u64,
-    pub best_digest: [u8; 16],
     pub best_nonce: [u8; 8],
     pub certification: [u8; 32],
     pub challenge: [u8; 32],

@@ -6,7 +6,8 @@ use solana_program::{
     {self},
 };
 
-/// Kick ...
+// TODO This could always just happen off-chain
+/// Kick bans a member from participating in the pool.
 pub fn process_kick<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Load accounts.
     let [signer, member_info] = accounts else {

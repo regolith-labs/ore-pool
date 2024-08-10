@@ -6,7 +6,7 @@ use solana_program::{
     {self},
 };
 
-/// Commit ...
+/// Commit updates a member's claimable balance proportional to that member's contribution to a certified batch.
 pub fn process_commit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = CommitArgs::try_from_bytes(data)?;

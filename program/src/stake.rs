@@ -6,7 +6,7 @@ use solana_program::{
     {self},
 };
 
-/// Stake ...
+/// Stake deposits ORE into the pool to increase the pool's collective staking multiplier.
 pub fn process_stake<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = StakeArgs::try_from_bytes(data)?;

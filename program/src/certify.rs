@@ -6,7 +6,20 @@ use solana_program::{
     {self},
 };
 
-/// Certify ...
+/// Certify allows the pool operator to authenticate the validity of hashes considered in a given batch.
+///
+/// This process generates a certification which must match the attestation provided by the operator when the 
+/// pool's best hash was submitted for mining. If the attestation cannot be certified, then the mining rewards in this
+/// bathc are left unclaimable.
+///
+/// SECURITY
+/// The pool operator is responsible attributing hashes to pool members. This discretion creates an opportunity for a malicious 
+/// pool operator to "steal" hashes from participating pool members. That is, a member could submit a valid hash to the operator, 
+/// and the operator could attribute it another member. No smart-contract can detect or prevent this type of fraud. Ultimately the 
+/// pool operator is providing a service to the participating members and such fraud is detectable by the members. The only remediation 
+/// for such fraud is to simply stop participating in the pool. The certification process in this contract aims only to prove the 
+/// authenticity of participating hashpower in the pool (that is, that hashpower is not fake). It does not prove the identity of the 
+/// hashpower contributor.
 pub fn process_certify<'a, 'info>(
     accounts: &'a [AccountInfo<'info>],
     data: &[u8],
@@ -41,7 +54,6 @@ pub fn process_certify<'a, 'info>(
     let difficulty_score = 2u128.pow(difficulty);
     if difficulty.gt(&batch.best_difficulty) {
         batch.best_difficulty = difficulty;
-        batch.best_digest = digest;
         batch.best_nonce = nonce;
     }
 
@@ -52,8 +64,6 @@ pub fn process_certify<'a, 'info>(
         return Err(PoolError::Dummy.into());
     }
 
-    // TODO Verify the signature
-
     // TODO Extend zero copy account with member balance
 
     // Update the batch metadata
@@ -63,10 +73,8 @@ pub fn process_certify<'a, 'info>(
     // Update the batch certification
     batch.certification = hashv(&[
         batch.certification.as_slice(),
-        member.authority.ref(),
-        args.digest.as_slice(),
         args.nonce.as_slice(),
-        batch.best_digest.to_le_bytes().as_slice(),
+        member_info.key.ref(),
         batch.best_nonce.to_le_bytes().as_slice(),
         batch.total_solutions.to_le_bytes().as_slice(),
         batch.total_difficulty_score.to_le_bytes().as_slice(),

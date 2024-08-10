@@ -34,7 +34,6 @@ impl PoolInstruction {
 pub struct CertifyArgs {
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
-    pub signature: [u8; 32],
 }
 
 #[repr(C)]

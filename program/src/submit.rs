@@ -6,7 +6,11 @@ use solana_program::{
     {self},
 };
 
-/// Submit ...
+/// Submit submits the pools best solution to mine ORE.
+///
+/// The operator must also provide an attestation of the hashpower participation in the pool.
+/// A batch account is created to hold the attestation for later certification. No participant
+/// is allow to claim their slice of the mining rewards until the attestation is certified.
 pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = SubmitArgs::try_from_bytes(data)?;
