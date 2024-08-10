@@ -12,10 +12,15 @@ use crate::utils::{impl_instruction_from_bytes, impl_to_bytes};
 #[rustfmt::skip]
 pub enum PoolInstruction {
     // User
+    Open = 0,
+    Claim = 1,
+    Stake = 2,
+    
     // Admin
     Certify = 100,
-    Initialize = 101,
-    Submit = 102
+    Commit = 101,
+    Initialize = 102,
+    Submit = 103
 }
 
 impl PoolInstruction {
@@ -26,10 +31,22 @@ impl PoolInstruction {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ClaimArgs {
+    pub amount: [u8; 8],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct CertifyArgs {
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
     pub signature: [u8; 32],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct CommitArgs {
+    pub index: u64,
 }
 
 #[repr(C)]
@@ -49,10 +66,12 @@ pub struct SubmitArgs {
 
 impl_to_bytes!(CertifyArgs);
 impl_to_bytes!(InitializeArgs);
+impl_to_bytes!(CommitArgs);
 impl_to_bytes!(SubmitArgs);
 
 impl_instruction_from_bytes!(CertifyArgs);
 impl_instruction_from_bytes!(InitializeArgs);
+impl_instruction_from_bytes!(CommitArgs);
 impl_instruction_from_bytes!(SubmitArgs);
 
 /// Builds an initialize instruction.
