@@ -24,9 +24,14 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
     // load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
     // load_program(system_program, system_program::id())?;
 
-    // Verify claim amount
+    // Reject members who have been kicked from the pool
     let mut member_data = member_info.try_borrow_mut_data()?;
     let member = Member::try_from_bytes_mut(&mut member_data)?;
+    if member.is_kicked.gt(&0) {
+        return Err(PoolError::Dummy.into());
+    }
+
+    // Update member balance
     member.balance = member.balance.checked_sub(amount).unwrap();
 
     // Claim tokens to the beneficiary

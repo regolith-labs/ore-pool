@@ -10,6 +10,7 @@ use super::AccountDiscriminator;
 pub struct Member {
     pub authority: Pubkey,
     pub balance: u64,
+    pub is_kicked: u64,
 }
 
 impl Discriminator for Member {

@@ -49,9 +49,14 @@ pub fn process_certify<'a, 'info>(
         batch.best_nonce = nonce;
     }
 
-    // TODO Verify the signature
+    // Reject kicked pool members
     let member_data = member_info.data.borrow();
     let member = Member::try_from_bytes(&member_data)?;
+    if member.is_kicked.gt(&0) {
+        return Err(PoolError::Dummy.into());
+    }
+
+    // TODO Verify the signature
 
     // TODO Extend zero copy account with member balance
 
