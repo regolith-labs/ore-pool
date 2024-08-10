@@ -13,14 +13,23 @@ use crate::utils::{impl_instruction_from_bytes, impl_to_bytes};
 pub enum PoolInstruction {
     // User
     // Admin
-    Initialize = 100,
-    Submit = 101
+    Certify = 100,
+    Initialize = 101,
+    Submit = 102
 }
 
 impl PoolInstruction {
     pub fn to_vec(&self) -> Vec<u8> {
         vec![*self as u8]
     }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct CertifyArgs {
+    pub digest: [u8; 16],
+    pub nonce: [u8; 8],
+    pub signature: [u8; 32],
 }
 
 #[repr(C)]
@@ -38,8 +47,13 @@ pub struct SubmitArgs {
     pub nonce: [u8; 8],
 }
 
+impl_to_bytes!(CertifyArgs);
 impl_to_bytes!(InitializeArgs);
+impl_to_bytes!(SubmitArgs);
+
+impl_instruction_from_bytes!(CertifyArgs);
 impl_instruction_from_bytes!(InitializeArgs);
+impl_instruction_from_bytes!(SubmitArgs);
 
 /// Builds an initialize instruction.
 pub fn initialize(signer: Pubkey) -> Instruction {

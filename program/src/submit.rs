@@ -17,13 +17,13 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_operator(signer)?;
-    load_signer(miner_info)?;
-    load_program(ore_program, ore_api::id())?;
-    load_program(system_program, system_program::id())?;
-    load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
-    load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
     // TODO Account loaders
+    // load_operator(signer)?;
+    // load_signer(miner_info)?;
+    // load_program(ore_program, ore_api::id())?;
+    // load_program(system_program, system_program::id())?;
+    // load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
+    // load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
 
     // Load pool data
     let pool_data = pool_info.data.borrow();
@@ -37,10 +37,7 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     let balance_pre = proof.balance;
 
     // Submit solution to the ORE program
-    let solution = drillx::Solution {
-        d: args.digest,
-        n: args.nonce,
-    };
+    let solution = Solution::new(args.digest, args.nonce);
     drop(pool_data);
     drop(proof_data);
     solana_program::program::invoke_signed(
@@ -79,6 +76,8 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     batch.attestation = args.attestation;
     batch.challenge = challenge;
     batch.id = batch_id;
+
+    // TODO Initialize a zero copy PDA for holding onto (Pubkey: u64) balances during certification
 
     // Update the bool batch count
     let mut pool_data = pool_info.data.borrow_mut();
