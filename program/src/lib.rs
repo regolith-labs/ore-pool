@@ -1,5 +1,4 @@
 mod initialize;
-mod kick;
 mod claim;
 mod stake;
 mod submit;
@@ -12,7 +11,6 @@ use submit::*;
 use certify;::* 
 use open::*;
 use claim::*;
-use kick::*;
 use stake::*;
 use commit::*;
 
@@ -46,7 +44,6 @@ pub fn process_instruction(
         
         // Admin
         PoolInstruction::Certify => process_certify(accounts, data)?,
-        PoolInstruction::Kick => process_kick(accounts, data)?,
         PoolInstruction::Commit => process_commit(accounts, data)?,
         PoolInstruction::Initialize => process_initialize(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
