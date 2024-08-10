@@ -2,8 +2,8 @@ use array_const_fn_init::array_const_fn_init;
 use const_crypto::ed25519;
 use solana_program::{pubkey, pubkey::Pubkey};
 
-/// The authority allowed to initialize the program.
-pub const INITIALIZER_ADDRESS: Pubkey = pubkey!("HBUh9g46wk2X89CvaNN15UmsznP59rh6od1h8JwYAopk");
+/// The authority allowed to operate the pool.
+pub const OPERATOR_ADDRESS: Pubkey = pubkey!("HBUh9g46wk2X89CvaNN15UmsznP59rh6od1h8JwYAopk");
 
 /// The seed of the pool account PDA.
 pub const POOL: &[u8] = b"pool";

@@ -1,11 +1,15 @@
 use solana_program::{account_info::AccountInfo, program_error::ProgramError};
 
-use crate::{consts::POOL_ADDRESS, state::Pool, utils::Discriminator};
+use crate::{consts::*, state::Pool, utils::Discriminator};
 
 /// Errors if:
 /// - Account is not a signer.
-pub fn load_signer<'a, 'info>(info: &'a AccountInfo<'info>) -> Result<(), ProgramError> {
+pub fn load_operator<'a, 'info>(info: &'a AccountInfo<'info>) -> Result<(), ProgramError> {
     if !info.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    if info.key.ne(&OPERATOR_ADDRESS) {
         return Err(ProgramError::MissingRequiredSignature);
     }
 

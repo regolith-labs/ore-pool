@@ -4,18 +4,19 @@ use crate::utils::{impl_account_from_bytes, impl_to_bytes, Discriminator};
 
 use super::AccountDiscriminator;
 
-/// Pool ...
+/// Member ...
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
-pub struct Pool {
-    pub total_batches: u64,
+pub struct Member {
+    pub authority: Pubkey,
+    pub balance: u64,
 }
 
-impl Discriminator for Pool {
+impl Discriminator for Member {
     fn discriminator() -> u8 {
-        AccountDiscriminator::Pool.into()
+        AccountDiscriminator::Member.into()
     }
 }
 
-impl_to_bytes!(Pool);
-impl_account_from_bytes!(Pool);
+impl_to_bytes!(Member);
+impl_account_from_bytes!(Member);

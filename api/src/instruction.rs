@@ -14,6 +14,7 @@ pub enum PoolInstruction {
     // User
     // Admin
     Initialize = 100,
+    Submit = 101
 }
 
 impl PoolInstruction {
@@ -24,7 +25,18 @@ impl PoolInstruction {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct InitializeArgs {}
+pub struct InitializeArgs {
+    pub pool_bump: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct SubmitArgs {
+    pub attestation: [u8; 32],
+    pub batch_bump: u8,
+    pub digest: [u8; 16],
+    pub nonce: [u8; 8],
+}
 
 impl_to_bytes!(InitializeArgs);
 impl_instruction_from_bytes!(InitializeArgs);
