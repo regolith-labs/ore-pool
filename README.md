@@ -1,6 +1,6 @@
 # ORE Pool
 
-**A pool program for ORE cryptocurrency mining.**
+**A program for coordinating ORE mining pools.**
 
 
 ## API
