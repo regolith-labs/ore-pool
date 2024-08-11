@@ -1,6 +1,6 @@
 # ORE Pool
 
-**A program to organize ORE mining pools.**
+**A program to manage ORE mining pools.**
 
 
 ## API
