@@ -1,25 +1,24 @@
+mod contribute;
 mod database;
+mod utils;
 
 use std::{collections::HashMap, sync::Arc};
 
-use actix_cors::Cors;
-use actix_web::{http::header, middleware, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{middleware, web, App, HttpServer};
+use contribute::*;
 use database::create_pool;
 use drillx::Solution;
-use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use tokio::sync::{Mutex, RwLock};
+use utils::{create_cors, rpc_client};
 
 // TODO Persistent database to hold onto pool participant balances
 
 // TODO Register endpoint
-// TODO KYC process?
+// TODO KYC process? This should just be a flag in the database.
 
 // TODO Start endpoint
-// TODO Fetch challenge,
-
-// TODO Endpoint to receive hashes
-// TODO Validate sender is a pool participant
+// TODO Fetch current challenge, schedule timer
 
 // TODO Timer to kickoff submission jobs
 // TODO Batch all hashes into a file
@@ -30,20 +29,26 @@ use tokio::sync::{Mutex, RwLock};
 // TODO Every 10 minutes, update user's on-chain balances
 // TODO Make this idempotent to avoid duplication
 
-pub struct Hash {
-    pub solution: Solution,
-    pub score: u64,
-}
+/// The current challenge the pool is accepting solutions for.
+type Challenge = [u8; 32];
 
-#[derive(Default)]
-pub struct Challenge {
-    pub challenge: [u8; 32],
-}
-
+/// Aggregates contributions from the pool members.
 #[derive(Default)]
 pub struct Aggregator {
-    pub hashes: HashMap<Pubkey, Hash>,
+    /// The set of contributions aggregated for the current challenge.
+    pub contributions: HashMap<Pubkey, Contribution>,
+
+    /// The total difficulty score of all the contributions aggregated so far.
     pub total_score: u64,
+}
+
+/// A recorded contribution from a particular member of the pool.
+pub struct Contribution {
+    /// The drillx solution submitted representing the member's best hash.
+    pub solution: Solution,
+
+    /// The difficulty score of the solution.
+    pub score: u64,
 }
 
 #[actix_web::main]
@@ -51,7 +56,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     let pool = create_pool();
     let aggregator = Arc::new(Mutex::new(Aggregator::default()));
-    let challenge = Arc::new(RwLock::new(Aggregator::default()));
+    let challenge = Arc::new(RwLock::new(Challenge::default()));
 
     // TODO Start by fetching the current challenge
     // TODO Kick off submission loop
@@ -63,10 +68,11 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(aggregator.clone()))
             .app_data(web::Data::new(challenge.clone()))
+            .app_data(web::Data::new(rpc_client()))
             .service(
                 web::resource("/submit")
                     .wrap(create_cors())
-                    .route(web::post().to(submit)),
+                    .route(web::post().to(contribute)),
             )
     })
     .bind("0.0.0.0:3000")?
@@ -74,57 +80,22 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-fn create_cors() -> Cors {
-    Cors::default()
-        .allowed_origin_fn(|_origin, _req_head| {
-            // origin.as_bytes().ends_with(b"ore.supply") || // Production origin
-            // origin == "http://localhost:8080" // Local development origin
-            true
-        })
-        .allowed_methods(vec!["GET", "POST"]) // Methods you want to allow
-        .allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
-        .allowed_header(header::CONTENT_TYPE)
-        .max_age(3600)
-}
+pub async fn submit(aggregator: Arc<Mutex<Aggregator>>, challenge: Arc<RwLock<Challenge>>) {
+    // Get the current batch.
+    let mut aggregator = aggregator.lock().await;
+    let mut x: Vec<&Contribution> = aggregator.contributions.values().collect();
+    x.sort_by(|a, b| a.score.cmp(&b.score));
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SubmitPayload {
-    pub authority: Pubkey,
-    pub solution: Solution,
-    pub sig: [u8; 32],
-}
+    // TODO Generate attestation
+    // TODO Submit best hash to Solana
+    let rpc = rpc_client();
 
-pub async fn submit(
-    payload: web::Json<SubmitPayload>,
-    aggregator: web::Data<Arc<Mutex<Aggregator>>>,
-    challenge: web::Data<Arc<RwLock<Challenge>>>,
-) -> impl Responder {
-    // TODO Authenticate the sender via signature
-    // TODO Validate member is approved and accepted into the pool
+    // TODO Write all contributions to file
+    // TODO Publish file to S3
 
-    // Return error if digest is invalid
-    let challenge = challenge.read().await.challenge;
-    if !drillx::is_valid_digest(&challenge, &payload.solution.n, &payload.solution.d) {
-        return HttpResponse::Ok();
-    }
+    // TODO Refresh the challenge
 
-    // Calculate score
-    let difficulty = payload.solution.to_hash().difficulty();
-    let score = 2u64.pow(difficulty);
-
-    // TODO Reject if below min difficulty
-
-    // Update the aggegator
-    let mut w_aggregator = aggregator.lock().await;
-    w_aggregator.total_score += score;
-    w_aggregator.hashes.insert(
-        payload.authority,
-        Hash {
-            solution: payload.solution,
-            score,
-        },
-    );
-    drop(w_aggregator);
-
-    HttpResponse::Ok()
+    // Reset the aggregator
+    aggregator.contributions = HashMap::new();
+    aggregator.total_score = 0;
 }

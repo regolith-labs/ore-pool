@@ -8,7 +8,7 @@ edition = "2021"
 license = "Apache-2.0"
 homepage = "https://ore.supply"
 documentation = "https://ore.supply"
-repository = "https://github.com/regolith-labs/ore"
+repository = "https://github.com/regolith-labs/ore-pool"
 readme = "./README.md"
 keywords = ["solana", "crypto", "mining"]
 
@@ -19,7 +19,7 @@ array-const-fn-init = "0.1.1"
 bytemuck = "1.14.3"
 const-crypto = "0.1.0"
 deadpool-postgres = "0.12"
-drillx = { version = "2.0.0", features = ["solana"] }
+drillx = { features = ["solana"], version = "2.0.1" }
 env_logger = "0.11"
 futures = "0.3"
 futures-channel = "0.3"
@@ -33,10 +33,11 @@ ore-utils = { features = ["spl"], version = "2.1.0" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 serde = { features = ["derive"], version = "1.0" }
 serde_json = "1.0"
+solana-client = "^1.18"
 solana-program = "^1.18"
 solana-sdk = "^1.18"
-spl-token = { version = "^4", features = ["no-entrypoint"] }
-spl-associated-token-account = { version = "^2.3", features = [ "no-entrypoint" ] } 
+spl-token = { features = ["no-entrypoint"], version = "^4" }
+spl-associated-token-account = { features = [ "no-entrypoint" ], version = "^2.3" } 
 static_assertions = "1.1.0"
 thiserror = "1.0.57"
 tokio = "1.39"
