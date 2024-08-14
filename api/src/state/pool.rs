@@ -8,8 +8,8 @@ use super::AccountDiscriminator;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Pool {
-    pub total_batches: u64,
     pub total_members: u64,
+    pub total_submissions: u64,
 }
 
 impl Discriminator for Pool {

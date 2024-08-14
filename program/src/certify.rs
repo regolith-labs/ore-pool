@@ -1,9 +1,9 @@
+use drillx::Solution;
 use ore_api::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*};
+use ore_pool_api::{consts::*, error::PoolError, instruction::*, loaders::*, state::Batch};
+use ore_utils::AccountDeserialize;
 use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    {self},
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError
 };
 
 /// Certify allows the pool operator to authenticate the validity of hashes considered in a given batch.

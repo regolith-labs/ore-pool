@@ -19,6 +19,7 @@ no-entrypoint = []
 default = []
 
 [dependencies]
+bytemuck.workspace = true
 drillx.workspace = true
 mpl-token-metadata.workspace = true
 ore-api.workspace = true

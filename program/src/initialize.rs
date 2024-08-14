@@ -1,9 +1,11 @@
-use ore_api::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*};
+use std::mem::size_of;
+
+use ore_api::{consts::*, loaders::*};
+use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Pool};
+use ore_utils::{create_pda, Discriminator};
 use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    {self},
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    system_program, sysvar,
 };
 
 /// Initialize sets up the pool program to begin mining.
@@ -21,11 +23,11 @@ pub fn process_initialize<'a, 'info>(
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load_operator(signer)?;
-    load_any(miner_info)?;
+    load_any(miner_info, false)?;
     load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
     load_uninitialized_pda(
         proof_info,
-        &[PROOF, escrow_info.key.as_ref()],
+        &[PROOF, pool_info.key.as_ref()],
         args.proof_bump,
         &ore_api::id(),
     )?;

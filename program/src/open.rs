@@ -1,19 +1,29 @@
-use ore_api::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*};
+use std::mem::size_of;
+
+use ore_api::loaders::*;
+use ore_pool_api::{
+    consts::*,
+    instruction::*,
+    loaders::*,
+    state::{Member, Pool},
+};
+use ore_utils::{create_pda, AccountDeserialize, Discriminator};
 use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    {self},
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    system_program,
 };
 
 /// Open creates a new account for a pool participant.
 pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
+    // Parse args.
+    let args = OpenArgs::try_from_bytes(data)?;
+
     // Load accounts.
     let [signer, authority_info, member_info, pool_info, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load_signer(signer)?;
-    load_any(authority_info)?;
+    load_any(authority_info, true)?;
     load_uninitialized_pda(
         pool_info,
         &[MEMBER, authority_info.key.as_ref()],
@@ -35,7 +45,7 @@ pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) 
     let mut member_data = member_info.try_borrow_mut_data()?;
     member_data[0] = Member::discriminator() as u8;
     let member = Member::try_from_bytes_mut(&mut member_data)?;
-    member.authority = authority_info.key;
+    member.authority = *authority_info.key;
     member.balance = 0;
 
     // Update member count

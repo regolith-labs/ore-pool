@@ -1,18 +1,17 @@
-use array_const_fn_init::array_const_fn_init;
 use const_crypto::ed25519;
 use solana_program::{pubkey, pubkey::Pubkey};
 
 /// The authority allowed to operate the pool.
 pub const OPERATOR_ADDRESS: Pubkey = pubkey!("HBUh9g46wk2X89CvaNN15UmsznP59rh6od1h8JwYAopk");
 
-/// The seed of the batch account PDA.
-pub const BATCH: &[u8] = b"batch";
-
 /// The seed of the member account PDA.
 pub const MEMBER: &[u8] = b"member";
 
 /// The seed of the pool account PDA.
 pub const POOL: &[u8] = b"pool";
+
+/// The seed of the submission account PDA.
+pub const SUBMISSION: &[u8] = b"submission";
 
 /// Program id for const pda derivations
 const PROGRAM_ID: [u8; 32] = unsafe { *(&crate::id() as *const Pubkey as *const [u8; 32]) };

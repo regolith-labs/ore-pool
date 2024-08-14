@@ -1,6 +1,11 @@
-use solana_program::{account_info::AccountInfo, program_error::ProgramError};
+use ore_utils::AccountDeserialize;
+use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
-use crate::{consts::*, state::Pool, utils::Discriminator};
+use crate::{
+    consts::*,
+    state::{Member, Pool, Submission},
+    utils::Discriminator,
+};
 
 /// Errors if:
 /// - Account is not a signer.
@@ -21,9 +26,8 @@ pub fn load_operator<'a, 'info>(info: &'a AccountInfo<'info>) -> Result<(), Prog
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
-pub fn load_any_batch<'a, 'info>(
+pub fn load_any_submission<'a, 'info>(
     info: &'a AccountInfo<'info>,
-    authority: &Pubkey,
     is_writable: bool,
 ) -> Result<(), ProgramError> {
     if info.owner.ne(&crate::id()) {
@@ -34,7 +38,7 @@ pub fn load_any_batch<'a, 'info>(
         return Err(ProgramError::UninitializedAccount);
     }
 
-    if info.data.borrow()[0].ne(&(Batch::discriminator() as u8)) {
+    if info.data.borrow()[0].ne(&(Submission::discriminator() as u8)) {
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
     }
 
@@ -85,7 +89,6 @@ pub fn load_member<'a, 'info>(
 /// - Expected to be writable, but is not.
 pub fn load_any_member<'a, 'info>(
     info: &'a AccountInfo<'info>,
-    authority: &Pubkey,
     is_writable: bool,
 ) -> Result<(), ProgramError> {
     if info.owner.ne(&crate::id()) {

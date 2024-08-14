@@ -1,0 +1,20 @@
+version: '3.1'  # Use version 3.1 or newer
+
+services:
+  db:
+    image: postgres:latest  # Use the latest official PostgreSQL image
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: password  # Set the default password for the 'postgres' user
+      POSTGRES_USER: postgres  # (Optional) Define a custom user instead of the default 'postgres'
+      POSTGRES_DB: pooldb  # (Optional) Specify a database to be automatically created on first run
+    ports:
+      - "5432:5432"  # Map the container port 5432 to the host
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d
+      - pooldb:/var/lib/postgresql/data  # Persist database data
+
+volumes:
+  pooldb:  # Define the volume name used above
+
+

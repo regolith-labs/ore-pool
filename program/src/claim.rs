@@ -1,9 +1,8 @@
-use ore_api::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*};
+use ore_api::{consts::*, loaders::*};
+use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Member};
+use ore_utils::AccountDeserialize;
 use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    {self},
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };
 
 /// Claim allows a member to claim their ORE from the pool.
@@ -22,19 +21,14 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
     load_token_account(beneficiary_info, None, &MINT_ADDRESS, true)?;
     load_member(member_info, signer.key, true)?;
     load_pool(pool_info, false)?;
-    load_treasury(treasury_info, false)?:
+    load_treasury(treasury_info, false)?;
     load_treasury_tokens(treasury_tokens_info, true)?;
     load_program(ore_program, ore_api::id())?;
     load_program(token_program, spl_token::id())?;
 
-    // Reject members who have been kicked from the pool
+    // Update member balance
     let mut member_data = member_info.try_borrow_mut_data()?;
     let member = Member::try_from_bytes_mut(&mut member_data)?;
-    if member.is_kicked.gt(&0) {
-        return Err(PoolError::Dummy.into());
-    }
-
-    // Update member balance
     member.balance = member.balance.checked_sub(amount).unwrap();
 
     // Claim tokens to the beneficiary

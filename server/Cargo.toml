@@ -1,0 +1,22 @@
+[package]
+name = "ore-pool-server"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+actix-cors = { workspace = true }
+actix-web = { workspace = true }
+deadpool-postgres = { workspace = true }
+drillx = { workspace = true }
+env_logger = { workspace = true }
+futures = { workspace = true }
+futures-channel = { workspace = true }
+futures-util = { workspace = true }
+log = { workspace = true }
+ore-pool-api = { workspace = true }
+postgres-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-sdk = { workspace = true }
+tokio = { workspace = true }
+tokio-postgres = { workspace = true }

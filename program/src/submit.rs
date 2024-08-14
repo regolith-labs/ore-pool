@@ -1,95 +1,109 @@
-use ore_api::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*};
+use std::mem::size_of;
+
+use drillx::Solution;
+use ore_api::{event::MineEvent, loaders::*};
+use ore_pool_api::{
+    consts::*,
+    error::PoolError,
+    instruction::*,
+    loaders::*,
+    state::{Pool, Submission},
+};
+use ore_utils::{create_pda, AccountDeserialize, Discriminator};
 use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    {self},
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program::get_return_data,
+    program_error::ProgramError, system_program, sysvar,
 };
 
 /// Submit sends the pool's best hash to the ORE mining contract.
 ///
 /// This instruction requires the operator to provide an attestation about the hashpower that participated
-/// in the pool. A batch account is created to hold the attestation for later certification. No member
-/// is allowed to claim their slice of the ORE in this batch until the attestation is certified.
+/// in the pool. A submission account is created to hold the attestation for later certification. No member
+/// is allowed to claim their slice of the ORE in this submission until the attestation is certified.
 pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = SubmitArgs::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer, batch_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
+    let [signer, bus_info, config_info, pool_info, proof_info, submission_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load_operator(signer)?;
-    load_uninitialized_pda(batch_info, &[BATCH], args.batch_bump, &ore_pool_api::id())?;
     load_any_bus(bus_info, true)?;
     load_config(config_info, false)?;
     load_pool(pool_info, true)?;
     load_proof(proof_info, pool_info.key, true)?;
+    load_uninitialized_pda(
+        submission_info,
+        &[SUBMISSION],
+        args.submission_bump,
+        &ore_pool_api::id(),
+    )?;
     load_program(ore_program, ore_api::id())?;
     load_program(system_program, system_program::id())?;
     load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
     load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
 
-    // Load pool data
-    let pool_data = pool_info.data.borrow();
-    let pool = Pool::try_from_bytes(&pool_data)?;
-    let batch_id = pool.total_batches;
-
-    // Load proof data
-    let proof_data = proof_info.data.borrow();
-    let proof = Proof::try_from_bytes(&proof_data)?;
-    let challenge = proof.challenge;
-    let balance_pre = proof.balance;
-
     // Submit solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    drop(pool_data);
-    drop(proof_data);
     solana_program::program::invoke_signed(
-        &ore_api::instruction::mine(*pool_info.key, *pool_info.key, *bus_info.key, solution)
-            & [
-                pool_info.clone(),
-                bus_info.clone(),
-                config_info.clone(),
-                proof_info.clone(),
-                instructions_sysvar.clone(),
-                slot_hashes_sysvar.clone(),
-            ],
+        &ore_api::instruction::mine(*pool_info.key, *pool_info.key, *bus_info.key, solution),
+        &[
+            pool_info.clone(),
+            bus_info.clone(),
+            config_info.clone(),
+            proof_info.clone(),
+            instructions_sysvar.clone(),
+            slot_hashes_sysvar.clone(),
+        ],
         &[&[POOL, &[POOL_BUMP]]],
     )?;
 
-    // Reload proof data
-    let proof_data = proof_info.data.borrow();
-    let proof = Proof::try_from_bytes(&proof_data)?;
-    let balance_post = proof.balance;
-    let balance_change = balance_post.checked_sub(balance_pre).unwrap();
-    let challenge = proof.challenge;
+    // Load the return data
+    let Some((program_id, data)) = get_return_data() else {
+        return Err(PoolError::Dummy.into());
+    };
+    if program_id.ne(&ore_api::id()) {
+        return Err(PoolError::Dummy.into());
+    }
+    let Ok(event) = bytemuck::try_from_bytes::<MineEvent>(&data) else {
+        return Err(PoolError::Dummy.into());
+    };
+    let amount = event.reward;
 
-    // Initialize the batch account
+    // Update pool submissions count
+    let mut pool_data = pool_info.data.borrow_mut();
+    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
+    let submission_id = pool.total_submissions;
+    pool.total_submissions = pool.total_submissions.checked_add(1).unwrap();
+
+    // Initialize the submission account
+    drop(pool_data);
     create_pda(
-        batch_info,
+        submission_info,
         &ore_pool_api::id(),
-        8 + size_of::<Batch>(),
-        &[BATCH, batch_id, &[args.batch_bump]],
+        8 + size_of::<Submission>(),
+        &[
+            SUBMISSION,
+            submission_id.to_le_bytes().as_slice(),
+            &[args.submission_bump],
+        ],
         system_program,
         signer,
     )?;
-    let mut batch_data = config_info.data.borrow_mut();
-    batch_data[0] = Batch::discriminator() as u8;
-    let batch = Batch::try_from_bytes_mut(&mut batch_data)?;
-    batch.amount = balance_change;
-    batch.attestation = args.attestation;
-    batch.challenge = challenge;
-    batch.id = batch_id;
+    let mut submission_data = config_info.data.borrow_mut();
+    submission_data[0] = Submission::discriminator() as u8;
+    let submission = Submission::try_from_bytes_mut(&mut submission_data)?;
+    submission.amount = amount;
+    submission.attestation = args.attestation;
+    submission.id = submission_id;
 
-    // TODO Initialize a zero copy PDA for holding onto (Pubkey: u64) balances during certification
-
-    // Update the bool batch count
+    // Update the bool submission count
     let mut pool_data = pool_info.data.borrow_mut();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.total_batches = pool.total_batches.checked_add(1).unwrap();
+    pool.total_submissions = pool.total_submissions.checked_add(1).unwrap();
 
     Ok(())
 }

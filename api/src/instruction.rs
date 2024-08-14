@@ -17,8 +17,8 @@ pub enum PoolInstruction {
     Stake = 2,
     
     // Admin
-    Certify = 100,
-    Commit = 101,
+    // Certify = 100,
+    // Commit = 101,
     Initialize = 102,
     Submit = 103
 }
@@ -29,12 +29,12 @@ impl PoolInstruction {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct CertifyArgs {
-    pub digest: [u8; 16],
-    pub nonce: [u8; 8],
-}
+// #[repr(C)]
+// #[derive(Clone, Copy, Debug, Pod, Zeroable)]
+// pub struct CertifyArgs {
+//     pub digest: [u8; 16],
+//     pub nonce: [u8; 8],
+// }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -42,16 +42,17 @@ pub struct ClaimArgs {
     pub amount: [u8; 8],
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct CommitArgs {
-    pub index: u64,
-}
+// #[repr(C)]
+// #[derive(Clone, Copy, Debug, Pod, Zeroable)]
+// pub struct CommitArgs {
+//     pub index: u64,
+// }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct InitializeArgs {
     pub pool_bump: u8,
+    pub proof_bump: u8,
 }
 
 #[repr(C)]
@@ -64,19 +65,19 @@ pub struct OpenArgs {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct SubmitArgs {
     pub attestation: [u8; 32],
-    pub batch_bump: u8,
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
+    pub submission_bump: u8,
 }
 
-impl_to_bytes!(CertifyArgs);
 impl_to_bytes!(InitializeArgs);
-impl_to_bytes!(CommitArgs);
+impl_to_bytes!(ClaimArgs);
+impl_to_bytes!(OpenArgs);
 impl_to_bytes!(SubmitArgs);
 
-impl_instruction_from_bytes!(CertifyArgs);
 impl_instruction_from_bytes!(InitializeArgs);
-impl_instruction_from_bytes!(CommitArgs);
+impl_instruction_from_bytes!(ClaimArgs);
+impl_instruction_from_bytes!(OpenArgs);
 impl_instruction_from_bytes!(SubmitArgs);
 
 /// Builds an initialize instruction.

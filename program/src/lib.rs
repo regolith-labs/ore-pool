@@ -1,18 +1,14 @@
-mod initialize;
 mod claim;
+mod initialize;
+mod open;
 mod stake;
 mod submit;
-mod open;
-mod certify; 
-mod commit;
 
-use initialize::*;
-use submit::*;
-use certify;::* 
-use open::*;
 use claim::*;
+use initialize::*;
+use open::*;
 use stake::*;
-use commit::*;
+use submit::*;
 
 use ore_pool_api::instruction::PoolInstruction;
 use solana_program::{
@@ -41,10 +37,10 @@ pub fn process_instruction(
         PoolInstruction::Open => process_open(accounts, data)?,
         PoolInstruction::Claim => process_claim(accounts, data)?,
         PoolInstruction::Stake => process_stake(accounts, data)?,
-        
+
         // Admin
-        PoolInstruction::Certify => process_certify(accounts, data)?,
-        PoolInstruction::Commit => process_commit(accounts, data)?,
+        // PoolInstruction::Certify => process_certify(accounts, data)?,
+        // PoolInstruction::Commit => process_commit(accounts, data)?,
         PoolInstruction::Initialize => process_initialize(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
     }

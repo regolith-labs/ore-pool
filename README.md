@@ -1,6 +1,6 @@
 # ORE Pool
 
-**A program to organize an ORE mining pool.**
+**Infrastructure to manage an ORE mining pool.**
 
 
 ## API
@@ -15,6 +15,15 @@
 ## State
  - [`Pool`](api/src/state/pool.rs) – A singleton account ...
 
+
+## Server
+
+The server is for pool operators. 
+
+To spin up the database locally:
+```
+docker-compose up
+```
 
 ## Tests
 
