@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use drillx::Solution;
 use num_enum::TryFromPrimitive;
-use ore_utils::{impl_instruction_from_bytes, impl_to_bytes};
+use ore_utils::instruction;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -60,17 +60,11 @@ pub struct SubmitArgs {
     pub nonce: [u8; 8],
 }
 
-impl_to_bytes!(LaunchArgs);
-impl_to_bytes!(ClaimArgs);
-impl_to_bytes!(AttributeArgs);
-impl_to_bytes!(OpenArgs);
-impl_to_bytes!(SubmitArgs);
-
-impl_instruction_from_bytes!(LaunchArgs);
-impl_instruction_from_bytes!(ClaimArgs);
-impl_instruction_from_bytes!(OpenArgs);
-impl_instruction_from_bytes!(AttributeArgs);
-impl_instruction_from_bytes!(SubmitArgs);
+instruction!(LaunchArgs);
+instruction!(ClaimArgs);
+instruction!(AttributeArgs);
+instruction!(OpenArgs);
+instruction!(SubmitArgs);
 
 /// Builds an initialize instruction.
 pub fn initialize(signer: Pubkey) -> Instruction {

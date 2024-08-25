@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use ore_utils::{impl_account_from_bytes, impl_to_bytes, Discriminator};
+use ore_utils::{account, Discriminator};
 use solana_program::pubkey::Pubkey;
 
 use super::AccountDiscriminator;
@@ -30,5 +30,4 @@ impl Discriminator for Member {
     }
 }
 
-impl_to_bytes!(Member);
-impl_account_from_bytes!(Member);
+account!(Member);
