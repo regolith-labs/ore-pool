@@ -19,6 +19,9 @@ pub struct Pool {
 
     /// The total number of hashes this pool has submitted.
     pub total_submissions: u64,
+
+    /// The url where hashes should be submitted (right padded with 0s).
+    pub url: [u8; 128],
 }
 
 impl Discriminator for Pool {

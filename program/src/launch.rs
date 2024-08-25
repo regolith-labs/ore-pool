@@ -50,6 +50,7 @@ pub fn process_launch<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     pool.authority = *signer.key;
     pool.total_members = 0;
     pool.total_submissions = 0;
+    pool.url = args.url;
 
     // Open proof account.
     drop(pool_data);

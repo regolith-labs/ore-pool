@@ -44,6 +44,7 @@ pub struct ClaimArgs {
 pub struct LaunchArgs {
     pub pool_bump: u8,
     pub proof_bump: u8,
+    pub url: [u8; 128],
 }
 
 #[repr(C)]
