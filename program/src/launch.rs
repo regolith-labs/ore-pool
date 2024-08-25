@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use ore_api::consts::*;
-use ore_pool_api::{consts::*, instruction::LaunchArgs, loaders::*, state::Pool};
+use ore_pool_api::{consts::*, instruction::LaunchArgs, state::Pool};
 use ore_utils::{create_pda, loaders::*, AccountDeserialize, Discriminator};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
@@ -19,7 +19,7 @@ pub fn process_launch<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_operator(signer)?;
+    load_signer(signer)?;
     load_any(miner_info, false)?;
     load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
     load_uninitialized_pda(
@@ -46,7 +46,10 @@ pub fn process_launch<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     pool_data[0] = Pool::discriminator() as u8;
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    // TODO
+    pool.attestation = [0; 32];
+    pool.authority = *signer.key;
+    pool.total_members = 0;
+    pool.total_submissions = 0;
 
     // Open proof account.
     drop(pool_data);

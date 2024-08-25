@@ -28,7 +28,7 @@ pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) 
         args.member_bump,
         &ore_pool_api::id(),
     )?;
-    load_pool(pool_info, true)?;
+    load_any_pool(pool_info, true)?;
     load_program(system_program, system_program::id())?;
 
     // Initialize member account

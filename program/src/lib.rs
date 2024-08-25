@@ -2,14 +2,12 @@ mod attribute;
 mod claim;
 mod launch;
 mod open;
-mod stake;
 mod submit;
 
 use attribute::*;
 use claim::*;
 use launch::*;
 use open::*;
-use stake::*;
 use submit::*;
 
 use ore_pool_api::instruction::PoolInstruction;
@@ -37,7 +35,6 @@ pub fn process_instruction(
         // User
         PoolInstruction::Open => process_open(accounts, data)?,
         PoolInstruction::Claim => process_claim(accounts, data)?,
-        PoolInstruction::Stake => process_stake(accounts, data)?,
 
         // Admin
         PoolInstruction::Attribute => process_attribute(accounts, data)?,

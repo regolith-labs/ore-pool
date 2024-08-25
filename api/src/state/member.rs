@@ -11,7 +11,7 @@ pub struct Member {
     /// The authority allowed to claim this balance.
     pub authority: Pubkey,
 
-    /// The balance amount which may be claimed.
+    /// The current balance amount which may be claimed.
     pub balance: u64,
 
     /// The member id.
@@ -20,7 +20,7 @@ pub struct Member {
     /// The pool this member belongs to.
     pub pool: Pubkey,
 
-    /// The total amount this member has earned in the lifetime of their account.
+    /// The total balance this member has earned in the lifetime of their participation in the pool.
     pub total_balance: u64,
 }
 

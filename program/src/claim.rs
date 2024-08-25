@@ -1,5 +1,10 @@
 use ore_api::{consts::*, loaders::*};
-use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Member};
+use ore_pool_api::{
+    consts::*,
+    instruction::*,
+    loaders::*,
+    state::{Member, Pool},
+};
 use ore_utils::{loaders::*, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
@@ -19,8 +24,8 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
     };
     load_signer(signer)?;
     load_token_account(beneficiary_info, None, &MINT_ADDRESS, true)?;
-    load_member(member_info, signer.key, true)?;
-    load_pool(pool_info, false)?;
+    load_member(member_info, signer.key, pool_info.key, true)?;
+    load_any_pool(pool_info, false)?;
     load_treasury(treasury_info, false)?;
     load_treasury_tokens(treasury_tokens_info, true)?;
     load_program(ore_program, ore_api::id())?;
@@ -32,6 +37,10 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
     member.balance = member.balance.checked_sub(amount).unwrap();
 
     // Claim tokens to the beneficiary
+    let pool_data = pool_info.try_borrow_data()?;
+    let pool = Pool::try_from_bytes(&pool_data)?;
+    let pool_authority = pool.authority;
+    drop(pool_data);
     solana_program::program::invoke_signed(
         &ore_api::instruction::claim(*pool_info.key, *beneficiary_info.key, amount),
         &[
@@ -42,7 +51,7 @@ pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8])
             treasury_tokens_info.clone(),
             token_program.clone(),
         ],
-        &[&[POOL, &[POOL_BUMP]]],
+        &[&[POOL, pool_authority.as_ref(), &[POOL_BUMP]]],
     )?;
 
     Ok(())

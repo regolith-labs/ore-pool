@@ -14,11 +14,10 @@ pub enum PoolInstruction {
     // User
     Open = 0,
     Claim = 1,
-    Stake = 2,
     
     // Operator
-    Launch = 200,
     Attribute = 100,
+    Launch = 101,
     Submit = 102,
 }
 
@@ -31,7 +30,7 @@ impl PoolInstruction {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct AttributeArgs {
-    pub balance: [u8; 8],
+    pub total_balance: [u8; 8],
 }
 
 #[repr(C)]

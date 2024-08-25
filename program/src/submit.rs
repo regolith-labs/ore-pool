@@ -1,10 +1,10 @@
 use drillx::Solution;
-use ore_api::{event::MineEvent, loaders::*};
-use ore_pool_api::{consts::*, error::PoolError, instruction::*, loaders::*, state::Pool};
+use ore_api::loaders::*;
+use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Pool};
 use ore_utils::{loaders::*, AccountDeserialize};
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program::get_return_data,
-    program_error::ProgramError, system_program, sysvar,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    system_program, sysvar,
 };
 
 /// Submit sends the pool's best hash to the ORE mining contract.
@@ -18,10 +18,10 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_operator(signer)?;
+    load_signer(signer)?;
     load_any_bus(bus_info, true)?;
     load_config(config_info, false)?;
-    load_pool(pool_info, true)?;
+    load_pool(pool_info, signer.key, true)?;
     load_proof(proof_info, pool_info.key, true)?;
     load_program(ore_program, ore_api::id())?;
     load_program(system_program, system_program::id())?;
@@ -40,22 +40,8 @@ pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]
             instructions_sysvar.clone(),
             slot_hashes_sysvar.clone(),
         ],
-        &[&[POOL, &[POOL_BUMP]]],
+        &[&[POOL, signer.key.as_ref(), &[POOL_BUMP]]],
     )?;
-
-    // Load the return data
-    let Some((program_id, data)) = get_return_data() else {
-        return Err(PoolError::Dummy.into());
-    };
-    if program_id.ne(&ore_api::id()) {
-        return Err(PoolError::Dummy.into());
-    }
-    let Ok(event) = bytemuck::try_from_bytes::<MineEvent>(&data) else {
-        return Err(PoolError::Dummy.into());
-    };
-    let amount = event.reward;
-
-    // TODO Log amount
 
     // Update pool submissions count
     let mut pool_data = pool_info.data.borrow_mut();
