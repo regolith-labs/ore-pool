@@ -12,8 +12,8 @@ use crate::{
 /// - Data cannot be parsed to a member account.
 /// - Member authority is not expected value.
 /// - Expected to be writable, but is not.
-pub fn load_member<'a, 'info>(
-    info: &'a AccountInfo<'info>,
+pub fn load_member(
+    info: &AccountInfo<'_>,
     authority: &Pubkey,
     pool: &Pubkey,
     is_writable: bool,
@@ -49,8 +49,8 @@ pub fn load_member<'a, 'info>(
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
-pub fn load_pool_member<'a, 'info>(
-    info: &'a AccountInfo<'info>,
+pub fn load_pool_member(
+    info: &AccountInfo<'_>,
     pool: &Pubkey,
     is_writable: bool,
 ) -> Result<(), ProgramError> {
@@ -82,8 +82,8 @@ pub fn load_pool_member<'a, 'info>(
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
-pub fn load_pool<'a, 'info>(
-    info: &'a AccountInfo<'info>,
+pub fn load_pool(
+    info: &AccountInfo<'_>,
     authority: &Pubkey,
     is_writable: bool,
 ) -> Result<(), ProgramError> {
@@ -122,10 +122,7 @@ pub fn load_pool<'a, 'info>(
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
-pub fn load_any_pool<'a, 'info>(
-    info: &'a AccountInfo<'info>,
-    is_writable: bool,
-) -> Result<(), ProgramError> {
+pub fn load_any_pool(info: &AccountInfo<'_>, is_writable: bool) -> Result<(), ProgramError> {
     if info.owner.ne(&crate::id()) {
         return Err(ProgramError::InvalidAccountOwner);
     }

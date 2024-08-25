@@ -13,7 +13,7 @@ use solana_program::{
 };
 
 /// Open creates a new account for a pool participant.
-pub fn process_open<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
+pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = OpenArgs::try_from_bytes(data)?;
 

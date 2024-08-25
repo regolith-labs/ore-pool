@@ -8,7 +8,7 @@ use solana_program::{
 };
 
 /// Submit sends the pool's best hash to the ORE mining contract.
-pub fn process_submit<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
+pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = SubmitArgs::try_from_bytes(data)?;
 

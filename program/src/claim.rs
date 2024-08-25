@@ -11,7 +11,7 @@ use solana_program::{
 };
 
 /// Claim allows a member to claim their ORE from the pool.
-pub fn process_claim<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
+pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = ClaimArgs::try_from_bytes(data)?;
     let amount = u64::from_le_bytes(args.amount);

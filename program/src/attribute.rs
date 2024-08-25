@@ -9,10 +9,7 @@ use solana_program::{
 /// The arguments to this function expect the member's lifetime earnings. This way,
 /// the balance can be updated idempotently and duplicate transactions will not result in
 /// duplicate earnings.
-pub fn process_attribute<'a, 'info>(
-    accounts: &'a [AccountInfo<'info>],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = AttributeArgs::try_from_bytes(data)?;
     let total_balance = u64::from_le_bytes(args.total_balance);

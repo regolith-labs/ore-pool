@@ -9,7 +9,7 @@ use solana_program::{
 };
 
 /// Launch creates a new pool.
-pub fn process_launch<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
+pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = LaunchArgs::try_from_bytes(data)?;
 
