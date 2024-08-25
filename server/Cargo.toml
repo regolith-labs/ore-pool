@@ -17,6 +17,7 @@ ore-pool-api = { workspace = true }
 postgres-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha3 = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }

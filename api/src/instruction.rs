@@ -1,11 +1,11 @@
 use bytemuck::{Pod, Zeroable};
+use drillx::Solution;
 use num_enum::TryFromPrimitive;
+use ore_utils::{impl_instruction_from_bytes, impl_to_bytes};
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
-
-use crate::utils::{impl_instruction_from_bytes, impl_to_bytes};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
@@ -16,11 +16,10 @@ pub enum PoolInstruction {
     Claim = 1,
     Stake = 2,
     
-    // Admin
-    // Certify = 100,
-    // Commit = 101,
-    Initialize = 102,
-    Submit = 103
+    // Operator
+    Launch = 200,
+    Attribute = 100,
+    Submit = 102,
 }
 
 impl PoolInstruction {
@@ -29,12 +28,11 @@ impl PoolInstruction {
     }
 }
 
-// #[repr(C)]
-// #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-// pub struct CertifyArgs {
-//     pub digest: [u8; 16],
-//     pub nonce: [u8; 8],
-// }
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct AttributeArgs {
+    pub balance: [u8; 8],
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -42,15 +40,9 @@ pub struct ClaimArgs {
     pub amount: [u8; 8],
 }
 
-// #[repr(C)]
-// #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-// pub struct CommitArgs {
-//     pub index: u64,
-// }
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct InitializeArgs {
+pub struct LaunchArgs {
     pub pool_bump: u8,
     pub proof_bump: u8,
 }
@@ -67,17 +59,18 @@ pub struct SubmitArgs {
     pub attestation: [u8; 32],
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
-    pub submission_bump: u8,
 }
 
-impl_to_bytes!(InitializeArgs);
+impl_to_bytes!(LaunchArgs);
 impl_to_bytes!(ClaimArgs);
+impl_to_bytes!(AttributeArgs);
 impl_to_bytes!(OpenArgs);
 impl_to_bytes!(SubmitArgs);
 
-impl_instruction_from_bytes!(InitializeArgs);
+impl_instruction_from_bytes!(LaunchArgs);
 impl_instruction_from_bytes!(ClaimArgs);
 impl_instruction_from_bytes!(OpenArgs);
+impl_instruction_from_bytes!(AttributeArgs);
 impl_instruction_from_bytes!(SubmitArgs);
 
 /// Builds an initialize instruction.
@@ -85,6 +78,25 @@ pub fn initialize(signer: Pubkey) -> Instruction {
     Instruction {
         program_id: crate::id(),
         accounts: vec![AccountMeta::new(signer, true)],
-        data: [PoolInstruction::Initialize.to_vec()].concat(),
+        data: [PoolInstruction::Launch.to_vec()].concat(),
+    }
+}
+
+/// Builds an submit instruction.
+pub fn submit(signer: Pubkey, solution: Solution, attestation: [u8; 32]) -> Instruction {
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![AccountMeta::new(signer, true)],
+        data: [
+            PoolInstruction::Submit.to_vec(),
+            SubmitArgs {
+                attestation,
+                digest: solution.d,
+                nonce: solution.n,
+            }
+            .to_bytes()
+            .to_vec(),
+        ]
+        .concat(),
     }
 }

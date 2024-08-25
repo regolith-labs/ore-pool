@@ -4,9 +4,9 @@ use actix_web::{web, HttpResponse, Responder};
 use drillx::Solution;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
-use crate::{Aggregator, Challenge, Contribution};
+use crate::{Challenge, Contribution};
 
 /// The payload to send to the /contribute endpoint.
 #[derive(Debug, Deserialize, Serialize)]
@@ -25,7 +25,7 @@ pub struct ContributePayload {
 /// aggregates the contributions into a list for publishing and submission.
 pub async fn contribute(
     payload: web::Json<ContributePayload>,
-    aggregator: web::Data<Arc<Mutex<Aggregator>>>,
+    tx: web::Data<tokio::sync::mpsc::Sender<Contribution>>,
     challenge: web::Data<Arc<RwLock<Challenge>>>,
 ) -> impl Responder {
     // Authenticate the sender signature
@@ -52,16 +52,13 @@ pub async fn contribute(
     // TODO Reject if score is below min difficulty
 
     // Update the aggegator
-    let mut w_aggregator = aggregator.lock().await;
-    w_aggregator.total_score += score;
-    w_aggregator.contributions.insert(
-        payload.authority,
-        Contribution {
-            solution: payload.solution,
-            score,
-        },
-    );
-    drop(w_aggregator);
+    tx.send(Contribution {
+        member: payload.authority,
+        score,
+        solution: payload.solution,
+    })
+    .await
+    .ok();
 
     HttpResponse::Ok()
 }

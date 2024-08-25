@@ -13,12 +13,15 @@ pub fn create_pool() -> Pool {
 pub async fn write_member(conn: &Object, member: Member) -> Result<(), Error> {
     conn.execute(
         "INSERT INTO members
-        (address, balance, id)
-        VALUES ($1, $2, $3)",
+        (address, authority, balance, id, is_approved, is_kyc)
+        VALUES ($1, $2, $3, $4, $5, $6)",
         &[
             &member_pda(member.authority, member.pool).0.to_string(),
+            &member.authority.to_string(),
             &(member.balance as i64),
             &(member.id as i64),
+            &false,
+            &false,
         ],
     )
     .await?;

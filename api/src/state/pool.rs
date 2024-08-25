@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-
-use crate::utils::{impl_account_from_bytes, impl_to_bytes, Discriminator};
+use ore_utils::{impl_account_from_bytes, impl_to_bytes, Discriminator};
+use solana_program::pubkey::Pubkey;
 
 use super::AccountDiscriminator;
 
@@ -8,6 +8,8 @@ use super::AccountDiscriminator;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Pool {
+    pub attestation: [u8; 32],
+    pub authority: Pubkey,
     pub total_members: u64,
     pub total_submissions: u64,
 }

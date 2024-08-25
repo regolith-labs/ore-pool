@@ -1,6 +1,6 @@
 use ore_api::{consts::*, instruction::*, loaders::*};
 use ore_pool_api::{consts::*, loaders::*, state::Member};
-use ore_utils::AccountDeserialize;
+use ore_utils::{loaders::*, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };

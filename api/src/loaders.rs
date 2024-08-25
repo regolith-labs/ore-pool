@@ -1,10 +1,9 @@
-use ore_utils::AccountDeserialize;
+use ore_utils::{AccountDeserialize, Discriminator};
 use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
 use crate::{
     consts::*,
-    state::{Member, Pool, Submission},
-    utils::Discriminator,
+    state::{Member, Pool},
 };
 
 /// Errors if:
@@ -16,34 +15,6 @@ pub fn load_operator<'a, 'info>(info: &'a AccountInfo<'info>) -> Result<(), Prog
 
     if info.key.ne(&OPERATOR_ADDRESS) {
         return Err(ProgramError::MissingRequiredSignature);
-    }
-
-    Ok(())
-}
-
-/// Errors if:
-/// - Owner is not pool program.
-/// - Data is empty.
-/// - Account discriminator does not match expected value.
-/// - Expected to be writable, but is not.
-pub fn load_any_submission<'a, 'info>(
-    info: &'a AccountInfo<'info>,
-    is_writable: bool,
-) -> Result<(), ProgramError> {
-    if info.owner.ne(&crate::id()) {
-        return Err(ProgramError::InvalidAccountOwner);
-    }
-
-    if info.data_is_empty() {
-        return Err(ProgramError::UninitializedAccount);
-    }
-
-    if info.data.borrow()[0].ne(&(Submission::discriminator() as u8)) {
-        return Err(solana_program::program_error::ProgramError::InvalidAccountData);
-    }
-
-    if is_writable && !info.is_writable {
-        return Err(ProgramError::InvalidAccountData);
     }
 
     Ok(())

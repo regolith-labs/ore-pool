@@ -1,11 +1,13 @@
+mod attribute;
 mod claim;
-mod initialize;
+mod launch;
 mod open;
 mod stake;
 mod submit;
 
+use attribute::*;
 use claim::*;
-use initialize::*;
+use launch::*;
 use open::*;
 use stake::*;
 use submit::*;
@@ -16,7 +18,6 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-#[cfg(not(feature = "no-entrypoint"))]
 solana_program::entrypoint!(process_instruction);
 
 pub fn process_instruction(
@@ -39,9 +40,8 @@ pub fn process_instruction(
         PoolInstruction::Stake => process_stake(accounts, data)?,
 
         // Admin
-        // PoolInstruction::Certify => process_certify(accounts, data)?,
-        // PoolInstruction::Commit => process_commit(accounts, data)?,
-        PoolInstruction::Initialize => process_initialize(accounts, data)?,
+        PoolInstruction::Attribute => process_attribute(accounts, data)?,
+        PoolInstruction::Launch => process_launch(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
     }
 

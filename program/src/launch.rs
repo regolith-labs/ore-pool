@@ -1,20 +1,17 @@
 use std::mem::size_of;
 
-use ore_api::{consts::*, loaders::*};
-use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Pool};
-use ore_utils::{create_pda, Discriminator};
+use ore_api::consts::*;
+use ore_pool_api::{consts::*, instruction::LaunchArgs, loaders::*, state::Pool};
+use ore_utils::{create_pda, loaders::*, AccountDeserialize, Discriminator};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
     system_program, sysvar,
 };
 
-/// Initialize sets up the pool program to begin mining.
-pub fn process_initialize<'a, 'info>(
-    accounts: &'a [AccountInfo<'info>],
-    data: &[u8],
-) -> ProgramResult {
+/// Launch creates a new pool.
+pub fn process_launch<'a, 'info>(accounts: &'a [AccountInfo<'info>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = InitializeArgs::try_from_bytes(data)?;
+    let args = LaunchArgs::try_from_bytes(data)?;
 
     // Load accounts.
     let [signer, miner_info, pool_info, proof_info, ore_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =
@@ -42,12 +39,14 @@ pub fn process_initialize<'a, 'info>(
         pool_info,
         &ore_pool_api::id(),
         8 + size_of::<Pool>(),
-        &[POOL, &[args.pool_bump]],
+        &[POOL, signer.key.as_ref(), &[args.pool_bump]],
         system_program,
         signer,
     )?;
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     pool_data[0] = Pool::discriminator() as u8;
+    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
+    // TODO
 
     // Open proof account.
     drop(pool_data);
@@ -61,7 +60,7 @@ pub fn process_initialize<'a, 'info>(
             system_program.clone(),
             slot_hashes_sysvar.clone(),
         ],
-        &[&[POOL, &[args.pool_bump]]],
+        &[&[POOL, signer.key.as_ref(), &[args.pool_bump]]],
     )?;
 
     Ok(())
