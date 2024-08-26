@@ -1,10 +1,14 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    hash::Hash,
+};
 
 use drillx::Solution;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
-use crate::{error::Error, operator::Operator, tx};
+use crate::{contributor::MemberChallenge, error::Error, operator::Operator, tx};
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -19,8 +23,13 @@ pub struct Aggregator {
 
     // The best solution submitted.
     pub winner: Option<Winner>,
+
+    // The challenge coordinator that issues nonce indices to participating members.
+    pub coordinator: ChallengeCoordinator,
 }
 
+// TODO: move to type for client
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Challenge {
     /// The current challenge the pool is accepting solutions for.
     pub challenge: [u8; 32],
@@ -58,6 +67,31 @@ pub struct Contribution {
     pub solution: Solution,
 }
 
+pub struct ChallengeCoordinator {
+    // The number of total members that could participate in this challenge loop
+    // locked per "epoch" to determinstically distribute nonce indices
+    pub num_total_members_limit: u64,
+
+    // The sequentially incremented value member by member who fetches challenge.
+    pub num_total_members: u64,
+
+    // The lookup map from member authority to nonce index
+    // coordinated per epoch
+    pub nonce_indices: HashMap<Pubkey, u64>,
+}
+
+impl ChallengeCoordinator {
+    async fn new() -> Result<Self, Error> {
+        let num_total_members_limit = num_total_members_limit().await?;
+        let coordinator = ChallengeCoordinator {
+            num_total_members_limit,
+            num_total_members: 0,
+            nonce_indices: HashMap::new(),
+        };
+        Ok(coordinator)
+    }
+}
+
 impl PartialEq for Contribution {
     fn eq(&self, other: &Self) -> bool {
         self.member == other.member
@@ -84,12 +118,21 @@ pub async fn process_contributions(
             let cutoff_time = aggregator.challenge.cutoff_time;
             let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
             if out_of_time {
-                aggregator.submit_and_reset(operator, &mut timer).await?;
+                if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
+                    // keep server looping
+                    // there may be scenarios where the server doesn't receive solutions, etc.
+                    log::error!("{:?}", err);
+                }
             } else {
                 aggregator.insert(&contribution)
             }
         }
     }
+}
+
+// TODO: persist / lookup
+async fn num_total_members_limit() -> Result<u64, Error> {
+    Ok(100)
 }
 
 impl Aggregator {
@@ -103,13 +146,43 @@ impl Aggregator {
             min_difficulty: config.min_difficulty,
             cutoff_time,
         };
+        let coordinator = ChallengeCoordinator::new().await?;
         let aggregator = Aggregator {
             challenge,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
+            coordinator,
         };
         Ok(aggregator)
+    }
+
+    // TODO: error if member not approved
+    pub async fn nonce_index(
+        &mut self,
+        member_authority: &Pubkey,
+    ) -> Result<MemberChallenge, Error> {
+        let challenge = &self.challenge.challenge;
+        let num_total_members_limit = self.coordinator.num_total_members_limit;
+        let mut num_total_members = self.coordinator.num_total_members;
+        let coordinator = &mut self.coordinator.nonce_indices;
+        let entry = coordinator.entry(*member_authority);
+        match entry {
+            Entry::Occupied(nonce_index) => Ok(MemberChallenge {
+                challenge: *challenge,
+                nonce_index: *(nonce_index.get()),
+                num_total_members: num_total_members_limit,
+            }),
+            Entry::Vacant(vacant) => {
+                num_total_members += 1;
+                vacant.insert(num_total_members);
+                Ok(MemberChallenge {
+                    challenge: *challenge,
+                    nonce_index: num_total_members,
+                    num_total_members: num_total_members_limit,
+                })
+            }
+        }
     }
 
     fn insert(&mut self, contribution: &Contribution) {
@@ -191,6 +264,8 @@ impl Aggregator {
         operator: &Operator,
         timer: &mut tokio::time::Instant,
     ) -> Result<(), Error> {
+        let coordinator = ChallengeCoordinator::new().await?;
+        self.coordinator = coordinator;
         self.update_challenge(operator).await?;
         self.contributions = HashSet::new();
         self.total_score = 0;

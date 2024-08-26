@@ -1,5 +1,5 @@
 mod aggregator;
-mod contribute;
+mod contributor;
 mod database;
 mod error;
 mod operator;
@@ -8,7 +8,6 @@ mod utils;
 
 use actix_web::{middleware, web, App, HttpServer};
 use aggregator::{Aggregator, Contribution};
-use contribute::*;
 use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
@@ -52,15 +51,13 @@ async fn main() -> Result<(), error::Error> {
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
+            .wrap(create_cors())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(tx.clone()))
             .app_data(operator.clone())
             .app_data(aggregator.clone())
-            .service(
-                web::resource("/contribute")
-                    .wrap(create_cors())
-                    .route(web::post().to(contribute)),
-            )
+            .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
+            .service(contributor::challenge)
     })
     .bind("0.0.0.0:3000")?
     .run()

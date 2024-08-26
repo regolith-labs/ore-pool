@@ -1,6 +1,6 @@
 use ore_api::state::{Config, Proof};
 use ore_utils::AccountDeserialize;
-use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     clock::Clock,
     commitment_config::CommitmentConfig,

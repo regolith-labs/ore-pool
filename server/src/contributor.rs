@@ -1,9 +1,12 @@
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{get, web, HttpResponse, Responder};
 use drillx::Solution;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
-use crate::{aggregator::Aggregator, Contribution};
+use crate::{
+    aggregator::{Aggregator, Challenge},
+    Contribution,
+};
 
 /// The payload to send to the /contribute endpoint.
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,6 +19,37 @@ pub struct ContributePayload {
 
     /// Must be a valid signature of the solution
     pub signature: Signature,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetChallengePayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MemberChallenge {
+    pub challenge: [u8; 32],
+    pub nonce_index: u64,
+    pub num_total_members: u64,
+}
+
+#[get("/challenge/{authority}")]
+pub async fn challenge(
+    payload: web::Path<GetChallengePayload>,
+    aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
+) -> impl Responder {
+    let member_authority = payload.authority;
+    let aggregator = aggregator.as_ref();
+    let mut aggregator = aggregator.lock().await;
+    let challenge = aggregator.nonce_index(&member_authority).await;
+    match challenge {
+        Ok(challenge) => HttpResponse::Ok().json(challenge),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 /// Accepts solutions from pool members. If their solutions are valid, it
