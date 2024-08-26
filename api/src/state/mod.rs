@@ -20,6 +20,10 @@ pub fn pool_pda(authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[POOL, authority.as_ref()], &crate::id())
 }
 
+pub fn pool_proof_pda(pool: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[ore_api::consts::PROOF, pool.as_ref()], &ore_api::id())
+}
+
 pub fn member_pda(authority: Pubkey, pool: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[MEMBER, authority.as_ref(), pool.as_ref()], &crate::id())
 }
