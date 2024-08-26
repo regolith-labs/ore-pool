@@ -2,9 +2,9 @@ use std::{collections::HashSet, hash::Hash};
 
 use drillx::Solution;
 use sha3::{Digest, Sha3_256};
-use solana_sdk::{compute_budget::ComputeBudgetInstruction, pubkey::Pubkey, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
-use crate::{error::Error, operator::Operator};
+use crate::{error::Error, operator::Operator, tx};
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -25,9 +25,14 @@ pub struct Challenge {
     /// The current challenge the pool is accepting solutions for.
     pub challenge: [u8; 32],
 
-    /// The last time this account provided a hash.
-    /// Relation to the ORE proof account.
+    /// Foreign key to the ORE proof account.
     pub lash_hash_at: i64,
+
+    // The current minimum difficulty accepted by the ORE program.
+    pub min_difficulty: u64,
+
+    // The cutoff time to stop accepting contributions.
+    pub cutoff_time: u64,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -67,12 +72,36 @@ impl Hash for Contribution {
     }
 }
 
+pub async fn process_contributions(
+    aggregator: &tokio::sync::Mutex<Aggregator>,
+    operator: &Operator,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
+) -> Result<(), Error> {
+    let mut timer = tokio::time::Instant::now();
+    loop {
+        while let Some(contribution) = rx.recv().await {
+            let mut aggregator = aggregator.lock().await;
+            let cutoff_time = aggregator.challenge.cutoff_time;
+            let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
+            if out_of_time {
+                aggregator.submit_and_reset(operator, &mut timer).await?;
+            } else {
+                aggregator.insert(&contribution)
+            }
+        }
+    }
+}
+
 impl Aggregator {
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
         let proof = operator.get_proof().await?;
+        let config = operator.get_config().await?;
+        let cutoff_time = operator.get_cutoff(&proof).await?;
         let challenge = Challenge {
             challenge: proof.challenge,
             lash_hash_at: proof.last_hash_at,
+            min_difficulty: config.min_difficulty,
+            cutoff_time,
         };
         let aggregator = Aggregator {
             challenge,
@@ -83,10 +112,55 @@ impl Aggregator {
         Ok(aggregator)
     }
 
-    pub async fn submit(&mut self, operator: &Operator) -> Result<(), Error> {
-        // Best solution
+    fn insert(&mut self, contribution: &Contribution) {
+        match self.contributions.insert(*contribution) {
+            true => {
+                let difficulty = contribution.solution.to_hash().difficulty();
+                let contender = Winner {
+                    solution: contribution.solution,
+                    difficulty,
+                };
+                self.total_score += contribution.score;
+                match self.winner {
+                    Some(winner) => {
+                        if difficulty > winner.difficulty {
+                            self.winner = Some(contender);
+                        }
+                    }
+                    None => self.winner = Some(contender),
+                }
+            }
+            false => {
+                log::error!("already received contribution: {:?}", contribution.member);
+            }
+        }
+    }
+
+    async fn submit_and_reset(
+        &mut self,
+        operator: &Operator,
+        timer: &mut tokio::time::Instant,
+    ) -> Result<(), Error> {
         let best_solution = self.winner()?.solution;
-        // Generate attestation
+        let attestation = self.attestation();
+        let ix = ore_pool_api::instruction::submit(
+            operator.keypair.pubkey(),
+            best_solution,
+            attestation,
+        );
+        let rpc_client = &operator.rpc_client;
+        let sig = tx::submit(&operator.keypair, rpc_client, vec![ix], 1_000_000, 500_000).await?;
+        log::info!("{:?}", sig);
+
+        // TODO Parse tx response
+        // TODO Update members' local attribution balances
+        // TODO Publish block to S3
+
+        self.reset(operator, timer).await?;
+        Ok(())
+    }
+
+    fn attestation(&self) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         let contributions = &self.contributions;
         for contribution in contributions.iter() {
@@ -107,54 +181,22 @@ impl Aggregator {
             );
             hasher.update(&line);
         }
-
-        // Generate attestation
         let mut attestation: [u8; 32] = [0; 32];
         attestation.copy_from_slice(&hasher.finalize()[..]);
-
-        // TODO Submit best hash and attestation to Solana
-        let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(600_000);
-        let compute_price_ix = ComputeBudgetInstruction::set_compute_unit_price(100_000); // TODO
-        let ix = ore_pool_api::instruction::submit(
-            operator.keypair.pubkey(),
-            best_solution,
-            attestation,
-        );
-
-        // TODO Parse tx response
-        // TODO Update members' local attribution balances
-        // TODO Publish block to S3
-        // TODO Refresh the challenge
-
-        // Reset the aggregator
-        self.reset(operator).await?;
-        Ok(())
+        attestation
     }
 
-    async fn reset(&mut self, operator: &Operator) -> Result<(), Error> {
+    async fn reset(
+        &mut self,
+        operator: &Operator,
+        timer: &mut tokio::time::Instant,
+    ) -> Result<(), Error> {
         self.update_challenge(operator).await?;
         self.contributions = HashSet::new();
         self.total_score = 0;
         self.winner = None;
+        *timer = tokio::time::Instant::now();
         Ok(())
-    }
-
-    fn insert(&mut self, contribution: &Contribution, winner: &mut Winner) {
-        match self.contributions.insert(*contribution) {
-            true => {
-                let difficulty = contribution.solution.to_hash().difficulty();
-                if difficulty > winner.difficulty {
-                    *winner = Winner {
-                        solution: contribution.solution,
-                        difficulty,
-                    };
-                }
-                self.total_score += contribution.score;
-            }
-            false => {
-                log::error!("already received contribution: {:?}", contribution.member);
-            }
-        }
     }
 
     fn winner(&self) -> Result<Winner, Error> {
@@ -169,8 +211,12 @@ impl Aggregator {
         loop {
             let proof = operator.get_proof().await?;
             if proof.last_hash_at != last_hash_at {
+                let config = operator.get_config().await?;
+                let cutoff_time = operator.get_cutoff(&proof).await?;
                 self.challenge.challenge = proof.challenge;
                 self.challenge.lash_hash_at = proof.last_hash_at;
+                self.challenge.min_difficulty = config.min_difficulty;
+                self.challenge.cutoff_time = cutoff_time;
                 return Ok(());
             } else {
                 retries += 1;

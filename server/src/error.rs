@@ -2,6 +2,8 @@ use std::env::VarError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("bincode")]
+    Bincode(#[from] bincode::Error),
     #[error("std io")]
     StdIO(#[from] std::io::Error),
     #[error("std env")]

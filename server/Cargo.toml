@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
+bincode = { workspace = true }
 deadpool-postgres = { workspace = true }
 drillx = { workspace = true }
 env_logger = { workspace = true }

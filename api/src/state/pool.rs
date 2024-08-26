@@ -11,8 +11,7 @@ pub struct Pool {
     /// The latest attestation posted by this pool operator.
     pub attestation: [u8; 32],
 
-    /// The last time this account provided a hash.
-    /// Relation to the ORE proof account.
+    /// Foreign key to the ORE proof account.
     pub last_hash_at: i64,
 
     /// The authority of this pool.

@@ -3,6 +3,7 @@ mod contribute;
 mod database;
 mod error;
 mod operator;
+mod tx;
 mod utils;
 
 use actix_web::{middleware, web, App, HttpServer};
@@ -14,10 +15,7 @@ use utils::create_cors;
 
 // TODO Register endpoint
 
-// TODO Start endpoint
-// TODO Fetch current challenge, schedule timer
-
-// TODO Timer loop to kickoff submission jobs
+// TODO Start endpoint ??
 
 // TODO Timer loop to attribute on-chain balances
 // TODO Make this idempotent to avoid duplication
@@ -27,15 +25,22 @@ async fn main() -> Result<(), error::Error> {
     env_logger::init();
     let pool = create_pool();
     let operator = web::Data::new(Operator::new()?);
-    let aggregator = web::Data::new(Aggregator::new(&operator).await?);
+    let aggregator = tokio::sync::Mutex::new(Aggregator::new(&operator).await?);
+    let aggregator = web::Data::new(aggregator);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
 
     // Aggregate contributions
-    tokio::task::spawn(async move {
-        // while let Some(contribution) = rx.recv().await {
-        //     aggregator.insert(&contribution, winner)
-        //     // TODO If time, kick off submission
-        // }
+    tokio::task::spawn({
+        let operator = operator.clone();
+        let aggregator = aggregator.clone();
+        async move {
+            if let Err(err) =
+                aggregator::process_contributions(aggregator.as_ref(), operator.as_ref(), &mut rx)
+                    .await
+            {
+                log::error!("{:?}", err);
+            }
+        }
     });
 
     // Kick off attribution loop

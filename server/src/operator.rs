@@ -1,13 +1,17 @@
-use ore_api::state::Proof;
+use ore_api::state::{Config, Proof};
 use ore_utils::AccountDeserialize;
-use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client};
 use solana_sdk::{
+    clock::Clock,
     commitment_config::CommitmentConfig,
     signature::Keypair,
     signer::{EncodableKey, Signer},
+    sysvar,
 };
 
 use crate::error::Error;
+
+const BUFFER_TIME: u64 = 5;
 
 pub struct Operator {
     // The pool authority keypair.
@@ -35,6 +39,30 @@ impl Operator {
         let data = rpc_client.get_account_data(&proof_pda).await?;
         let proof = Proof::try_from_bytes(data.as_slice())?;
         Ok(*proof)
+    }
+
+    pub async fn get_config(&self) -> Result<Config, Error> {
+        let config_pda = ore_api::consts::CONFIG_ADDRESS;
+        let rpc_client = &self.rpc_client;
+        let data = rpc_client.get_account_data(&config_pda).await?;
+        let config = Config::try_from_bytes(data.as_slice())?;
+        Ok(*config)
+    }
+
+    pub async fn get_cutoff(&self, proof: &Proof) -> Result<u64, Error> {
+        let clock = self.get_clock().await?;
+        Ok(proof
+            .last_hash_at
+            .saturating_add(60)
+            .saturating_sub(BUFFER_TIME as i64)
+            .saturating_sub(clock.unix_timestamp)
+            .max(0) as u64)
+    }
+
+    async fn get_clock(&self) -> Result<Clock, Error> {
+        let rpc_client = &self.rpc_client;
+        let data = rpc_client.get_account_data(&sysvar::clock::id()).await?;
+        bincode::deserialize(&data).map_err(From::from)
     }
 
     fn keypair() -> Result<Keypair, Error> {
