@@ -7,8 +7,9 @@ use drillx::Solution;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use types::MemberChallenge;
 
-use crate::{contributor::MemberChallenge, error::Error, operator::Operator, tx};
+use crate::{error::Error, operator::Operator, tx};
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -28,7 +29,6 @@ pub struct Aggregator {
     pub coordinator: ChallengeCoordinator,
 }
 
-// TODO: move to type for client
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Challenge {
     /// The current challenge the pool is accepting solutions for.
