@@ -6,11 +6,11 @@ use tokio_postgres::{Error, NoTls};
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
-    cfg.url = Some(env::var("DBURL").expect("DBURL must be set").to_string());
+    cfg.url = Some(env::var("DB_URL").expect("DB_URL must be set").to_string());
     cfg.create_pool(None, NoTls).unwrap()
 }
 
-pub async fn write_member(conn: &Object, member: Member) -> Result<(), Error> {
+async fn _write_member(conn: &Object, member: Member) -> Result<(), Error> {
     conn.execute(
         "INSERT INTO members
         (address, authority, balance, id, is_approved, is_kyc)
