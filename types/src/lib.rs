@@ -8,11 +8,26 @@ pub struct GetChallengePayload {
     pub authority: Pubkey,
 }
 
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub struct Challenge {
+    /// The current challenge the pool is accepting solutions for.
+    pub challenge: [u8; 32],
+
+    /// Foreign key to the ORE proof account.
+    pub lash_hash_at: i64,
+
+    // The current minimum difficulty accepted by the ORE program.
+    pub min_difficulty: u64,
+
+    // The cutoff time to stop accepting contributions.
+    pub cutoff_time: u64,
+}
+
 // The response from the /challenge request.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MemberChallenge {
     // The challenge to mine for.
-    pub challenge: [u8; 32],
+    pub challenge: Challenge,
 
     // The unique nonce index to start mining at.
     pub nonce_index: u64,

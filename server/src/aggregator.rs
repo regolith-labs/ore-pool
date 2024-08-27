@@ -4,10 +4,9 @@ use std::{
 };
 
 use drillx::Solution;
-use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::MemberChallenge;
+use types::{Challenge, MemberChallenge};
 
 use crate::{error::Error, operator::Operator, tx};
 
@@ -27,21 +26,6 @@ pub struct Aggregator {
 
     // The challenge coordinator that issues nonce indices to participating members.
     pub coordinator: ChallengeCoordinator,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Challenge {
-    /// The current challenge the pool is accepting solutions for.
-    pub challenge: [u8; 32],
-
-    /// Foreign key to the ORE proof account.
-    pub lash_hash_at: i64,
-
-    // The current minimum difficulty accepted by the ORE program.
-    pub min_difficulty: u64,
-
-    // The cutoff time to stop accepting contributions.
-    pub cutoff_time: u64,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -162,7 +146,7 @@ impl Aggregator {
         &mut self,
         member_authority: &Pubkey,
     ) -> Result<MemberChallenge, Error> {
-        let challenge = &self.challenge.challenge;
+        let challenge = &self.challenge;
         let num_total_members_limit = self.coordinator.num_total_members_limit;
         let mut num_total_members = self.coordinator.num_total_members;
         let coordinator = &mut self.coordinator.nonce_indices;
