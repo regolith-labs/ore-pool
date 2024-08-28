@@ -10,6 +10,10 @@ use types::{Challenge, MemberChallenge};
 
 use crate::{error::Error, operator::Operator, tx};
 
+// The client submits slightly earlier
+// than the operator's cutoff time to create a "submission window".
+const NONCE_BUFFER: u64 = 2;
+
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
     // The current challenge.
@@ -146,23 +150,28 @@ impl Aggregator {
         &mut self,
         member_authority: &Pubkey,
     ) -> Result<MemberChallenge, Error> {
+        // reference challenge
         let challenge = &self.challenge;
+        let mut challenge = *challenge;
+        // add nonce buffer to cuttoff time to create submission window
+        challenge.cutoff_time = challenge.cutoff_time.saturating_sub(NONCE_BUFFER).max(0);
+        // increment / assign nonce index
         let num_total_members_limit = self.coordinator.num_total_members_limit;
-        let mut num_total_members = self.coordinator.num_total_members;
+        let num_total_members = &mut self.coordinator.num_total_members;
         let coordinator = &mut self.coordinator.nonce_indices;
         let entry = coordinator.entry(*member_authority);
         match entry {
             Entry::Occupied(nonce_index) => Ok(MemberChallenge {
-                challenge: *challenge,
+                challenge,
                 nonce_index: *(nonce_index.get()),
                 num_total_members: num_total_members_limit,
             }),
             Entry::Vacant(vacant) => {
-                num_total_members += 1;
-                vacant.insert(num_total_members);
+                *num_total_members += 1;
+                vacant.insert(*num_total_members);
                 Ok(MemberChallenge {
-                    challenge: *challenge,
-                    nonce_index: num_total_members,
+                    challenge,
+                    nonce_index: *num_total_members,
                     num_total_members: num_total_members_limit,
                 })
             }
