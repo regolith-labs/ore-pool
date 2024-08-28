@@ -14,9 +14,6 @@ pub struct Member {
     /// The current balance amount which may be claimed.
     pub balance: u64,
 
-    /// The member id.
-    pub id: u64,
-
     /// The pool this member belongs to.
     pub pool: Pubkey,
 

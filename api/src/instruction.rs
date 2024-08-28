@@ -11,7 +11,7 @@ use solana_program::{
 
 use crate::{
     error::ApiError,
-    state::{pool_pda, pool_proof_pda},
+    state::{member_pda, pool_pda, pool_proof_pda},
 };
 
 #[repr(u8)]
@@ -116,6 +116,24 @@ fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
         let mut array = [0u8; 128];
         array[..len].copy_from_slice(&bytes[..len]);
         Ok(array)
+    }
+}
+
+pub fn open(signer: Pubkey, pool: Pubkey) -> Instruction {
+    let (member_pda, member_bump) = member_pda(signer, pool);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(member_pda, false),
+            AccountMeta::new(pool, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: [
+            PoolInstruction::Open.to_vec(),
+            OpenArgs { member_bump }.to_bytes().to_vec(),
+        ]
+        .concat(),
     }
 }
 

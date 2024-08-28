@@ -23,8 +23,8 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     };
     load_signer(signer)?;
     load_uninitialized_pda(
-        pool_info,
-        &[MEMBER, signer.key.as_ref()],
+        member_info,
+        &[MEMBER, signer.key.as_ref(), pool_info.key.as_ref()],
         args.member_bump,
         &ore_pool_api::id(),
     )?;
@@ -36,15 +36,22 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
         member_info,
         &ore_pool_api::id(),
         8 + size_of::<Member>(),
-        &[MEMBER, signer.key.as_ref(), &[args.member_bump]],
+        &[
+            MEMBER,
+            signer.key.as_ref(),
+            pool_info.key.as_ref(),
+            &[args.member_bump],
+        ],
         system_program,
         signer,
     )?;
     let mut member_data = member_info.try_borrow_mut_data()?;
-    member_data[0] = Member::discriminator() as u8;
+    member_data[0] = Member::discriminator();
     let member = Member::try_from_bytes_mut(&mut member_data)?;
     member.authority = *signer.key;
     member.balance = 0;
+    member.total_balance = 0;
+    member.pool = *pool_info.key;
 
     // Update member count
     let mut pool_data = pool_info.try_borrow_mut_data()?;
