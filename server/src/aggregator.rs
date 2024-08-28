@@ -4,6 +4,12 @@ use std::{
 };
 
 use drillx::Solution;
+use ore_api::{
+    consts::{BUS_ADDRESSES, BUS_COUNT},
+    state::Bus,
+};
+use ore_utils::AccountDeserialize;
+use rand::Rng;
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{Challenge, MemberChallenge};
@@ -209,10 +215,12 @@ impl Aggregator {
     ) -> Result<(), Error> {
         let best_solution = self.winner()?.solution;
         let attestation = self.attestation();
+        let bus = self.find_bus(operator).await?;
         let ix = ore_pool_api::instruction::submit(
             operator.keypair.pubkey(),
             best_solution,
             attestation,
+            bus,
         );
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit(&operator.keypair, rpc_client, vec![ix], 1_000_000, 500_000).await?;
@@ -224,6 +232,24 @@ impl Aggregator {
 
         self.reset(operator, timer).await?;
         Ok(())
+    }
+
+    async fn find_bus(&self, operator: &Operator) -> Result<Pubkey, Error> {
+        // Fetch the bus with the largest balance
+        let rpc_client = &operator.rpc_client;
+        let accounts = rpc_client.get_multiple_accounts(&BUS_ADDRESSES).await?;
+        let mut top_bus_balance: u64 = 0;
+        let bus_index = rand::thread_rng().gen_range(0..BUS_COUNT);
+        let mut top_bus = BUS_ADDRESSES[bus_index];
+        for account in accounts.into_iter().flatten() {
+            if let Ok(bus) = Bus::try_from_bytes(&account.data) {
+                if bus.rewards.gt(&top_bus_balance) {
+                    top_bus_balance = bus.rewards;
+                    top_bus = BUS_ADDRESSES[bus.id as usize];
+                }
+            }
+        }
+        Ok(top_bus)
     }
 
     fn attestation(&self) -> [u8; 32] {

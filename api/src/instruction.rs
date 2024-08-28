@@ -1,12 +1,13 @@
 use bytemuck::{Pod, Zeroable};
 use drillx::Solution;
 use num_enum::TryFromPrimitive;
+use ore_api::consts::CONFIG_ADDRESS;
 use ore_utils::instruction;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     system_program,
-    sysvar::slot_hashes,
+    sysvar::{instructions, slot_hashes},
 };
 
 use crate::{
@@ -138,10 +139,27 @@ pub fn open(signer: Pubkey, pool: Pubkey) -> Instruction {
 }
 
 /// Builds an submit instruction.
-pub fn submit(signer: Pubkey, solution: Solution, attestation: [u8; 32]) -> Instruction {
+pub fn submit(
+    signer: Pubkey,
+    solution: Solution,
+    attestation: [u8; 32],
+    bus: Pubkey,
+) -> Instruction {
+    let (pool_pda, _) = pool_pda(signer);
+    let (proof_pda, _) = pool_proof_pda(pool_pda);
     Instruction {
         program_id: crate::id(),
-        accounts: vec![AccountMeta::new(signer, true)],
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(bus, false),
+            AccountMeta::new(CONFIG_ADDRESS, false),
+            AccountMeta::new(pool_pda, false),
+            AccountMeta::new(proof_pda, false),
+            AccountMeta::new_readonly(ore_api::id(), false),
+            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(instructions::id(), false),
+            AccountMeta::new_readonly(slot_hashes::id(), false),
+        ],
         data: [
             PoolInstruction::Submit.to_vec(),
             SubmitArgs {

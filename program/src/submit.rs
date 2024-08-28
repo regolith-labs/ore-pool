@@ -1,6 +1,6 @@
 use drillx::Solution;
-use ore_api::loaders::*;
-use ore_pool_api::{consts::*, instruction::*, loaders::*, state::Pool};
+use ore_api::{loaders::*, state::Proof};
+use ore_pool_api::{instruction::*, loaders::*, state::Pool};
 use ore_utils::{loaders::*, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
@@ -28,26 +28,35 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
     load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
 
+    // Update pool submissions count
+    let mut pool_data = pool_info.data.borrow_mut();
+    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
+    pool.total_submissions = pool.total_submissions.checked_add(1).unwrap();
+    // And the attestation of observed hash-power
+    pool.attestation = args.attestation;
+
+    // Update the last hash to align with the proof that we are currently solving for.
+    // can think of this is a foreign key join.
+    // the idea is that the state of this account will/can be indexed,
+    // and later referenced or played back for historical information.
+    let mut proof_data = proof_info.data.borrow_mut();
+    let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
+    pool.last_hash_at = proof.last_hash_at;
+    drop(proof_data);
+
     // Submit solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    solana_program::program::invoke_signed(
-        &ore_api::instruction::mine(*pool_info.key, *pool_info.key, *bus_info.key, solution),
+    solana_program::program::invoke(
+        &ore_api::instruction::mine(*signer.key, *pool_info.key, *bus_info.key, solution),
         &[
-            pool_info.clone(),
+            signer.clone(),
             bus_info.clone(),
             config_info.clone(),
             proof_info.clone(),
             instructions_sysvar.clone(),
             slot_hashes_sysvar.clone(),
         ],
-        &[&[POOL, signer.key.as_ref(), &[POOL_BUMP]]],
     )?;
-
-    // Update pool submissions count
-    let mut pool_data = pool_info.data.borrow_mut();
-    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.attestation = args.attestation;
-    pool.total_submissions = pool.total_submissions.checked_add(1).unwrap();
 
     Ok(())
 }
