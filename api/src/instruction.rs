@@ -5,6 +5,13 @@ use ore_utils::instruction;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
+    system_program,
+    sysvar::slot_hashes,
+};
+
+use crate::{
+    error::ApiError,
+    state::{pool_pda, pool_proof_pda},
 };
 
 #[repr(u8)]
@@ -67,12 +74,48 @@ instruction!(AttributeArgs);
 instruction!(OpenArgs);
 instruction!(SubmitArgs);
 
-/// Builds an initialize instruction.
-pub fn initialize(signer: Pubkey) -> Instruction {
-    Instruction {
+/// Builds a launch instruction.
+pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction, ApiError> {
+    let url = url_to_bytes(url.as_str())?;
+    let (pool_pda, pool_bump) = pool_pda(signer);
+    let (proof_pda, proof_bump) = pool_proof_pda(pool_pda);
+    let ix = Instruction {
         program_id: crate::id(),
-        accounts: vec![AccountMeta::new(signer, true)],
-        data: [PoolInstruction::Launch.to_vec()].concat(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(miner, false),
+            AccountMeta::new(pool_pda, false),
+            AccountMeta::new(proof_pda, false),
+            AccountMeta::new_readonly(ore_api::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+            AccountMeta::new_readonly(spl_associated_token_account::id(), false),
+            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(slot_hashes::id(), false),
+        ],
+        data: [
+            PoolInstruction::Launch.to_vec(),
+            LaunchArgs {
+                pool_bump,
+                proof_bump,
+                url,
+            }
+            .to_bytes()
+            .to_vec(),
+        ]
+        .concat(),
+    };
+    Ok(ix)
+}
+
+fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
+    let bytes = input.as_bytes();
+    let len = bytes.len();
+    if len > 128 {
+        Err(ApiError::UrlTooLarge)
+    } else {
+        let mut array = [0u8; 128];
+        array[..len].copy_from_slice(&bytes[..len]);
+        Ok(array)
     }
 }
 

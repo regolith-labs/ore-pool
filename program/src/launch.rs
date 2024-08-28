@@ -21,7 +21,12 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     };
     load_signer(signer)?;
     load_any(miner_info, false)?;
-    load_uninitialized_pda(pool_info, &[POOL], args.pool_bump, &ore_pool_api::id())?;
+    load_uninitialized_pda(
+        pool_info,
+        &[POOL, signer.key.as_ref()],
+        args.pool_bump,
+        &ore_pool_api::id(),
+    )?;
     load_uninitialized_pda(
         proof_info,
         &[PROOF, pool_info.key.as_ref()],
@@ -44,7 +49,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         signer,
     )?;
     let mut pool_data = pool_info.try_borrow_mut_data()?;
-    pool_data[0] = Pool::discriminator() as u8;
+    pool_data[0] = Pool::discriminator();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
     pool.attestation = [0; 32];
     pool.authority = *signer.key;

@@ -9,6 +9,12 @@ pub enum PoolError {
     Dummy = 0,
 }
 
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("operator server url must be 128 bytes or less")]
+    UrlTooLarge,
+}
+
 impl From<PoolError> for ProgramError {
     fn from(e: PoolError) -> Self {
         ProgramError::Custom(e as u32)
