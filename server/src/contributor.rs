@@ -69,13 +69,14 @@ pub async fn contribute(
     let score = 2u64.pow(difficulty);
     log::info!("score: {}", score);
     // TODO: Reject if score is below min difficulty (as defined by the pool operator)
+
     // update the aggegator
-    tx.send(Contribution {
+    if let Err(err) = tx.send(Contribution {
         member: payload.authority,
         score,
         solution: payload.solution,
-    })
-    .await
-    .ok();
+    }) {
+        log::error!("{:?}", err);
+    }
     HttpResponse::Ok().finish()
 }
