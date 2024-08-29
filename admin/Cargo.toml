@@ -1,0 +1,17 @@
+[package]
+name = "admin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[dependencies]
+ore-pool-api.workspace = true
+solana-sdk.workspace = true
+solana-client.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
