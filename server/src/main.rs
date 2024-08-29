@@ -21,7 +21,6 @@ use utils::create_cors;
 
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
-    env_logger::init();
     let pool = create_pool();
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::Mutex::new(Aggregator::new(&operator).await?);
