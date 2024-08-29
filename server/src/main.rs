@@ -59,7 +59,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(aggregator.clone())
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(
-                web::resource("/challenge/{member_authority}")
+                web::resource("/challenge/{authority}")
                     .route(web::get().to(contributor::challenge)),
             )
             .service(health)
