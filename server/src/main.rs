@@ -22,10 +22,12 @@ use utils::create_cors;
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
     let pool = create_pool();
+    let pool = web::Data::new(pool);
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::Mutex::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
+    let tx = web::Data::new(tx);
 
     // Aggregate contributions
     tokio::task::spawn({
@@ -53,8 +55,8 @@ async fn main() -> Result<(), error::Error> {
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(create_cors())
-            .app_data(web::Data::new(pool.clone()))
-            .app_data(web::Data::new(tx.clone()))
+            .app_data(pool.clone())
+            .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
