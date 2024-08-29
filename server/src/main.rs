@@ -49,6 +49,7 @@ async fn main() -> Result<(), error::Error> {
 
     // Launch server
     HttpServer::new(move || {
+        env_logger::init();
         log::info!("starting server");
         App::new()
             .wrap(middleware::Logger::default())
