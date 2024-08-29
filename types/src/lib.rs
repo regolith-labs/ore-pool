@@ -5,7 +5,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 #[derive(Debug, Deserialize)]
 pub struct GetChallengePayload {
     /// The authority of the member account sending the payload.
-    pub authority: Pubkey,
+    pub authority: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]

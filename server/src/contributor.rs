@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use actix_web::{web, HttpResponse, Responder};
+use solana_sdk::pubkey::Pubkey;
 use types::{ContributePayload, GetChallengePayload};
 
 use crate::{aggregator::Aggregator, Contribution};
@@ -7,15 +10,23 @@ pub async fn challenge(
     payload: web::Path<GetChallengePayload>,
     aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
 ) -> impl Responder {
-    let member_authority = payload.authority;
-    let aggregator = aggregator.as_ref();
-    let mut aggregator = aggregator.lock().await;
-    let challenge = aggregator.nonce_index(&member_authority).await;
-    match challenge {
-        Ok(challenge) => HttpResponse::Ok().json(challenge),
+    let member_authority = payload.into_inner().authority;
+    match Pubkey::from_str(member_authority.as_str()) {
+        Ok(member_authority) => {
+            let aggregator = aggregator.as_ref();
+            let mut aggregator = aggregator.lock().await;
+            let challenge = aggregator.nonce_index(&member_authority).await;
+            match challenge {
+                Ok(challenge) => HttpResponse::Ok().json(challenge),
+                Err(err) => {
+                    log::error!("{:?}", err);
+                    HttpResponse::InternalServerError().finish()
+                }
+            }
+        }
         Err(err) => {
             log::error!("{:?}", err);
-            HttpResponse::InternalServerError().finish()
+            HttpResponse::BadRequest().body(err.to_string())
         }
     }
 }
