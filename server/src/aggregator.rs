@@ -105,12 +105,16 @@ pub async fn process_contributions(
     operator: &Operator,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
 ) -> Result<(), Error> {
+    log::info!("starting aggregator loop");
     let mut timer = tokio::time::Instant::now();
     loop {
         while let Some(contribution) = rx.recv().await {
+            log::info!("recv contribution: {:?}", contribution);
             let mut aggregator = aggregator.lock().await;
             let cutoff_time = aggregator.challenge.cutoff_time;
+            log::info!("cutoff time: {}", cutoff_time);
             let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
+            log::info!("out of time: {}", out_of_time);
             if out_of_time {
                 if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
                     // keep server looping
@@ -185,21 +189,28 @@ impl Aggregator {
     }
 
     fn insert(&mut self, contribution: &Contribution) {
+        log::info!("inserting contribution");
         match self.contributions.insert(*contribution) {
             true => {
+                log::info!("status: new contribution");
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
                     difficulty,
                 };
                 self.total_score += contribution.score;
+                log::info!("total score: {}", self.total_score);
                 match self.winner {
                     Some(winner) => {
                         if difficulty > winner.difficulty {
+                            log::info!("updating winner");
                             self.winner = Some(contender);
                         }
                     }
-                    None => self.winner = Some(contender),
+                    None => {
+                        log::info!("updating winner as first");
+                        self.winner = Some(contender)
+                    }
                 }
             }
             false => {

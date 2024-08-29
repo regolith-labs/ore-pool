@@ -31,6 +31,7 @@ async fn main() -> Result<(), error::Error> {
 
     // Aggregate contributions
     tokio::task::spawn({
+        log::info!("starting aggregator thread");
         let operator = operator.clone();
         let aggregator = aggregator.clone();
         async move {
