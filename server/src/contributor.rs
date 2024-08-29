@@ -34,11 +34,15 @@ pub async fn challenge(
 /// Accepts solutions from pool members. If their solutions are valid, it
 /// aggregates the contributions into a list for publishing and submission.
 pub async fn contribute(
-    payload: web::Json<ContributePayload>,
+    payload: web::Bytes,
     tx: web::Data<tokio::sync::mpsc::Sender<Contribution>>,
     aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
 ) -> impl Responder {
     log::info!("received payload");
+    let payload = payload.as_ref();
+    log::info!("payload: {:?}", payload);
+    let payload = serde_json::from_slice::<ContributePayload>(payload).unwrap();
+    log::info!("decoded: {:?}", payload);
     // lock aggregrator to ensure we're contributing to the current challenge
     let aggregator = aggregator.as_ref();
     let aggregator = aggregator.lock().await;
