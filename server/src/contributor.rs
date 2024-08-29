@@ -1,9 +1,8 @@
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{web, HttpResponse, Responder};
 use types::{ContributePayload, GetChallengePayload};
 
 use crate::{aggregator::Aggregator, Contribution};
 
-#[get("/challenge/{authority}")]
 pub async fn challenge(
     payload: web::Path<GetChallengePayload>,
     aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,

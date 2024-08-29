@@ -57,7 +57,10 @@ async fn main() -> Result<(), error::Error> {
             .app_data(operator.clone())
             .app_data(aggregator.clone())
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
-            .service(contributor::challenge)
+            .service(
+                web::resource("/challenge/{member_authority}")
+                    .route(web::get().to(contributor::challenge)),
+            )
     })
     .bind("0.0.0.0:3000")?
     .run()
