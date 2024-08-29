@@ -6,7 +6,7 @@ mod operator;
 mod tx;
 mod utils;
 
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
 use database::create_pool;
 use operator::Operator;
@@ -49,6 +49,7 @@ async fn main() -> Result<(), error::Error> {
 
     // Launch server
     HttpServer::new(move || {
+        log::info!("starting server");
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(create_cors())
@@ -61,9 +62,15 @@ async fn main() -> Result<(), error::Error> {
                 web::resource("/challenge/{member_authority}")
                     .route(web::get().to(contributor::challenge)),
             )
+            .service(health)
     })
     .bind("0.0.0.0:3000")?
     .run()
     .await
     .map_err(From::from)
+}
+
+#[get("/health")]
+async fn health() -> impl Responder {
+    HttpResponse::Ok().body("ok")
 }
