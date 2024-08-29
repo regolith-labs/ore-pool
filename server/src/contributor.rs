@@ -38,12 +38,15 @@ pub async fn contribute(
     tx: web::Data<tokio::sync::mpsc::Sender<Contribution>>,
     aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
 ) -> impl Responder {
+    log::info!("received payload");
     // lock aggregrator to ensure we're contributing to the current challenge
     let aggregator = aggregator.as_ref();
     let aggregator = aggregator.lock().await;
     // decode solution difficulty
     let solution = &payload.solution;
+    log::info!("solution: {:?}", solution);
     let difficulty = solution.to_hash().difficulty();
+    log::info!("difficulty: {:?}", difficulty);
     // authenticate the sender signature
     if !payload
         .signature
@@ -58,10 +61,12 @@ pub async fn contribute(
     }
     // error if digest is invalid
     if !drillx::is_valid_digest(&aggregator.challenge.challenge, &solution.n, &solution.d) {
+        log::error!("invalid solution");
         return HttpResponse::BadRequest().finish();
     }
     // calculate score
     let score = 2u64.pow(difficulty);
+    log::info!("score: {}", score);
     // TODO: Reject if score is below min difficulty (as defined by the pool operator)
     // update the aggegator
     tx.send(Contribution {
