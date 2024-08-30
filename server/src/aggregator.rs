@@ -325,11 +325,13 @@ impl Aggregator {
     }
 
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {
-        let max_retries = 5;
+        let max_retries = 10;
         let mut retries = 0;
         let last_hash_at = self.challenge.lash_hash_at;
         loop {
             let proof = operator.get_proof().await?;
+            log::info!("new hash: {:?}", proof.last_hash_at);
+            log::info!("live hash: {:?}", last_hash_at);
             if proof.last_hash_at != last_hash_at {
                 let config = operator.get_config().await?;
                 let cutoff_time = operator.get_cutoff(&proof).await?;
@@ -343,6 +345,7 @@ impl Aggregator {
                 if retries == max_retries {
                     return Err(Error::Internal("failed to fetch new challenge".to_string()));
                 }
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             }
         }
     }
