@@ -1,10 +1,7 @@
 use ore_utils::{AccountDeserialize, Discriminator};
 use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
-use crate::{
-    consts::*,
-    state::{Member, Pool},
-};
+use crate::state::{Member, Pool};
 
 /// Errors if:
 /// - Owner is not pool program.
@@ -29,11 +26,11 @@ pub fn load_member(
     let member_data = info.data.borrow();
     let member = Member::try_from_bytes(&member_data)?;
 
-    if member.authority.ne(&authority) {
+    if member.authority.ne(authority) {
         return Err(ProgramError::InvalidAccountData);
     }
 
-    if member.pool.ne(&pool) {
+    if member.pool.ne(pool) {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -65,7 +62,7 @@ pub fn load_pool_member(
     let member_data = info.data.borrow();
     let member = Member::try_from_bytes(&member_data)?;
 
-    if member.pool.ne(&pool) {
+    if member.pool.ne(pool) {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -78,9 +75,9 @@ pub fn load_pool_member(
 
 /// Errors if:
 /// - Owner is not pool program.
-/// - Address does not match the expected address.
 /// - Data is empty.
-/// - Account discriminator does not match expected value.
+/// - Data cannot be deserialized into a pool account.
+/// - Pool authority is not expected value.
 /// - Expected to be writable, but is not.
 pub fn load_pool(
     info: &AccountInfo<'_>,
@@ -91,21 +88,14 @@ pub fn load_pool(
         return Err(ProgramError::InvalidAccountOwner);
     }
 
-    if info.key.ne(&POOL_ADDRESS) {
-        return Err(ProgramError::InvalidSeeds);
-    }
-
     if info.data_is_empty() {
         return Err(ProgramError::UninitializedAccount);
     }
 
-    // if info.data.borrow()[0].ne(&(Pool::discriminator() as u8)) {
-    //     return Err(solana_program::program_error::ProgramError::InvalidAccountData);
-    // }
     let pool_data = info.data.borrow();
     let pool = Pool::try_from_bytes(&pool_data)?;
 
-    if pool.authority.ne(&authority) {
+    if pool.authority.ne(authority) {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -118,7 +108,6 @@ pub fn load_pool(
 
 /// Errors if:
 /// - Owner is not pool program.
-/// - Address does not match the expected address.
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
@@ -127,15 +116,11 @@ pub fn load_any_pool(info: &AccountInfo<'_>, is_writable: bool) -> Result<(), Pr
         return Err(ProgramError::InvalidAccountOwner);
     }
 
-    if info.key.ne(&POOL_ADDRESS) {
-        return Err(ProgramError::InvalidSeeds);
-    }
-
     if info.data_is_empty() {
         return Err(ProgramError::UninitializedAccount);
     }
 
-    if info.data.borrow()[0].ne(&(Pool::discriminator() as u8)) {
+    if info.data.borrow()[0].ne(&(Pool::discriminator())) {
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
     }
 
