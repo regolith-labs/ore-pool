@@ -2797,6 +2797,7 @@ version = "0.0.1"
 dependencies = [
  "actix-cors",
  "actix-web",
+ "base64 0.22.1",
  "bincode",
  "deadpool-postgres",
  "drillx",
@@ -2815,6 +2816,7 @@ dependencies = [
  "sha3 0.10.8",
  "solana-client",
  "solana-sdk",
+ "solana-transaction-status",
  "thiserror",
  "tokio",
  "tokio-postgres",

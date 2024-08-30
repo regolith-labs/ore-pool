@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "admin","api", "program", "server", "types"]
+members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
 version = "0.0.1"
@@ -38,6 +38,7 @@ sha3 = "0.10"
 solana-client = "^1.18"
 solana-program = "^1.18"
 solana-sdk = "^1.18"
+solana-transaction-status = "^1.18"
 spl-token = { features = ["no-entrypoint"], version = "^4" }
 spl-associated-token-account = { features = [
   "no-entrypoint",

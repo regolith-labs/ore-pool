@@ -4,6 +4,14 @@ use std::env::VarError;
 pub enum Error {
     #[error("bincode")]
     Bincode(#[from] bincode::Error),
+    #[error("base64 decode")]
+    Base64Decode(#[from] base64::DecodeError),
+    #[error("try from slice")]
+    TryFromSlice(#[from] std::array::TryFromSliceError),
+    #[error("tokio postgres")]
+    TokioPostgres(#[from] tokio_postgres::Error),
+    #[error("deadpool postgress error")]
+    DeadpoolPostgres(#[from] deadpool_postgres::PoolError),
     #[error("std io")]
     StdIO(#[from] std::io::Error),
     #[error("std env")]

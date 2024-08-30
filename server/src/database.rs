@@ -10,16 +10,18 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
-async fn _write_member(conn: &Object, member: Member) -> Result<(), Error> {
+pub async fn write_new_member(conn: &Object, member: &Member, approved: bool) -> Result<(), Error> {
     conn.execute(
         "INSERT INTO members
-        (address, authority, balance, is_approved, is_kyc)
-        VALUES ($1, $2, $3, $4, $5)",
+        (address, id, authority, pool_address, total_balance, is_approved, is_kyc)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)",
         &[
-            &member_pda(member.authority, member.pool).0.to_string(),
+            &(member_pda(member.authority, member.pool).0.to_string()),
+            &(member.id as i64),
             &member.authority.to_string(),
-            &(member.balance as i64),
-            &false,
+            &member.pool.to_string(),
+            &0i64,
+            &approved,
             &false,
         ],
     )

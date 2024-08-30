@@ -120,12 +120,13 @@ fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
     }
 }
 
-pub fn open(signer: Pubkey, pool: Pubkey) -> Instruction {
-    let (member_pda, member_bump) = member_pda(signer, pool);
+pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
+    let (member_pda, member_bump) = member_pda(member_authority, pool);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
-            AccountMeta::new(signer, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(member_authority, false),
             AccountMeta::new(member_pda, false),
             AccountMeta::new(pool, false),
             AccountMeta::new_readonly(system_program::id(), false),

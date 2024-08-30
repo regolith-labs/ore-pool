@@ -18,13 +18,18 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     let args = OpenArgs::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer, member_info, pool_info, system_program] = accounts else {
+    let [signer, member_authority_info, member_info, pool_info, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load_signer(signer)?;
+    load_system_account(member_authority_info, false)?;
     load_uninitialized_pda(
         member_info,
-        &[MEMBER, signer.key.as_ref(), pool_info.key.as_ref()],
+        &[
+            MEMBER,
+            member_authority_info.key.as_ref(),
+            pool_info.key.as_ref(),
+        ],
         args.member_bump,
         &ore_pool_api::id(),
     )?;
@@ -38,25 +43,28 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
         8 + size_of::<Member>(),
         &[
             MEMBER,
-            signer.key.as_ref(),
+            member_authority_info.key.as_ref(),
             pool_info.key.as_ref(),
             &[args.member_bump],
         ],
         system_program,
         signer,
     )?;
-    let mut member_data = member_info.try_borrow_mut_data()?;
-    member_data[0] = Member::discriminator();
-    let member = Member::try_from_bytes_mut(&mut member_data)?;
-    member.authority = *signer.key;
-    member.balance = 0;
-    member.total_balance = 0;
-    member.pool = *pool_info.key;
 
     // Update member count
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
     pool.total_members = pool.total_members.checked_add(1).unwrap();
+
+    // Init member
+    let mut member_data = member_info.try_borrow_mut_data()?;
+    member_data[0] = Member::discriminator();
+    let member = Member::try_from_bytes_mut(&mut member_data)?;
+    member.authority = *member_authority_info.key;
+    member.balance = 0;
+    member.total_balance = 0;
+    member.pool = *pool_info.key;
+    member.id = pool.total_members - 1; // zero index
 
     Ok(())
 }

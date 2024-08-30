@@ -2,6 +2,12 @@ use drillx::Solution;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RegisterPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GetChallengePayload {
     /// The authority of the member account sending the payload.
