@@ -111,11 +111,12 @@ pub async fn process_contributions(
         while let Some(contribution) = rx.recv().await {
             log::info!("recv contribution: {:?}", contribution);
             let mut aggregator = aggregator.lock().await;
+            let total_score = aggregator.total_score;
             let cutoff_time = aggregator.challenge.cutoff_time;
             log::info!("cutoff time: {}", cutoff_time);
             let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
             log::info!("out of time: {}", out_of_time);
-            if out_of_time {
+            if out_of_time && (total_score > 0) {
                 if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
                     // keep server looping
                     // there may be scenarios where the server doesn't receive solutions, etc.
