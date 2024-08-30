@@ -12,6 +12,8 @@ use solana_program::{
     system_program,
 };
 
+// TODO:return data for member-id
+
 /// Open creates a new account for a pool participant.
 pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
