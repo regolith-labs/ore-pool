@@ -225,17 +225,31 @@ impl Aggregator {
         operator: &Operator,
         timer: &mut tokio::time::Instant,
     ) -> Result<(), Error> {
+        // prepare best solution and attestation of hash-power
         let best_solution = self.winner()?.solution;
         let attestation = self.attestation();
+        // derive accounts for instructions
+        let authority = &operator.keypair.pubkey();
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(*authority);
+        let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
         let bus = self.find_bus(operator).await?;
-        let ix = ore_pool_api::instruction::submit(
+        // build instructions
+        let auth_ix = ore_api::instruction::auth(pool_proof_pda);
+        let submit_ix = ore_pool_api::instruction::submit(
             operator.keypair.pubkey(),
             best_solution,
             attestation,
             bus,
         );
         let rpc_client = &operator.rpc_client;
-        let sig = tx::submit(&operator.keypair, rpc_client, vec![ix], 1_000_000, 500_000).await?;
+        let sig = tx::submit(
+            &operator.keypair,
+            rpc_client,
+            vec![auth_ix, submit_ix],
+            1_500_000,
+            500_000,
+        )
+        .await?;
         log::info!("{:?}", sig);
 
         // TODO Parse tx response
