@@ -1,5 +1,7 @@
 use std::env::VarError;
 
+use actix_web::HttpResponse;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("bincode")]
@@ -20,6 +22,17 @@ pub enum Error {
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]
     SolanaProgram(#[from] solana_sdk::program_error::ProgramError),
+    #[error("member already exists")]
+    MemberAlreadyExisits,
     #[error("{0}")]
     Internal(String),
+}
+
+impl From<Error> for HttpResponse {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::MemberAlreadyExisits => HttpResponse::Conflict().finish(),
+            _ => HttpResponse::InternalServerError().finish(),
+        }
+    }
 }

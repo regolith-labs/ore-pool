@@ -29,6 +29,32 @@ pub struct Challenge {
     pub cutoff_time: u64,
 }
 
+// The member record that sits in the operator database
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Member {
+    // The respective pda pubkey of the on-chain account.
+    pub address: String,
+
+    // The id as assigned by the on-chain program.
+    pub id: i64,
+
+    // The authority pubkey of this account.
+    pub authority: String,
+
+    // The pool pubkey this account belongs to.
+    pub pool_address: String,
+
+    // The total balance assigned to this account.
+    // Always increments for idempotent on-chain updates.
+    pub total_balance: i64,
+
+    // Whether or not this member is approved by the operator.
+    pub is_approved: bool,
+
+    // Whether or not this member is KYC'd by the operator.
+    pub is_kyc: bool,
+}
+
 // The response from the /challenge request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MemberChallenge {

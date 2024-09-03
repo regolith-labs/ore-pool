@@ -1,9 +1,11 @@
 use ore_api::state::{Config, Proof};
+use ore_pool_api::state::Member;
 use ore_utils::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     clock::Clock,
     commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
     signature::Keypair,
     signer::{EncodableKey, Signer},
     sysvar,
@@ -29,6 +31,16 @@ impl Operator {
             keypair,
             rpc_client,
         })
+    }
+
+    pub async fn get_member(&self, member_authority: &Pubkey) -> Result<Member, Error> {
+        let authority = self.keypair.pubkey();
+        let rpc_client = &self.rpc_client;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
+        let (member_pda, _) = ore_pool_api::state::member_pda(*member_authority, pool_pda);
+        let data = rpc_client.get_account_data(&member_pda).await?;
+        let member = Member::try_from_bytes(data.as_slice())?;
+        Ok(*member)
     }
 
     pub async fn get_proof(&self) -> Result<Proof, Error> {

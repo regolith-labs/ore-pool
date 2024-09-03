@@ -100,6 +100,7 @@ impl Hash for Contribution {
     }
 }
 
+// TODO: race contributions against cutoff window
 pub async fn process_contributions(
     aggregator: &tokio::sync::Mutex<Aggregator>,
     operator: &Operator,

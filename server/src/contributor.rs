@@ -1,102 +1,101 @@
 use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
-use base64::prelude::*;
-use ore_pool_api::state::Member;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature, signer::Signer,
-    transaction::Transaction,
-};
-use solana_transaction_status::UiTransactionReturnData;
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{ContributePayload, GetChallengePayload, RegisterPayload};
 
-use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, Contribution};
+use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution};
 
-// TODO:
-pub async fn register(payload: web::Json<RegisterPayload>) -> impl Responder {
-    HttpResponse::Ok().finish()
+pub async fn register(
+    operator: web::Data<Operator>,
+    db_client: web::Data<deadpool_postgres::Pool>,
+    payload: web::Json<RegisterPayload>,
+) -> impl Responder {
+    let operator = operator.as_ref();
+    let res = register_new_member(operator, db_client.as_ref(), payload.into_inner()).await;
+    match res {
+        Ok(()) => HttpResponse::Ok().finish(),
+        Err(err) => {
+            log::error!("{:?}", err);
+            let http_response: HttpResponse = err.into();
+            http_response
+        }
+    }
 }
 
 async fn register_new_member(
     operator: &Operator,
-    rpc_client: &RpcClient,
     db_client: &deadpool_postgres::Pool,
     payload: RegisterPayload,
 ) -> Result<(), Error> {
-    // build ix
     let payer = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
-    let ix = ore_pool_api::instruction::open(member_authority, pool_pda, payer.pubkey());
-    let mut tx = Transaction::new_with_payer(&[ix], Some(&payer.pubkey()));
-    let hash = rpc_client.get_latest_blockhash().await?;
-    tx.sign(&[payer], hash);
-    let sig = rpc_client.send_transaction(&tx).await?;
-    // confirm transaction and fetch member-id from return data
-    confirm_transaction(rpc_client, &sig).await?;
-    let member_id = register_return_data(rpc_client, &sig).await?;
-    // write member to db
-    let member = Member {
-        id: member_id,
-        pool: pool_pda,
-        authority: member_authority,
-        balance: 0,
-        total_balance: 0,
-    };
+    // check if on-chain account already exists
+    let member = operator.get_member(&member_authority).await;
+    let rpc_client = &operator.rpc_client;
     let db_client = db_client.get().await?;
-    database::write_new_member(&db_client, &member, false).await?;
-    Ok(())
-}
-
-async fn confirm_transaction(rpc_client: &RpcClient, sig: &Signature) -> Result<(), Error> {
-    // Confirm the transaction with retries
-    let max_retries = 5;
-    let mut retries = 0;
-    while retries < max_retries {
-        if let Ok(confirmed) = rpc_client
-            .confirm_transaction_with_commitment(sig, CommitmentConfig::confirmed())
-            .await
-        {
-            if confirmed.value {
-                break;
+    match member {
+        Ok(member) => {
+            // member already exists on-chain
+            // check if record is in db already
+            let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
+            let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
+            match db_member {
+                Ok(_db_member) => {
+                    // member already exists in db
+                    Err(Error::MemberAlreadyExisits)
+                }
+                Err(_) => {
+                    // write member to db
+                    database::write_new_member(&db_client, &member, false).await?;
+                    Ok(())
+                }
             }
         }
-        retries += 1;
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        Err(err) => {
+            // member doesn't exist yet on-chain
+            // land tx to create new member account
+            log::error!("{:?}", err);
+            // build ix
+            let ix = ore_pool_api::instruction::open(member_authority, pool_pda, payer.pubkey());
+            // submit and confirm
+            let _ = tx::submit_and_confirm(payer, rpc_client, vec![ix], 1_000_000, 50_000).await?;
+            // fetch member account for assigned id
+            let member = operator.get_member(&member_authority).await?;
+            // write member to db
+            database::write_new_member(&db_client, &member, false).await?;
+            Ok(())
+        }
     }
-    if retries == max_retries {
-        return Err(Error::Internal("could not confirm transaction".to_string()));
-    }
-    Ok(())
 }
 
-type MemberId = u64;
-async fn register_return_data(rpc_client: &RpcClient, sig: &Signature) -> Result<MemberId, Error> {
-    let transaction = rpc_client
-        .get_transaction(
-            &sig,
-            solana_transaction_status::UiTransactionEncoding::JsonParsed,
-        )
-        .await?;
-    let return_data = transaction
-        .transaction
-        .meta
-        .ok_or(Error::Internal(
-            "missing return data (meta) from open instruction".to_string(),
-        ))?
-        .return_data;
-    let return_data: Option<UiTransactionReturnData> = From::from(return_data);
-    let (return_data, _) = return_data
-        .ok_or(Error::Internal(
-            "missing return data (meta) from open instruction".to_string(),
-        ))?
-        .data;
-    let return_data = BASE64_STANDARD.decode(return_data)?;
-    let return_data: [u8; 8] = return_data.as_slice().try_into()?;
-    let member_id = u64::from_le_bytes(return_data);
-    Ok(member_id)
-}
+// type MemberId = u64;
+// async fn register_return_data(rpc_client: &RpcClient, sig: &Signature) -> Result<MemberId, Error> {
+//     let transaction = rpc_client
+//         .get_transaction(
+//             &sig,
+//             solana_transaction_status::UiTransactionEncoding::JsonParsed,
+//         )
+//         .await?;
+//     let return_data = transaction
+//         .transaction
+//         .meta
+//         .ok_or(Error::Internal(
+//             "missing return data (meta) from open instruction".to_string(),
+//         ))?
+//         .return_data;
+//     let return_data: Option<UiTransactionReturnData> = From::from(return_data);
+//     let (return_data, _) = return_data
+//         .ok_or(Error::Internal(
+//             "missing return data (meta) from open instruction".to_string(),
+//         ))?
+//         .data;
+//     let return_data = BASE64_STANDARD.decode(return_data)?;
+//     let return_data: [u8; 8] = return_data.as_slice().try_into()?;
+//     let member_id = u64::from_le_bytes(return_data);
+//     Ok(member_id)
+// }
 
 pub async fn challenge(
     payload: web::Path<GetChallengePayload>,
