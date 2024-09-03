@@ -12,10 +12,6 @@ use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
 
-// TODO Register endpoint
-
-// TODO Start endpoint ??
-
 // TODO Timer loop to attribute on-chain balances
 // TODO Make this idempotent to avoid duplication
 
@@ -60,6 +56,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())
+            .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(

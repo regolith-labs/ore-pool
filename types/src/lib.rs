@@ -29,6 +29,12 @@ pub struct Challenge {
     pub cutoff_time: u64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GetMemberPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: String,
+}
+
 // The member record that sits in the operator database
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Member {

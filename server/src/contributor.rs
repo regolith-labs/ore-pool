@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{ContributePayload, GetChallengePayload, RegisterPayload};
+use types::{ContributePayload, GetChallengePayload, GetMemberPayload, RegisterPayload};
 
 use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution};
 
@@ -68,6 +68,34 @@ async fn register_new_member(
             Ok(db_member)
         }
     }
+}
+
+pub async fn member(
+    operator: web::Data<Operator>,
+    db_client: web::Data<deadpool_postgres::Pool>,
+    path: web::Path<GetMemberPayload>,
+) -> impl Responder {
+    match get_member(operator.as_ref(), db_client.as_ref(), path).await {
+        Ok(member) => HttpResponse::Ok().json(&member),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::NotFound().finish()
+        }
+    }
+}
+
+async fn get_member(
+    operator: &Operator,
+    db_client: &deadpool_postgres::Pool,
+    path: web::Path<GetMemberPayload>,
+) -> Result<types::Member, Error> {
+    let db_client = db_client.get().await?;
+    let member_authority = path.into_inner();
+    let member_authority = Pubkey::from_str(member_authority.authority.as_str())?;
+    let pool_authority = operator.keypair.pubkey();
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
+    let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
+    database::read_member(&db_client, &member_pda.to_string()).await
 }
 
 // type MemberId = u64;

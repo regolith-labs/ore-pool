@@ -22,6 +22,8 @@ pub enum Error {
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]
     SolanaProgram(#[from] solana_sdk::program_error::ProgramError),
+    #[error("solana pubkey")]
+    SolanaPubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
     #[error("member already exists")]
     MemberAlreadyExisits,
     #[error("{0}")]

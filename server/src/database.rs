@@ -1,8 +1,9 @@
 use std::env;
 
+use crate::error::Error;
 use deadpool_postgres::{Object, Pool};
 use ore_pool_api::state::member_pda;
-use tokio_postgres::{Error, NoTls};
+use tokio_postgres::NoTls;
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
