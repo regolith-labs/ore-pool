@@ -14,7 +14,7 @@ pub async fn register(
     let operator = operator.as_ref();
     let res = register_new_member(operator, db_client.as_ref(), payload.into_inner()).await;
     match res {
-        Ok(()) => HttpResponse::Ok().finish(),
+        Ok(db_member) => HttpResponse::Ok().json(&db_member),
         Err(err) => {
             log::error!("{:?}", err);
             let http_response: HttpResponse = err.into();
@@ -27,7 +27,7 @@ async fn register_new_member(
     operator: &Operator,
     db_client: &deadpool_postgres::Pool,
     payload: RegisterPayload,
-) -> Result<(), Error> {
+) -> Result<types::Member, Error> {
     let payer = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
@@ -42,14 +42,14 @@ async fn register_new_member(
             let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
             let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
             match db_member {
-                Ok(_db_member) => {
+                Ok(db_member) => {
                     // member already exists in db
-                    Err(Error::MemberAlreadyExisits)
+                    Ok(db_member)
                 }
                 Err(_) => {
                     // write member to db
-                    database::write_new_member(&db_client, &member, false).await?;
-                    Ok(())
+                    let db_member = database::write_new_member(&db_client, &member, false).await?;
+                    Ok(db_member)
                 }
             }
         }
@@ -64,8 +64,8 @@ async fn register_new_member(
             // fetch member account for assigned id
             let member = operator.get_member(&member_authority).await?;
             // write member to db
-            database::write_new_member(&db_client, &member, false).await?;
-            Ok(())
+            let db_member = database::write_new_member(&db_client, &member, false).await?;
+            Ok(db_member)
         }
     }
 }

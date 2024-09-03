@@ -14,23 +14,32 @@ pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
     approved: bool,
-) -> Result<(), Error> {
+) -> Result<types::Member, Error> {
+    let member = types::Member {
+        address: member_pda(member.authority, member.pool).0.to_string(),
+        id: (member.id as i64),
+        authority: member.authority.to_string(),
+        pool_address: member.pool.to_string(),
+        total_balance: 0,
+        is_approved: approved,
+        is_kyc: false,
+    };
     conn.execute(
         "INSERT INTO members
         (address, id, authority, pool_address, total_balance, is_approved, is_kyc)
         VALUES ($1, $2, $3, $4, $5, $6, $7)",
         &[
-            &(member_pda(member.authority, member.pool).0.to_string()),
-            &(member.id as i64),
-            &member.authority.to_string(),
-            &member.pool.to_string(),
-            &0i64,
-            &approved,
-            &false,
+            &member.address,
+            &member.id,
+            &member.authority,
+            &member.pool_address,
+            &member.total_balance,
+            &member.is_approved,
+            &member.is_kyc,
         ],
     )
     .await?;
-    Ok(())
+    Ok(member)
 }
 
 pub async fn read_member(conn: &Object, address: &String) -> Result<types::Member, Error> {

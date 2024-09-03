@@ -29,10 +29,7 @@ pub enum Error {
 }
 
 impl From<Error> for HttpResponse {
-    fn from(value: Error) -> Self {
-        match value {
-            Error::MemberAlreadyExisits => HttpResponse::Conflict().finish(),
-            _ => HttpResponse::InternalServerError().finish(),
-        }
+    fn from(_value: Error) -> Self {
+        HttpResponse::InternalServerError().finish()
     }
 }
