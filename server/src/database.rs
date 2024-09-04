@@ -11,6 +11,7 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
+// TODO: run migration, add field for "paid"
 pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
