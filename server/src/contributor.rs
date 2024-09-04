@@ -81,7 +81,13 @@ pub async fn member(
     db_client: web::Data<deadpool_postgres::Pool>,
     path: web::Path<GetMemberPayload>,
 ) -> impl Responder {
-    match get_member(operator.as_ref(), db_client.as_ref(), path).await {
+    match get_member(
+        operator.as_ref(),
+        db_client.as_ref(),
+        path.into_inner().authority.as_str(),
+    )
+    .await
+    {
         Ok(member) => HttpResponse::Ok().json(&member),
         Err(err) => {
             log::error!("{:?}", err);
@@ -93,11 +99,10 @@ pub async fn member(
 async fn get_member(
     operator: &Operator,
     db_client: &deadpool_postgres::Pool,
-    path: web::Path<GetMemberPayload>,
+    member_authority: &str,
 ) -> Result<types::Member, Error> {
     let db_client = db_client.get().await?;
-    let member_authority = path.into_inner();
-    let member_authority = Pubkey::from_str(member_authority.authority.as_str())?;
+    let member_authority = Pubkey::from_str(member_authority)?;
     let pool_authority = operator.keypair.pubkey();
     let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
     let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
@@ -120,18 +125,42 @@ pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -
     HttpResponse::Ok().json(&member_challenge)
 }
 
+async fn validate_nonce(
+    operator: &Operator,
+    db_client: &deadpool_postgres::Pool,
+    member_authority: &Pubkey,
+    nonce: u64,
+    num_members: u64,
+) -> Result<(), Error> {
+    let member = get_member(operator, db_client, member_authority.to_string().as_str()).await?;
+    let nonce_index = member.id as u64;
+    let u64_unit = u64::MAX.saturating_div(num_members);
+    let left_bound = u64_unit.saturating_mul(nonce_index);
+    let right_bound = u64_unit.saturating_mul(nonce_index + 1);
+    let ge_left = nonce >= left_bound;
+    let le_right = nonce <= right_bound;
+    if ge_left && le_right {
+        Ok(())
+    } else {
+        Err(Error::Internal("invalid nonce from client".to_string()))
+    }
+}
+
 /// Accepts solutions from pool members. If their solutions are valid, it
 /// aggregates the contributions into a list for publishing and submission.
 pub async fn contribute(
-    payload: web::Json<ContributePayload>,
-    tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
+    operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    db_client: web::Data<&deadpool_postgres::Pool>,
+    tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
+    payload: web::Json<ContributePayload>,
 ) -> impl Responder {
     log::info!("received payload");
     log::info!("decoded: {:?}", payload);
     // acquire read on aggregator for challenge
     let aggregator = aggregator.read().await;
     let challenge = aggregator.challenge;
+    let num_members = aggregator.num_members;
     drop(aggregator);
     // decode solution difficulty
     let solution = &payload.solution;
@@ -155,11 +184,25 @@ pub async fn contribute(
         log::error!("invalid solution");
         return HttpResponse::BadRequest().finish();
     }
+    // validate nonce
+    let member_authority = &payload.authority;
+    let nonce = solution.n;
+    let nonce = u64::from_le_bytes(nonce);
+    if let Err(err) = validate_nonce(
+        operator.as_ref(),
+        db_client.as_ref(),
+        member_authority,
+        nonce,
+        num_members,
+    )
+    .await
+    {
+        log::error!("{:?}", err);
+        return HttpResponse::Unauthorized().finish();
+    }
     // calculate score
     let score = 2u64.pow(difficulty);
     log::info!("score: {}", score);
-    // TODO: Reject if score is below min difficulty (as defined by the pool operator)
-
     // update the aggegator
     if let Err(err) = tx.send(Contribution {
         member: payload.authority,
