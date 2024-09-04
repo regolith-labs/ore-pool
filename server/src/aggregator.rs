@@ -1,7 +1,4 @@
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    hash::Hash,
-};
+use std::{collections::HashSet, hash::Hash};
 
 use drillx::Solution;
 use ore_api::{
@@ -12,13 +9,17 @@ use ore_utils::AccountDeserialize;
 use rand::Rng;
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{Challenge, MemberChallenge};
+use types::Challenge;
 
-use crate::{error::Error, operator::Operator, tx};
+use crate::{
+    error::Error,
+    operator::{Operator, BUFFER_OPERATOR},
+    tx,
+};
 
 // The client submits slightly earlier
 // than the operator's cutoff time to create a "submission window".
-const NONCE_BUFFER: u64 = 2;
+pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -34,8 +35,8 @@ pub struct Aggregator {
     // The best solution submitted.
     pub winner: Option<Winner>,
 
-    // The challenge coordinator that issues nonce indices to participating members.
-    pub coordinator: ChallengeCoordinator,
+    // The number of workers that have been approved for the current challenge.
+    pub num_members: u64,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -61,31 +62,6 @@ pub struct Contribution {
     pub solution: Solution,
 }
 
-pub struct ChallengeCoordinator {
-    // The number of total members that could participate in this challenge loop
-    // locked per "epoch" to determinstically distribute nonce indices
-    pub num_total_members_limit: u64,
-
-    // The sequentially incremented value member by member who fetches challenge.
-    pub num_total_members: u64,
-
-    // The lookup map from member authority to nonce index
-    // coordinated per epoch
-    pub nonce_indices: HashMap<Pubkey, u64>,
-}
-
-impl ChallengeCoordinator {
-    async fn new() -> Result<Self, Error> {
-        let num_total_members_limit = num_total_members_limit().await?;
-        let coordinator = ChallengeCoordinator {
-            num_total_members_limit,
-            num_total_members: 0,
-            nonce_indices: HashMap::new(),
-        };
-        Ok(coordinator)
-    }
-}
-
 impl PartialEq for Contribution {
     fn eq(&self, other: &Self) -> bool {
         self.member == other.member
@@ -102,7 +78,7 @@ impl Hash for Contribution {
 
 // TODO: race contributions against cutoff window
 pub async fn process_contributions(
-    aggregator: &tokio::sync::Mutex<Aggregator>,
+    aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
 ) -> Result<(), Error> {
@@ -111,7 +87,7 @@ pub async fn process_contributions(
     loop {
         while let Some(contribution) = rx.recv().await {
             log::info!("recv contribution: {:?}", contribution);
-            let mut aggregator = aggregator.lock().await;
+            let mut aggregator = aggregator.write().await;
             let total_score = aggregator.total_score;
             let cutoff_time = aggregator.challenge.cutoff_time;
             log::info!("cutoff time: {}", cutoff_time);
@@ -130,13 +106,9 @@ pub async fn process_contributions(
     }
 }
 
-// TODO: persist / lookup
-async fn num_total_members_limit() -> Result<u64, Error> {
-    Ok(100)
-}
-
 impl Aggregator {
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
+        let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
         let config = operator.get_config().await?;
         let cutoff_time = operator.get_cutoff(&proof).await?;
@@ -146,48 +118,14 @@ impl Aggregator {
             min_difficulty: config.min_difficulty,
             cutoff_time,
         };
-        let coordinator = ChallengeCoordinator::new().await?;
         let aggregator = Aggregator {
             challenge,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
-            coordinator,
+            num_members: pool.last_total_members,
         };
         Ok(aggregator)
-    }
-
-    // TODO: error if member not approved
-    pub async fn nonce_index(
-        &mut self,
-        member_authority: &Pubkey,
-    ) -> Result<MemberChallenge, Error> {
-        // reference challenge
-        let challenge = &self.challenge;
-        let mut challenge = *challenge;
-        // add nonce buffer to cuttoff time to create submission window
-        challenge.cutoff_time = challenge.cutoff_time.saturating_sub(NONCE_BUFFER).max(0);
-        // increment / assign nonce index
-        let num_total_members_limit = self.coordinator.num_total_members_limit;
-        let num_total_members = &mut self.coordinator.num_total_members;
-        let coordinator = &mut self.coordinator.nonce_indices;
-        let entry = coordinator.entry(*member_authority);
-        match entry {
-            Entry::Occupied(nonce_index) => Ok(MemberChallenge {
-                challenge,
-                nonce_index: *(nonce_index.get()),
-                num_total_members: num_total_members_limit,
-            }),
-            Entry::Vacant(vacant) => {
-                *num_total_members += 1;
-                vacant.insert(*num_total_members);
-                Ok(MemberChallenge {
-                    challenge,
-                    nonce_index: *num_total_members,
-                    num_total_members: num_total_members_limit,
-                })
-            }
-        }
     }
 
     fn insert(&mut self, contribution: &Contribution) {
@@ -310,12 +248,12 @@ impl Aggregator {
         operator: &Operator,
         timer: &mut tokio::time::Instant,
     ) -> Result<(), Error> {
-        let coordinator = ChallengeCoordinator::new().await?;
-        self.coordinator = coordinator;
         self.update_challenge(operator).await?;
+        let pool = operator.get_pool().await?;
         self.contributions = HashSet::new();
         self.total_score = 0;
         self.winner = None;
+        self.num_members = pool.last_total_members;
         *timer = tokio::time::Instant::now();
         Ok(())
     }

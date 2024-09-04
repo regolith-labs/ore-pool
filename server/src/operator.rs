@@ -1,5 +1,5 @@
 use ore_api::state::{Config, Proof};
-use ore_pool_api::state::Member;
+use ore_pool_api::state::{Member, Pool};
 use ore_utils::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -13,7 +13,7 @@ use solana_sdk::{
 
 use crate::error::Error;
 
-const BUFFER_TIME: u64 = 5;
+pub const BUFFER_OPERATOR: u64 = 5;
 
 pub struct Operator {
     // The pool authority keypair.
@@ -31,6 +31,15 @@ impl Operator {
             keypair,
             rpc_client,
         })
+    }
+
+    pub async fn get_pool(&self) -> Result<Pool, Error> {
+        let authority = self.keypair.pubkey();
+        let rpc_client = &self.rpc_client;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
+        let data = rpc_client.get_account_data(&pool_pda).await?;
+        let pool = Pool::try_from_bytes(data.as_slice())?;
+        Ok(*pool)
     }
 
     pub async fn get_member(&self, member_authority: &Pubkey) -> Result<Member, Error> {
@@ -66,7 +75,7 @@ impl Operator {
         Ok(proof
             .last_hash_at
             .saturating_add(60)
-            .saturating_sub(BUFFER_TIME as i64)
+            .saturating_sub(BUFFER_OPERATOR as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64)
     }

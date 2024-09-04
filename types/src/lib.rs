@@ -8,12 +8,6 @@ pub struct RegisterPayload {
     pub authority: Pubkey,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct GetChallengePayload {
-    /// The authority of the member account sending the payload.
-    pub authority: String,
-}
-
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Challenge {
     /// The current challenge the pool is accepting solutions for.
@@ -67,8 +61,9 @@ pub struct MemberChallenge {
     // The challenge to mine for.
     pub challenge: Challenge,
 
-    // The unique nonce index to start mining at.
-    pub nonce_index: u64,
+    // Additional seconds to be subtracted from the cuttoff time
+    // to create a "submission window".
+    pub buffer: u64,
 
     // The number of total members to divide the nonce space by.
     pub num_total_members: u64,

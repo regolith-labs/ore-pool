@@ -51,11 +51,11 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     pool_data[0] = Pool::discriminator();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.attestation = [0; 32];
     pool.authority = *signer.key;
-    pool.total_members = 0;
-    pool.total_submissions = 0;
     pool.url = args.url;
+    pool.attestation = [0; 32];
+    pool.total_members = 1; // cannot have zero members
+    pool.last_total_members = 1; // because this value is used to enforce the divided nonce-space
 
     // Open proof account.
     drop(pool_data);

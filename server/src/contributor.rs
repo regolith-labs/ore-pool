@@ -2,9 +2,15 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{ContributePayload, GetChallengePayload, GetMemberPayload, RegisterPayload};
+use types::{ContributePayload, GetMemberPayload, MemberChallenge, RegisterPayload};
 
-use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution};
+use crate::{
+    aggregator::{Aggregator, BUFFER_CLIENT},
+    database,
+    error::Error,
+    operator::Operator,
+    tx, Contribution,
+};
 
 pub async fn register(
     operator: web::Data<Operator>,
@@ -98,56 +104,20 @@ async fn get_member(
     database::read_member(&db_client, &member_pda.to_string()).await
 }
 
-// type MemberId = u64;
-// async fn register_return_data(rpc_client: &RpcClient, sig: &Signature) -> Result<MemberId, Error> {
-//     let transaction = rpc_client
-//         .get_transaction(
-//             &sig,
-//             solana_transaction_status::UiTransactionEncoding::JsonParsed,
-//         )
-//         .await?;
-//     let return_data = transaction
-//         .transaction
-//         .meta
-//         .ok_or(Error::Internal(
-//             "missing return data (meta) from open instruction".to_string(),
-//         ))?
-//         .return_data;
-//     let return_data: Option<UiTransactionReturnData> = From::from(return_data);
-//     let (return_data, _) = return_data
-//         .ok_or(Error::Internal(
-//             "missing return data (meta) from open instruction".to_string(),
-//         ))?
-//         .data;
-//     let return_data = BASE64_STANDARD.decode(return_data)?;
-//     let return_data: [u8; 8] = return_data.as_slice().try_into()?;
-//     let member_id = u64::from_le_bytes(return_data);
-//     Ok(member_id)
-// }
-
-pub async fn challenge(
-    payload: web::Path<GetChallengePayload>,
-    aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
-) -> impl Responder {
-    let member_authority = payload.into_inner().authority;
-    match Pubkey::from_str(member_authority.as_str()) {
-        Ok(member_authority) => {
-            let aggregator = aggregator.as_ref();
-            let mut aggregator = aggregator.lock().await;
-            let challenge = aggregator.nonce_index(&member_authority).await;
-            match challenge {
-                Ok(challenge) => HttpResponse::Ok().json(challenge),
-                Err(err) => {
-                    log::error!("{:?}", err);
-                    HttpResponse::InternalServerError().finish()
-                }
-            }
-        }
-        Err(err) => {
-            log::error!("{:?}", err);
-            HttpResponse::BadRequest().body(err.to_string())
-        }
-    }
+// TODO: consider the need for auth on this get/read?
+pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
+    // acquire read on aggregator for challenge
+    let aggregator = aggregator.read().await;
+    let challenge = aggregator.challenge;
+    let last_num_members = aggregator.num_members;
+    drop(aggregator);
+    // build member challenge
+    let member_challenge = MemberChallenge {
+        challenge,
+        buffer: BUFFER_CLIENT,
+        num_total_members: last_num_members,
+    };
+    HttpResponse::Ok().json(&member_challenge)
 }
 
 /// Accepts solutions from pool members. If their solutions are valid, it
@@ -155,13 +125,14 @@ pub async fn challenge(
 pub async fn contribute(
     payload: web::Json<ContributePayload>,
     tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
-    aggregator: web::Data<tokio::sync::Mutex<Aggregator>>,
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
 ) -> impl Responder {
     log::info!("received payload");
     log::info!("decoded: {:?}", payload);
-    // lock aggregrator to ensure we're contributing to the current challenge
-    let aggregator = aggregator.as_ref();
-    let aggregator = aggregator.lock().await;
+    // acquire read on aggregator for challenge
+    let aggregator = aggregator.read().await;
+    let challenge = aggregator.challenge;
+    drop(aggregator);
     // decode solution difficulty
     let solution = &payload.solution;
     log::info!("solution: {:?}", solution);
@@ -175,12 +146,12 @@ pub async fn contribute(
         return HttpResponse::Unauthorized().finish();
     }
     // error if solution below min difficulty
-    if difficulty < (aggregator.challenge.min_difficulty as u32) {
+    if difficulty < (challenge.min_difficulty as u32) {
         log::error!("solution below min difficulity: {:?}", payload.authority);
         return HttpResponse::BadRequest().finish();
     }
     // error if digest is invalid
-    if !drillx::is_valid_digest(&aggregator.challenge.challenge, &solution.n, &solution.d) {
+    if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
         log::error!("invalid solution");
         return HttpResponse::BadRequest().finish();
     }

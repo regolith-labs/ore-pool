@@ -20,7 +20,7 @@ async fn main() -> Result<(), error::Error> {
     let pool = create_pool();
     let pool = web::Data::new(pool);
     let operator = web::Data::new(Operator::new()?);
-    let aggregator = tokio::sync::Mutex::new(Aggregator::new(&operator).await?);
+    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);

@@ -42,6 +42,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let mut proof_data = proof_info.data.borrow_mut();
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
     pool.last_hash_at = proof.last_hash_at;
+    pool.last_total_members = pool.total_members;
     drop(proof_data);
 
     // Submit solution to the ORE program
