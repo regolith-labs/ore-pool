@@ -59,10 +59,7 @@ async fn main() -> Result<(), error::Error> {
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
-            .service(
-                web::resource("/challenge/{authority}")
-                    .route(web::get().to(contributor::challenge)),
-            )
+            .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))
             .service(health)
     })
     .bind("0.0.0.0:3000")?
