@@ -76,7 +76,6 @@ impl Hash for Contribution {
     }
 }
 
-// TODO: race contributions against cutoff window
 pub async fn process_contributions(
     aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
@@ -96,7 +95,6 @@ pub async fn process_contributions(
             if out_of_time && (total_score > 0) {
                 if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
                     // keep server looping
-                    // there may be scenarios where the server doesn't receive solutions, etc.
                     log::error!("{:?}", err);
                 }
             } else {
@@ -107,16 +105,15 @@ pub async fn process_contributions(
 }
 
 impl Aggregator {
-    // TODO: min-difficulty as env
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
-        let config = operator.get_config().await?;
         let cutoff_time = operator.get_cutoff(&proof).await?;
+        let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
             lash_hash_at: proof.last_hash_at,
-            min_difficulty: config.min_difficulty,
+            min_difficulty,
             cutoff_time,
         };
         let aggregator = Aggregator {
@@ -264,7 +261,6 @@ impl Aggregator {
             .ok_or(Error::Internal("no solutions were submitted".to_string()))
     }
 
-    // TODO: min-difficulty as env
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {
         let max_retries = 10;
         let mut retries = 0;
@@ -274,11 +270,11 @@ impl Aggregator {
             log::info!("new hash: {:?}", proof.last_hash_at);
             log::info!("live hash: {:?}", last_hash_at);
             if proof.last_hash_at != last_hash_at {
-                let config = operator.get_config().await?;
                 let cutoff_time = operator.get_cutoff(&proof).await?;
+                let min_difficulty = operator.min_difficulty().await?;
                 self.challenge.challenge = proof.challenge;
                 self.challenge.lash_hash_at = proof.last_hash_at;
-                self.challenge.min_difficulty = config.min_difficulty;
+                self.challenge.min_difficulty = min_difficulty;
                 self.challenge.cutoff_time = cutoff_time;
                 return Ok(());
             } else {

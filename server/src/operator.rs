@@ -14,6 +14,7 @@ use solana_sdk::{
 use crate::error::Error;
 
 pub const BUFFER_OPERATOR: u64 = 5;
+const MIN_DIFFICULTY: Option<u64> = None;
 
 pub struct Operator {
     // The pool authority keypair.
@@ -62,14 +63,6 @@ impl Operator {
         Ok(*proof)
     }
 
-    pub async fn get_config(&self) -> Result<Config, Error> {
-        let config_pda = ore_api::consts::CONFIG_ADDRESS;
-        let rpc_client = &self.rpc_client;
-        let data = rpc_client.get_account_data(&config_pda).await?;
-        let config = Config::try_from_bytes(data.as_slice())?;
-        Ok(*config)
-    }
-
     pub async fn get_cutoff(&self, proof: &Proof) -> Result<u64, Error> {
         let clock = self.get_clock().await?;
         Ok(proof
@@ -78,6 +71,26 @@ impl Operator {
             .saturating_sub(BUFFER_OPERATOR as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64)
+    }
+
+    pub async fn min_difficulty(&self) -> Result<u64, Error> {
+        let config = self.get_config().await?;
+        let program_min = config.min_difficulty;
+        match MIN_DIFFICULTY {
+            Some(operator_min) => {
+                let max = program_min.max(operator_min);
+                Ok(max)
+            }
+            None => Ok(program_min),
+        }
+    }
+
+    async fn get_config(&self) -> Result<Config, Error> {
+        let config_pda = ore_api::consts::CONFIG_ADDRESS;
+        let rpc_client = &self.rpc_client;
+        let data = rpc_client.get_account_data(&config_pda).await?;
+        let config = Config::try_from_bytes(data.as_slice())?;
+        Ok(*config)
     }
 
     async fn get_clock(&self) -> Result<Clock, Error> {
@@ -105,8 +118,6 @@ impl Operator {
         ))
     }
 
-    // "https://mainnet.helius-rpc.com/?api-key=1de92644-323b-4900-9041-13c02730955c";
-    // const RPC_URL: &str = "https://devnet.helius-rpc.com/?api-key=1de92644-323b-4900-9041-13c02730955c";
     fn rpc_url() -> Result<String, Error> {
         std::env::var("RPC_URL").map_err(From::from)
     }

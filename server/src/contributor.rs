@@ -151,7 +151,7 @@ async fn validate_nonce(
 pub async fn contribute(
     operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    db_client: web::Data<&deadpool_postgres::Pool>,
+    db_client: web::Data<deadpool_postgres::Pool>,
     tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
     payload: web::Json<ContributePayload>,
 ) -> impl Responder {
