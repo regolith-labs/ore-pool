@@ -132,13 +132,21 @@ async fn validate_nonce(
     nonce: u64,
     num_members: u64,
 ) -> Result<(), Error> {
+    log::info!("num members: {}", num_members);
+    log::info!("nonce: {}", nonce);
     let member = get_member(operator, db_client, member_authority.to_string().as_str()).await?;
+    log::info!("member: {:?}", member);
     let nonce_index = member.id as u64;
     let u64_unit = u64::MAX.saturating_div(num_members);
+    log::info!("unit: {}", u64_unit);
     let left_bound = u64_unit.saturating_mul(nonce_index);
+    log::info!("left bound: {}", left_bound);
     let right_bound = u64_unit.saturating_mul(nonce_index + 1);
+    log::info!("right bound: {}", right_bound);
     let ge_left = nonce >= left_bound;
+    log::info!("ge left: {}", ge_left);
     let le_right = nonce <= right_bound;
+    log::info!("le right: {}", le_right);
     if ge_left && le_right {
         Ok(())
     } else {
