@@ -107,6 +107,7 @@ pub async fn process_contributions(
 }
 
 impl Aggregator {
+    // TODO: min-difficulty as env
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
@@ -263,6 +264,7 @@ impl Aggregator {
             .ok_or(Error::Internal("no solutions were submitted".to_string()))
     }
 
+    // TODO: min-difficulty as env
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {
         let max_retries = 10;
         let mut retries = 0;

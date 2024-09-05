@@ -53,6 +53,9 @@ pub struct Member {
 
     // Whether or not this member is KYC'd by the operator.
     pub is_kyc: bool,
+
+    // Whether or not this member's on-chain balance is in sync with the operator db balance.
+    pub is_synced: bool,
 }
 
 // The response from the /challenge request.

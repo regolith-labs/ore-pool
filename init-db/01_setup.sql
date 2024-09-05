@@ -9,7 +9,8 @@ BEGIN
           pool_address VARCHAR NOT NULL UNIQUE,
           total_balance BIGINT NOT NULL,
           is_approved BOOLEAN NOT NULL,
-          is_kyc BOOLEAN NOT NULL
+          is_kyc BOOLEAN NOT NULL,
+          is_synced BOOLEAN NOT NULL
         );
     END IF;
 END

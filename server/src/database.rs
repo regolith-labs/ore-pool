@@ -11,7 +11,7 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
-// TODO: run migration, add field for "paid"
+// TODO: update balance
 pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
@@ -25,10 +25,11 @@ pub async fn write_new_member(
         total_balance: 0,
         is_approved: approved,
         is_kyc: false,
+        is_synced: true,
     };
     conn.execute(
         "INSERT INTO members
-        (address, id, authority, pool_address, total_balance, is_approved, is_kyc)
+        (address, id, authority, pool_address, total_balance, is_approved, is_kyc, is_synced)
         VALUES ($1, $2, $3, $4, $5, $6, $7)",
         &[
             &member.address,
@@ -38,6 +39,7 @@ pub async fn write_new_member(
             &member.total_balance,
             &member.is_approved,
             &member.is_kyc,
+            &member.is_synced,
         ],
     )
     .await?;
@@ -48,7 +50,7 @@ pub async fn read_member(conn: &Object, address: &String) -> Result<types::Membe
     let row = conn
         .query_one(
             &format!(
-                "SELECT address, id, authority, pool_address, total_balance, is_approved, is_kyc
+                "SELECT address, id, authority, pool_address, total_balance, is_approved, is_kyc, is_synced
                 FROM members
                 WHERE address = '{}'",
                 address
@@ -64,5 +66,6 @@ pub async fn read_member(conn: &Object, address: &String) -> Result<types::Membe
         total_balance: row.try_get(4)?,
         is_approved: row.try_get(5)?,
         is_kyc: row.try_get(6)?,
+        is_synced: row.try_get(7)?,
     })
 }
