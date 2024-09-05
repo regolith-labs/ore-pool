@@ -30,7 +30,7 @@ pub async fn write_new_member(
     conn.execute(
         "INSERT INTO members
         (address, id, authority, pool_address, total_balance, is_approved, is_kyc, is_synced)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         &[
             &member.address,
             &member.id,
