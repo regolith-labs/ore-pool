@@ -220,7 +220,9 @@ impl Aggregator {
 
     async fn submit_and_reset(&mut self, operator: &Operator) -> Result<(), Error> {
         // prepare best solution and attestation of hash-power
-        let best_solution = self.winner()?.solution;
+        let winner = self.winner()?;
+        log::info!("winner: {:?}", winner);
+        let best_solution = winner.solution;
         let attestation = self.attestation();
         // derive accounts for instructions
         let authority = &operator.keypair.pubkey();
