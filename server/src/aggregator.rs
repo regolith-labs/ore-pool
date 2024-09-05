@@ -40,7 +40,7 @@ pub struct Aggregator {
 }
 
 // Best hash to be submitted for the current challenge.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Winner {
     // The winning solution.
     pub solution: Solution,
