@@ -54,8 +54,9 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     pool.authority = *signer.key;
     pool.url = args.url;
     pool.attestation = [0; 32];
-    pool.total_members = 1; // cannot have zero members
-    pool.last_total_members = 1; // because this value is used to enforce the divided nonce-space
+    // must be non-zero value
+    // to divide nonce space for at least one member
+    pool.last_total_members = 1;
 
     // Open proof account.
     drop(pool_data);

@@ -29,6 +29,7 @@ pub async fn register(
     }
 }
 
+// TODO: have client build and sign for tx, valdiate here
 async fn register_new_member(
     operator: &Operator,
     db_client: &deadpool_postgres::Pool,
@@ -125,6 +126,7 @@ pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -
     HttpResponse::Ok().json(&member_challenge)
 }
 
+// TODO: consider fitting lookup table from member authority to id, in memory
 async fn validate_nonce(
     operator: &Operator,
     db_client: &deadpool_postgres::Pool,

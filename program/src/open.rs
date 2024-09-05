@@ -54,7 +54,6 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     // Update member count
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.total_members = pool.total_members.checked_add(1).unwrap();
 
     // Init member
     let mut member_data = member_info.try_borrow_mut_data()?;
@@ -64,7 +63,8 @@ pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     member.balance = 0;
     member.total_balance = 0;
     member.pool = *pool_info.key;
-    member.id = pool.total_members - 1; // zero index
+    member.id = pool.total_members; // zero index
+    pool.total_members = pool.total_members.checked_add(1).unwrap();
 
     Ok(())
 }
