@@ -6,7 +6,7 @@ BEGIN
           address VARCHAR PRIMARY KEY,
           id BIGINT NOT NULL,
           authority VARCHAR NOT NULL,
-          pool_address VARCHAR NOT NULL UNIQUE,
+          pool_address VARCHAR NOT NULL,
           total_balance BIGINT NOT NULL,
           is_approved BOOLEAN NOT NULL,
           is_kyc BOOLEAN NOT NULL,
