@@ -15,6 +15,9 @@
 ## State
  - [`Pool`](api/src/state/pool.rs) – A singleton account ...
 
+## Admin
+- Must `cargo run` the ./admin/src/main.rs application before starting server.
+This creates the pool account on-chain which the server expects to exist upon starting.
 
 ## Server
 
