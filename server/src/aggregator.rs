@@ -76,34 +76,6 @@ impl Hash for Contribution {
     }
 }
 
-// pub async fn process_contributions(
-//     aggregator: &tokio::sync::RwLock<Aggregator>,
-//     operator: &Operator,
-//     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
-// ) -> Result<(), Error> {
-//     log::info!("starting aggregator loop");
-//     let mut timer = tokio::time::Instant::now();
-//     loop {
-//         while let Some(contribution) = rx.recv().await {
-//             log::info!("recv contribution: {:?}", contribution);
-//             let mut aggregator = aggregator.write().await;
-//             let total_score = aggregator.total_score;
-//             let cutoff_time = aggregator.challenge.cutoff_time;
-//             log::info!("cutoff time: {}", cutoff_time);
-//             let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
-//             log::info!("out of time: {}", out_of_time);
-//             if out_of_time && (total_score > 0) {
-//                 if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
-//                     // keep server looping
-//                     log::error!("{:?}", err);
-//                 }
-//             } else {
-//                 aggregator.insert(&contribution)
-//             }
-//         }
-//     }
-// }
-
 pub async fn process_contributions(
     aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
@@ -277,6 +249,8 @@ impl Aggregator {
     fn attestation(&self) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         let contributions = &self.contributions;
+        let num_contributions = contributions.len();
+        log::info!("num contributions: {}", num_contributions);
         for contribution in contributions.iter() {
             let hex_string: String =
                 contribution
