@@ -76,29 +76,90 @@ impl Hash for Contribution {
     }
 }
 
+// pub async fn process_contributions(
+//     aggregator: &tokio::sync::RwLock<Aggregator>,
+//     operator: &Operator,
+//     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
+// ) -> Result<(), Error> {
+//     log::info!("starting aggregator loop");
+//     let mut timer = tokio::time::Instant::now();
+//     loop {
+//         while let Some(contribution) = rx.recv().await {
+//             log::info!("recv contribution: {:?}", contribution);
+//             let mut aggregator = aggregator.write().await;
+//             let total_score = aggregator.total_score;
+//             let cutoff_time = aggregator.challenge.cutoff_time;
+//             log::info!("cutoff time: {}", cutoff_time);
+//             let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
+//             log::info!("out of time: {}", out_of_time);
+//             if out_of_time && (total_score > 0) {
+//                 if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
+//                     // keep server looping
+//                     log::error!("{:?}", err);
+//                 }
+//             } else {
+//                 aggregator.insert(&contribution)
+//             }
+//         }
+//     }
+// }
+
 pub async fn process_contributions(
     aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
 ) -> Result<(), Error> {
-    log::info!("starting aggregator loop");
-    let mut timer = tokio::time::Instant::now();
+    // outer loop for new challenges
     loop {
-        while let Some(contribution) = rx.recv().await {
-            log::info!("recv contribution: {:?}", contribution);
+        let timer = tokio::time::Instant::now();
+        let cutoff_time = {
+            let read = aggregator.read().await;
+            read.challenge.cutoff_time
+        };
+        let mut remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
+        // inner loop to process contributions until cutoff time
+        while remaining_time > 0 {
+            // race the next contribution against remaining time
+            match tokio::time::timeout(tokio::time::Duration::from_secs(remaining_time), rx.recv())
+                .await
+            {
+                Ok(Some(contribution)) => {
+                    log::info!("recv contribution: {:?}", contribution);
+                    let mut aggregator = aggregator.write().await;
+                    aggregator.insert(&contribution);
+                    drop(aggregator);
+                    // recalculate the remaining time after processing the contribution
+                    remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
+                }
+                Ok(None) => {
+                    // if the receiver is closed, exit server
+                    return Err(Error::Internal("contribution channel closed".to_string()));
+                }
+                Err(_) => {
+                    // timeout expired, meaning cutoff time has been reached
+                    break;
+                }
+            }
+        }
+        // at this point, the cutoff time has been reached
+        let total_score = {
+            let read = aggregator.read().await;
+            read.total_score
+        };
+        if total_score > 0 {
+            // submit if contributions exist
             let mut aggregator = aggregator.write().await;
-            let total_score = aggregator.total_score;
-            let cutoff_time = aggregator.challenge.cutoff_time;
-            log::info!("cutoff time: {}", cutoff_time);
-            let out_of_time = timer.elapsed().as_secs().ge(&cutoff_time);
-            log::info!("out of time: {}", out_of_time);
-            if out_of_time && (total_score > 0) {
-                if let Err(err) = aggregator.submit_and_reset(operator, &mut timer).await {
-                    // keep server looping
+            if let Err(err) = aggregator.submit_and_reset(operator).await {
+                log::error!("{:?}", err);
+            }
+        } else {
+            // no contributions yet, wait for the first one to submit
+            if let Some(contribution) = rx.recv().await {
+                let mut aggregator = aggregator.write().await;
+                aggregator.insert(&contribution);
+                if let Err(err) = aggregator.submit_and_reset(operator).await {
                     log::error!("{:?}", err);
                 }
-            } else {
-                aggregator.insert(&contribution)
             }
         }
     }
@@ -157,11 +218,7 @@ impl Aggregator {
         }
     }
 
-    async fn submit_and_reset(
-        &mut self,
-        operator: &Operator,
-        timer: &mut tokio::time::Instant,
-    ) -> Result<(), Error> {
+    async fn submit_and_reset(&mut self, operator: &Operator) -> Result<(), Error> {
         // prepare best solution and attestation of hash-power
         let best_solution = self.winner()?.solution;
         let attestation = self.attestation();
@@ -193,7 +250,7 @@ impl Aggregator {
         // TODO Update members' local attribution balances
         // TODO Publish block to S3
 
-        self.reset(operator, timer).await?;
+        self.reset(operator).await?;
         Ok(())
     }
 
@@ -241,18 +298,13 @@ impl Aggregator {
         attestation
     }
 
-    async fn reset(
-        &mut self,
-        operator: &Operator,
-        timer: &mut tokio::time::Instant,
-    ) -> Result<(), Error> {
+    async fn reset(&mut self, operator: &Operator) -> Result<(), Error> {
         self.update_challenge(operator).await?;
         let pool = operator.get_pool().await?;
         self.contributions = HashSet::new();
         self.total_score = 0;
         self.winner = None;
         self.num_members = pool.last_total_members;
-        *timer = tokio::time::Instant::now();
         Ok(())
     }
 
