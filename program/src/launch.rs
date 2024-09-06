@@ -54,7 +54,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     pool.authority = *signer.key;
     pool.url = args.url;
     pool.attestation = [0; 32];
-    // must be non-zero value
+    // Must be non-zero value
     // to divide nonce space for at least one member
     pool.last_total_members = 1;
 

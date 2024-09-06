@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use drillx::Solution;
 use num_enum::TryFromPrimitive;
-use ore_api::consts::CONFIG_ADDRESS;
+use ore_api::consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS};
 use ore_utils::instruction;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
@@ -135,6 +135,35 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
         data: [
             PoolInstruction::Open.to_vec(),
             OpenArgs { member_bump }.to_bytes().to_vec(),
+        ]
+        .concat(),
+    }
+}
+
+/// Builds a claim instruction.
+pub fn claim(signer: Pubkey, pool: Pubkey, beneficiary: Pubkey, amount: u64) -> Instruction {
+    let (member_pda, _) = member_pda(signer, pool);
+    let (pool_proof_pda, _) = pool_proof_pda(pool);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(beneficiary, false),
+            AccountMeta::new(member_pda, false),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new(pool_proof_pda, false),
+            AccountMeta::new_readonly(TREASURY_ADDRESS, false),
+            AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),
+            AccountMeta::new_readonly(ore_api::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+        ],
+        data: [
+            PoolInstruction::Claim.to_vec(),
+            ClaimArgs {
+                amount: amount.to_le_bytes(),
+            }
+            .to_bytes()
+            .to_vec(),
         ]
         .concat(),
     }
