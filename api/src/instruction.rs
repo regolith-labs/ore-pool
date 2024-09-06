@@ -120,6 +120,7 @@ fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
     }
 }
 
+/// Builds an open instruction.
 pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
     let (member_pda, member_bump) = member_pda(member_authority, pool);
     Instruction {
@@ -134,6 +135,29 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
         data: [
             PoolInstruction::Open.to_vec(),
             OpenArgs { member_bump }.to_bytes().to_vec(),
+        ]
+        .concat(),
+    }
+}
+
+/// Builds an attribute instruction.
+pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -> Instruction {
+    let (pool_pda, _) = pool_pda(signer);
+    let (member_pda, _) = member_pda(member_authority, pool_pda);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(pool_pda, false),
+            AccountMeta::new(member_pda, false),
+        ],
+        data: [
+            PoolInstruction::Attribute.to_vec(),
+            AttributeArgs {
+                total_balance: total_balance.to_le_bytes(),
+            }
+            .to_bytes()
+            .to_vec(),
         ]
         .concat(),
     }

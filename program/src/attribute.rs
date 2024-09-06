@@ -20,7 +20,7 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     };
     load_signer(signer)?;
     load_pool(pool_info, signer.key, false)?;
-    load_pool_member(member_info, pool_info.key, false)?;
+    load_pool_member(member_info, pool_info.key, true)?;
 
     // Update balance idempotently
     let mut member_data = member_info.data.borrow_mut();
