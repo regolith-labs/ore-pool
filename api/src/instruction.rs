@@ -22,34 +22,27 @@ pub enum PoolInstruction {
     // User
     Open = 0,
     Claim = 1,
-    
     // Operator
     Attribute = 100,
     Launch = 101,
     Submit = 102,
 }
 
-impl PoolInstruction {
-    pub fn to_vec(&self) -> Vec<u8> {
-        vec![*self as u8]
-    }
-}
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct AttributeArgs {
+pub struct Attribute {
     pub total_balance: [u8; 8],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct ClaimArgs {
+pub struct Claim {
     pub amount: [u8; 8],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct LaunchArgs {
+pub struct Launch {
     pub pool_bump: u8,
     pub proof_bump: u8,
     pub url: [u8; 128],
@@ -57,23 +50,23 @@ pub struct LaunchArgs {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct OpenArgs {
+pub struct Open {
     pub member_bump: u8,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct SubmitArgs {
+pub struct Submit {
     pub attestation: [u8; 32],
     pub digest: [u8; 16],
     pub nonce: [u8; 8],
 }
 
-instruction!(LaunchArgs);
-instruction!(ClaimArgs);
-instruction!(AttributeArgs);
-instruction!(OpenArgs);
-instruction!(SubmitArgs);
+instruction!(PoolInstruction, Launch);
+instruction!(PoolInstruction, Claim);
+instruction!(PoolInstruction, Attribute);
+instruction!(PoolInstruction, Open);
+instruction!(PoolInstruction, Submit);
 
 /// Builds a launch instruction.
 pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction, ApiError> {
@@ -93,17 +86,12 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
             AccountMeta::new_readonly(system_program::id(), false),
             AccountMeta::new_readonly(slot_hashes::id(), false),
         ],
-        data: [
-            PoolInstruction::Launch.to_vec(),
-            LaunchArgs {
-                pool_bump,
-                proof_bump,
-                url,
-            }
-            .to_bytes()
-            .to_vec(),
-        ]
-        .concat(),
+        data: Launch {
+            pool_bump,
+            proof_bump,
+            url,
+        }
+        .to_bytes(),
     };
     Ok(ix)
 }
@@ -132,11 +120,7 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
             AccountMeta::new(pool, false),
             AccountMeta::new_readonly(system_program::id(), false),
         ],
-        data: [
-            PoolInstruction::Open.to_vec(),
-            OpenArgs { member_bump }.to_bytes().to_vec(),
-        ]
-        .concat(),
+        data: Open { member_bump }.to_bytes(),
     }
 }
 
@@ -157,15 +141,10 @@ pub fn claim(signer: Pubkey, pool: Pubkey, beneficiary: Pubkey, amount: u64) -> 
             AccountMeta::new_readonly(ore_api::id(), false),
             AccountMeta::new_readonly(spl_token::id(), false),
         ],
-        data: [
-            PoolInstruction::Claim.to_vec(),
-            ClaimArgs {
-                amount: amount.to_le_bytes(),
-            }
-            .to_bytes()
-            .to_vec(),
-        ]
-        .concat(),
+        data: Claim {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
     }
 }
 
@@ -180,15 +159,10 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
             AccountMeta::new_readonly(pool_pda, false),
             AccountMeta::new(member_pda, false),
         ],
-        data: [
-            PoolInstruction::Attribute.to_vec(),
-            AttributeArgs {
-                total_balance: total_balance.to_le_bytes(),
-            }
-            .to_bytes()
-            .to_vec(),
-        ]
-        .concat(),
+        data: Attribute {
+            total_balance: total_balance.to_le_bytes(),
+        }
+        .to_bytes(),
     }
 }
 
@@ -214,16 +188,11 @@ pub fn submit(
             AccountMeta::new_readonly(instructions::id(), false),
             AccountMeta::new_readonly(slot_hashes::id(), false),
         ],
-        data: [
-            PoolInstruction::Submit.to_vec(),
-            SubmitArgs {
-                attestation,
-                digest: solution.d,
-                nonce: solution.n,
-            }
-            .to_bytes()
-            .to_vec(),
-        ]
-        .concat(),
+        data: Submit {
+            attestation,
+            digest: solution.d,
+            nonce: solution.n,
+        }
+        .to_bytes(),
     }
 }

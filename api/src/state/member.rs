@@ -24,10 +24,4 @@ pub struct Member {
     pub total_balance: u64,
 }
 
-impl Discriminator for Member {
-    fn discriminator() -> u8 {
-        AccountDiscriminator::Member.into()
-    }
-}
-
-account!(Member);
+account!(AccountDiscriminator, Member);

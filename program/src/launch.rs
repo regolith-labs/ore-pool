@@ -1,8 +1,11 @@
 use std::mem::size_of;
 
 use ore_api::consts::*;
-use ore_pool_api::{consts::*, instruction::LaunchArgs, state::Pool};
-use ore_utils::{create_pda, loaders::*, AccountDeserialize, Discriminator};
+use ore_pool_api::{consts::*, instruction::Launch, state::Pool};
+use ore_utils::{
+    create_pda, load_any, load_program, load_signer, load_sysvar, load_uninitialized_pda,
+    AccountDeserialize, Discriminator,
+};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
     system_program, sysvar,
@@ -11,7 +14,7 @@ use solana_program::{
 /// Launch creates a new pool.
 pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = LaunchArgs::try_from_bytes(data)?;
+    let args = Launch::try_from_bytes(data)?;
 
     // Load accounts.
     let [signer, miner_info, pool_info, proof_info, ore_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =

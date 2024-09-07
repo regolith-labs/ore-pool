@@ -1,7 +1,10 @@
 use drillx::Solution;
-use ore_api::{loaders::*, state::Proof};
+use ore_api::{
+    loaders::{load_any_bus, load_config, load_proof},
+    state::Proof,
+};
 use ore_pool_api::{instruction::*, loaders::*, state::Pool};
-use ore_utils::{loaders::*, AccountDeserialize};
+use ore_utils::{load_program, load_signer, load_sysvar, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
     system_program, sysvar,
@@ -10,7 +13,7 @@ use solana_program::{
 /// Submit sends the pool's best hash to the ORE mining contract.
 pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = SubmitArgs::try_from_bytes(data)?;
+    let args = Submit::try_from_bytes(data)?;
 
     // Load accounts.
     let [signer, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =

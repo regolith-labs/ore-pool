@@ -30,10 +30,4 @@ pub struct Pool {
     pub last_total_members: u64,
 }
 
-impl Discriminator for Pool {
-    fn discriminator() -> u8 {
-        AccountDiscriminator::Pool.into()
-    }
-}
-
-account!(Pool);
+account!(AccountDiscriminator, Pool);

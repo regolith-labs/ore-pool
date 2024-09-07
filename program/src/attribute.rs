@@ -1,5 +1,5 @@
 use ore_pool_api::{instruction::*, loaders::*, state::Member};
-use ore_utils::{loaders::load_signer, AccountDeserialize};
+use ore_utils::{load_signer, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };
@@ -11,7 +11,7 @@ use solana_program::{
 /// duplicate earnings.
 pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = AttributeArgs::try_from_bytes(data)?;
+    let args = Attribute::try_from_bytes(data)?;
     let total_balance = u64::from_le_bytes(args.total_balance);
 
     // Load accounts.

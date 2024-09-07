@@ -1,11 +1,14 @@
-use ore_api::{consts::*, loaders::*};
+use ore_api::{
+    consts::*,
+    loaders::{load_treasury, load_treasury_tokens},
+};
 use ore_pool_api::{
     consts::*,
     instruction::*,
     loaders::*,
     state::{Member, Pool},
 };
-use ore_utils::{loaders::*, AccountDeserialize};
+use ore_utils::{load_program, load_signer, load_token_account, AccountDeserialize};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };
@@ -13,7 +16,7 @@ use solana_program::{
 /// Claim allows a member to claim their ORE from the pool.
 pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = ClaimArgs::try_from_bytes(data)?;
+    let args = Claim::try_from_bytes(data)?;
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.

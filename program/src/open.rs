@@ -6,7 +6,10 @@ use ore_pool_api::{
     loaders::*,
     state::{Member, Pool},
 };
-use ore_utils::{create_pda, loaders::*, AccountDeserialize, Discriminator};
+use ore_utils::{
+    create_pda, load_program, load_signer, load_system_account, load_uninitialized_pda,
+    AccountDeserialize, Discriminator,
+};
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
     system_program,
@@ -15,7 +18,7 @@ use solana_program::{
 /// Open creates a new account for a pool participant.
 pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = OpenArgs::try_from_bytes(data)?;
+    let args = Open::try_from_bytes(data)?;
 
     // Load accounts.
     let [signer, member_authority_info, member_info, pool_info, system_program] = accounts else {

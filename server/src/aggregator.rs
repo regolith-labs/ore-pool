@@ -12,6 +12,7 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::Challenge;
 
 use crate::{
+    database,
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
     tx,
@@ -79,6 +80,7 @@ impl Hash for Contribution {
 pub async fn process_contributions(
     aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
+    db_client: &deadpool_postgres::Pool,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
 ) -> Result<(), Error> {
     // outer loop for new challenges
@@ -121,7 +123,7 @@ pub async fn process_contributions(
         if total_score > 0 {
             // submit if contributions exist
             let mut aggregator = aggregator.write().await;
-            if let Err(err) = aggregator.submit_and_reset(operator).await {
+            if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                 log::error!("{:?}", err);
             }
         } else {
@@ -129,7 +131,7 @@ pub async fn process_contributions(
             if let Some(contribution) = rx.recv().await {
                 let mut aggregator = aggregator.write().await;
                 aggregator.insert(&contribution);
-                if let Err(err) = aggregator.submit_and_reset(operator).await {
+                if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                     log::error!("{:?}", err);
                 }
             }
@@ -190,7 +192,12 @@ impl Aggregator {
         }
     }
 
-    async fn submit_and_reset(&mut self, operator: &Operator) -> Result<(), Error> {
+    // TODO Publish block to S3
+    async fn submit_and_reset(
+        &mut self,
+        operator: &Operator,
+        db_client: &deadpool_postgres::Pool,
+    ) -> Result<(), Error> {
         // prepare best solution and attestation of hash-power
         let winner = self.winner()?;
         log::info!("winner: {:?}", winner);
@@ -210,7 +217,7 @@ impl Aggregator {
             bus,
         );
         let rpc_client = &operator.rpc_client;
-        let sig = tx::submit(
+        let sig = tx::submit_and_confirm(
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix],
@@ -219,13 +226,28 @@ impl Aggregator {
         )
         .await?;
         log::info!("{:?}", sig);
-
-        // TODO Parse tx response
-        // TODO Update members' local attribution balances
-        // TODO Publish block to S3
-
+        // parse mining reward
+        let reward = operator.parse_reward(&sig).await?;
+        let rewards_distribution = self.rewards_distribution(pool_pda, reward);
+        // write rewards to db
+        let mut db_client = db_client.get().await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
+        // reset
         self.reset(operator).await?;
         Ok(())
+    }
+
+    fn rewards_distribution(&self, pool: Pubkey, reward: u64) -> Vec<(String, u64)> {
+        let denominator = self.total_score;
+        let contributions = self.contributions.iter();
+        contributions
+            .map(|c| {
+                let score = c.score.saturating_div(denominator);
+                let score = score.saturating_mul(reward);
+                let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
+                (member_pda.to_string(), score)
+            })
+            .collect()
     }
 
     async fn find_bus(&self, operator: &Operator) -> Result<Pubkey, Error> {
