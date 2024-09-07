@@ -108,7 +108,7 @@ impl Operator {
         db_client: &deadpool_postgres::Pool,
     ) -> Result<(), Error> {
         let db_client = db_client.get().await?;
-        let _ = database::stream_members_attribution(&db_client, self).await?;
+        database::stream_members_attribution(&db_client, self).await?;
         Ok(())
     }
 
