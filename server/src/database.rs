@@ -14,8 +14,43 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
+// when writing new balances
+// also sets the is-synced field to false
+// so that in the attribution loop we know which accounts
+// have been incremented in the db but not yet on-chain
+const BATCH_SIZE: usize = 500;
+pub async fn write_member_total_balances(
+    conn: &mut Object,
+    increments: Vec<(String, u64)>,
+) -> Result<(), Error> {
+    // process updates in batches
+    let transaction = conn.transaction().await?;
+    for batch in increments.chunks(BATCH_SIZE) {
+        for (address, increment) in batch {
+            // perform an individual update for each record in the batch
+            transaction
+                .execute(
+                    "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE address = $2",
+                    &[&(*increment as i64), address],
+                )
+                .await?;
+        }
+    }
+    // commit the transaction to apply all updates
+    transaction.commit().await?;
+    Ok(())
+}
+
+// streams all records from db where is-synced is false
+// updates on-chain balances in batches and marks records in db as synced,
+// the on-chain attribution instruction is idempotent
+// so any failures here are recoverable
 const NUM_ATTRIBUTIONS_PER_TX: usize = 10;
 pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> Result<(), Error> {
+    // fetch count(*) to determine min buffer size
+    let count_query = "SELECT COUNT(*) FROM members WHERE is_synced = false";
+    let row = conn.query_one(count_query, &[]).await?;
+    let record_count: i64 = row.try_get(0)?;
     // build stream of memebrs to be attributed
     let stmt = "SELECT address, authority, total_balance FROM members WHERE is_synced = false";
     let params: Vec<String> = vec![];
@@ -23,8 +58,9 @@ pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> R
     pin_mut!(stream);
     // buffer stream for packing attributions transaction
     let signer = operator.keypair.pubkey();
-    let mut ix_buffer: Vec<Instruction> = Vec::with_capacity(NUM_ATTRIBUTIONS_PER_TX);
-    let mut address_buffer: Vec<String> = Vec::with_capacity(NUM_ATTRIBUTIONS_PER_TX);
+    let buffer_size = NUM_ATTRIBUTIONS_PER_TX.min(record_count as usize);
+    let mut ix_buffer: Vec<Instruction> = Vec::with_capacity(buffer_size);
+    let mut address_buffer: Vec<String> = Vec::with_capacity(buffer_size);
     while let Some(row) = stream.try_next().await? {
         // parse row
         let address: String = row.try_get(0)?;
@@ -37,7 +73,7 @@ pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> R
         ix_buffer.push(ix);
         address_buffer.push(address);
         // if buffer is full
-        if ix_buffer.len().eq(&NUM_ATTRIBUTIONS_PER_TX) {
+        if ix_buffer.len().eq(&buffer_size) {
             // attribute
             let sig = tx::submit_and_confirm(
                 &operator.keypair,

@@ -1,3 +1,4 @@
+use base64::prelude::*;
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool};
 use ore_utils::AccountDeserialize;
@@ -6,12 +7,13 @@ use solana_sdk::{
     clock::Clock,
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::Keypair,
+    signature::{Keypair, Signature},
     signer::{EncodableKey, Signer},
     sysvar,
 };
+use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
 
-use crate::error::Error;
+use crate::{database, error::Error};
 
 pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = None;
@@ -83,6 +85,32 @@ impl Operator {
             }
             None => Ok(program_min),
         }
+    }
+
+    pub async fn parse_reward(&self, sig: &Signature) -> Result<u64, Error> {
+        let rpc_client = &self.rpc_client;
+        let tx = rpc_client
+            .get_transaction(sig, UiTransactionEncoding::Base64)
+            .await?;
+        if let Some(meta) = tx.transaction.meta {
+            if let OptionSerializer::Some(return_data) = meta.return_data {
+                let (data, _) = return_data.data;
+                let bytes = BASE64_STANDARD.decode(data)?;
+                let event: &ore_api::event::MineEvent = bytemuck::try_from_bytes(bytes.as_slice())
+                    .map_err(|err| Error::Internal(err.to_string()))?;
+                return Ok(event.reward);
+            }
+        }
+        Err(Error::Internal("could not parse return data".to_string()))
+    }
+
+    pub async fn attribute_members(
+        &self,
+        db_client: &deadpool_postgres::Pool,
+    ) -> Result<(), Error> {
+        let db_client = db_client.get().await?;
+        database::stream_members_attribution(&db_client, self).await?;
+        Ok(())
     }
 
     async fn get_config(&self) -> Result<Config, Error> {

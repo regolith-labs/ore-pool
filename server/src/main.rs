@@ -6,15 +6,13 @@ mod operator;
 mod tx;
 mod utils;
 
+use core::panic;
+
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
 use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
-
-// TODO: async upload attestation on submissions
-// TODO Timer loop to attribute on-chain balances
-// TODO Make this idempotent to avoid duplication
 
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
@@ -31,10 +29,15 @@ async fn main() -> Result<(), error::Error> {
         log::info!("starting aggregator thread");
         let operator = operator.clone();
         let aggregator = aggregator.clone();
+        let pool = pool.clone();
         async move {
-            if let Err(err) =
-                aggregator::process_contributions(aggregator.as_ref(), operator.as_ref(), &mut rx)
-                    .await
+            if let Err(err) = aggregator::process_contributions(
+                aggregator.as_ref(),
+                operator.as_ref(),
+                pool.as_ref(),
+                &mut rx,
+            )
+            .await
             {
                 log::error!("{:?}", err);
             }
@@ -42,8 +45,24 @@ async fn main() -> Result<(), error::Error> {
     });
 
     // Kick off attribution loop
-    tokio::task::spawn(async move {
-        // TODO Every 20 minutes update user's on-chain claimable balances
+    const ATTRIBUTION_PERIOD: u64 = 3; // minutes
+    tokio::task::spawn({
+        let aggregator = aggregator.clone();
+        let operator = operator.clone();
+        let pool = pool.clone();
+        async move {
+            loop {
+                // acquire aggregator lock to freeze contributions while submitting attributions
+                let lock = aggregator.write().await;
+                // submit attributions
+                if let Err(err) = operator.attribute_members(pool.as_ref()).await {
+                    panic!("{:?}", err)
+                }
+                drop(lock);
+                // sleep until next attribution epoch
+                tokio::time::sleep(tokio::time::Duration::from_secs(60 * ATTRIBUTION_PERIOD)).await;
+            }
+        }
     });
 
     // Launch server
