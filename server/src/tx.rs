@@ -13,14 +13,14 @@ use crate::error::Error;
 pub async fn submit_and_confirm(
     signer: &Keypair,
     rpc_client: &RpcClient,
-    ixs: Vec<Instruction>,
+    ixs: &[Instruction],
     cu_limit: u32,
     cu_price: u64,
 ) -> Result<Signature, Error> {
     let max_retries = 5;
     let mut retries = 0;
     while retries < max_retries {
-        let sig = submit(signer, rpc_client, ixs.clone(), cu_limit, cu_price).await?;
+        let sig = submit(signer, rpc_client, ixs, cu_limit, cu_price).await?;
         match confirm_transaction(rpc_client, &sig).await {
             Ok(()) => return Ok(sig),
             Err(err) => {
@@ -37,17 +37,14 @@ pub async fn submit_and_confirm(
 pub async fn submit(
     signer: &Keypair,
     rpc_client: &RpcClient,
-    ixs: Vec<Instruction>,
+    ixs: &[Instruction],
     cu_limit: u32,
     cu_price: u64,
 ) -> Result<Signature, Error> {
     let cu_limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(cu_limit);
     let cu_price_ix = ComputeBudgetInstruction::set_compute_unit_price(cu_price);
-    let mut final_ixs = vec![cu_limit_ix, cu_price_ix];
-    let ixs = ixs.into_iter();
-    for ix in ixs {
-        final_ixs.push(ix);
-    }
+    let final_ixs = &[cu_limit_ix, cu_price_ix];
+    let final_ixs = [final_ixs, ixs].concat();
     let hash = rpc_client.get_latest_blockhash().await?;
     let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
     tx.sign(&[signer], hash);

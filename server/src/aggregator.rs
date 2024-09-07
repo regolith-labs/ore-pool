@@ -213,7 +213,7 @@ impl Aggregator {
         let sig = tx::submit(
             &operator.keypair,
             rpc_client,
-            vec![auth_ix, submit_ix],
+            &[auth_ix, submit_ix],
             1_500_000,
             500_000,
         )

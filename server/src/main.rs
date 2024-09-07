@@ -12,6 +12,7 @@ use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
 
+// TODO: async upload attestation on submissions
 // TODO Timer loop to attribute on-chain balances
 // TODO Make this idempotent to avoid duplication
 

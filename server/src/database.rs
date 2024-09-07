@@ -1,8 +1,11 @@
-use std::env;
+use std::{env, str::FromStr};
 
-use crate::error::Error;
+use crate::{error::Error, operator::Operator, tx};
 use deadpool_postgres::{Object, Pool};
+use futures::TryStreamExt;
+use futures_util::pin_mut;
 use ore_pool_api::state::member_pda;
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use tokio_postgres::NoTls;
 
 pub fn create_pool() -> Pool {
@@ -11,7 +14,55 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
-// TODO: update balance
+const NUM_ATTRIBUTIONS_PER_TX: usize = 10;
+pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> Result<(), Error> {
+    // build stream of memebrs to be attributed
+    let stmt = "SELECT address, authority, total_balance FROM members WHERE is_synced = false";
+    let params: Vec<String> = vec![];
+    let stream = conn.query_raw(stmt, params).await?;
+    pin_mut!(stream);
+    // buffer stream for packing attributions transaction
+    let signer = operator.keypair.pubkey();
+    let mut ix_buffer: Vec<Instruction> = Vec::with_capacity(NUM_ATTRIBUTIONS_PER_TX);
+    let mut address_buffer: Vec<String> = Vec::with_capacity(NUM_ATTRIBUTIONS_PER_TX);
+    while let Some(row) = stream.try_next().await? {
+        // parse row
+        let address: String = row.try_get(0)?;
+        let member_authority: String = row.try_get(1)?;
+        let member_authority = Pubkey::from_str(member_authority.as_str())?;
+        let total_balance: i64 = row.try_get(2)?;
+        // build instruction
+        let ix =
+            ore_pool_api::instruction::attribute(signer, member_authority, total_balance as u64);
+        ix_buffer.push(ix);
+        address_buffer.push(address);
+        // if buffer is full
+        if ix_buffer.len().eq(&NUM_ATTRIBUTIONS_PER_TX) {
+            // attribute
+            let sig = tx::submit_and_confirm(
+                &operator.keypair,
+                &operator.rpc_client,
+                ix_buffer.as_slice(),
+                1_500_000,
+                20_000,
+            )
+            .await?;
+            log::info!("attribution sig: {:?}", sig);
+            // mark as synced
+            write_synced_members(conn, address_buffer.as_slice()).await?;
+            address_buffer.clear();
+            ix_buffer.clear();
+        }
+    }
+    Ok(())
+}
+
+async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
+    let query = "UPDATE members SET is_synced = true WHERE address = ANY($1)";
+    conn.execute(query, &[&address_buffer]).await?;
+    Ok(())
+}
+
 pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,

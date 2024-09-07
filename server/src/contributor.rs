@@ -67,7 +67,7 @@ async fn register_new_member(
             // build ix
             let ix = ore_pool_api::instruction::open(member_authority, pool_pda, payer.pubkey());
             // submit and confirm
-            let _ = tx::submit_and_confirm(payer, rpc_client, vec![ix], 1_000_000, 50_000).await?;
+            let _ = tx::submit_and_confirm(payer, rpc_client, &[ix], 1_000_000, 50_000).await?;
             // fetch member account for assigned id
             let member = operator.get_member(&member_authority).await?;
             // write member to db
