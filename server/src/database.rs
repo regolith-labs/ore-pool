@@ -14,6 +14,10 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
+// when writing new balances
+// also sets the is-synced field to false
+// so that in the attribution loop we know which accounts
+// have been incremented in the db but not yet on-chain
 const BATCH_SIZE: usize = 500;
 pub async fn write_member_total_balances(
     conn: &mut Object,
@@ -26,7 +30,7 @@ pub async fn write_member_total_balances(
             // perform an individual update for each record in the batch
             transaction
                 .execute(
-                    "UPDATE your_table SET total_score = total_score + $1 WHERE address = $2",
+                    "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE address = $2",
                     &[&(*increment as i64), address],
                 )
                 .await?;
@@ -37,10 +41,14 @@ pub async fn write_member_total_balances(
     Ok(())
 }
 
+// streams all records from db where is-synced is false
+// updates on-chain balances in batches and marks records in db as synced,
+// the on-chain attribution instruction is idempotent
+// so any failures here are recoverable
 const NUM_ATTRIBUTIONS_PER_TX: usize = 10;
 pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> Result<(), Error> {
     // fetch count(*) to determine min buffer size
-    let count_query = "SELECT COUNT(*) FROM members WHERE is_synced = true";
+    let count_query = "SELECT COUNT(*) FROM members WHERE is_synced = false";
     let row = conn.query_one(count_query, &[]).await?;
     let record_count: i64 = row.try_get(0)?;
     // build stream of memebrs to be attributed
