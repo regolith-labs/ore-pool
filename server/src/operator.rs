@@ -96,7 +96,8 @@ impl Operator {
             if let OptionSerializer::Some(return_data) = meta.return_data {
                 let (data, _) = return_data.data;
                 let bytes = BASE64_STANDARD.decode(data)?;
-                let event = ore_api::event::MineEvent::from_bytes(bytes.as_slice());
+                let event: &ore_api::event::MineEvent = bytemuck::try_from_bytes(bytes.as_slice())
+                    .map_err(|err| Error::Internal(err.to_string()))?;
                 return Ok(event.reward);
             }
         }

@@ -1,5 +1,3 @@
-use std::env::VarError;
-
 use actix_web::HttpResponse;
 
 #[derive(thiserror::Error, Debug)]
@@ -17,7 +15,7 @@ pub enum Error {
     #[error("std io")]
     StdIO(#[from] std::io::Error),
     #[error("std env")]
-    StdEnv(#[from] VarError),
+    StdEnv(#[from] std::env::VarError),
     #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]
