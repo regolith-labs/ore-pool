@@ -174,13 +174,15 @@ pub fn submit(
     bus: Pubkey,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
+    println!("pool pda ix builder: {:?}", pool_pda);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
+    println!("proof pda ix builder: {:?}", proof_pda);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
             AccountMeta::new(signer, true),
             AccountMeta::new(bus, false),
-            AccountMeta::new(CONFIG_ADDRESS, false),
+            AccountMeta::new_readonly(CONFIG_ADDRESS, false),
             AccountMeta::new(pool_pda, false),
             AccountMeta::new(proof_pda, false),
             AccountMeta::new_readonly(ore_api::id(), false),

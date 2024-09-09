@@ -59,7 +59,9 @@ impl Operator {
         let authority = self.keypair.pubkey();
         let rpc_client = &self.rpc_client;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
+        log::info!("pool pda: {}", pool_pda);
         let (proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
+        log::info!("proof pda: {}", proof_pda);
         let data = rpc_client.get_account_data(&proof_pda).await?;
         let proof = Proof::try_from_bytes(data.as_slice())?;
         Ok(*proof)

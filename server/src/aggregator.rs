@@ -98,10 +98,10 @@ pub async fn process_contributions(
                 .await
             {
                 Ok(Some(contribution)) => {
-                    log::info!("recv contribution: {:?}", contribution);
-                    let mut aggregator = aggregator.write().await;
-                    aggregator.insert(&contribution);
-                    drop(aggregator);
+                    {
+                        let mut aggregator = aggregator.write().await;
+                        aggregator.insert(&contribution);
+                    }
                     // recalculate the remaining time after processing the contribution
                     remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
                 }
@@ -143,6 +143,7 @@ impl Aggregator {
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
+        log::info!("proof: {:?}", proof);
         let cutoff_time = operator.get_cutoff(&proof).await?;
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
@@ -162,28 +163,21 @@ impl Aggregator {
     }
 
     fn insert(&mut self, contribution: &Contribution) {
-        log::info!("inserting contribution");
         match self.contributions.insert(*contribution) {
             true => {
-                log::info!("status: new contribution");
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
                     difficulty,
                 };
                 self.total_score += contribution.score;
-                log::info!("total score: {}", self.total_score);
                 match self.winner {
                     Some(winner) => {
                         if difficulty > winner.difficulty {
-                            log::info!("updating winner");
                             self.winner = Some(contender);
                         }
                     }
-                    None => {
-                        log::info!("updating winner as first");
-                        self.winner = Some(contender)
-                    }
+                    None => self.winner = Some(contender),
                 }
             }
             false => {
@@ -317,8 +311,6 @@ impl Aggregator {
         let last_hash_at = self.challenge.lash_hash_at;
         loop {
             let proof = operator.get_proof().await?;
-            log::info!("new hash: {:?}", proof.last_hash_at);
-            log::info!("live hash: {:?}", last_hash_at);
             if proof.last_hash_at != last_hash_at {
                 let cutoff_time = operator.get_cutoff(&proof).await?;
                 let min_difficulty = operator.min_difficulty().await?;
