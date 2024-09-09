@@ -125,6 +125,7 @@ pub async fn process_contributions(
             let mut aggregator = aggregator.write().await;
             if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                 log::error!("{:?}", err);
+                return Err(Error::Internal(err.to_string()));
             }
         } else {
             // no contributions yet, wait for the first one to submit
@@ -133,6 +134,7 @@ pub async fn process_contributions(
                 aggregator.insert(&contribution);
                 if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                     log::error!("{:?}", err);
+                    return Err(Error::Internal(err.to_string()));
                 }
             }
         }
