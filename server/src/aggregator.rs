@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash, ops::Div};
+use std::{collections::HashSet, hash::Hash};
 
 use drillx::Solution;
 use ore_api::{
@@ -246,8 +246,8 @@ impl Aggregator {
         contributions
             .map(|c| {
                 log::info!("raw score: {}", c.score);
-                let score = c.score.checked_div(denominator).unwrap_or(0);
-                let score = score.saturating_mul(reward);
+                let score = c.score.saturating_mul(reward);
+                let score = score.checked_div(denominator).unwrap_or(0);
                 log::info!("attributed score: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
                 (member_pda.to_string(), score)
