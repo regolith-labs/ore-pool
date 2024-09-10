@@ -125,7 +125,6 @@ pub async fn process_contributions(
             let mut aggregator = aggregator.write().await;
             if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                 log::error!("{:?}", err);
-                return Err(Error::Internal(err.to_string()));
             }
         } else {
             // no contributions yet, wait for the first one to submit
@@ -134,7 +133,6 @@ pub async fn process_contributions(
                 aggregator.insert(&contribution);
                 if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
                     log::error!("{:?}", err);
-                    return Err(Error::Internal(err.to_string()));
                 }
             }
         }
@@ -150,7 +148,7 @@ impl Aggregator {
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
-            lash_hash_at: proof.last_hash_at,
+            lash_hash_at: 0,
             min_difficulty,
             cutoff_time,
         };
@@ -194,6 +192,8 @@ impl Aggregator {
         operator: &Operator,
         db_client: &deadpool_postgres::Pool,
     ) -> Result<(), Error> {
+        // reset
+        self.reset(operator).await?;
         // prepare best solution and attestation of hash-power
         let winner = self.winner()?;
         log::info!("winner: {:?}", winner);
@@ -228,8 +228,6 @@ impl Aggregator {
         // write rewards to db
         let mut db_client = db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
-        // reset
-        self.reset(operator).await?;
         Ok(())
     }
 
