@@ -29,7 +29,7 @@ pub async fn register(
     }
 }
 
-pub async fn pool_address(operator: web::Data<Operator>) -> Pubkey {
+pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
     let operator = operator.as_ref();
     let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
     HttpResponse::Ok().json(&PoolAddress { address: pool_pda })
