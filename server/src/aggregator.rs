@@ -148,7 +148,7 @@ impl Aggregator {
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
-            lash_hash_at: 0,
+            lash_hash_at: 1,
             min_difficulty,
             cutoff_time,
         };
