@@ -128,11 +128,11 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
 /// Builds a claim instruction.
 pub fn claim(
     signer: Pubkey,
-    pool_authority: Pubkey,
     beneficiary: Pubkey,
+    pool_pda: Pubkey,
+    pool_bump: u8,
     amount: u64,
 ) -> Instruction {
-    let (pool_pda, pool_bump) = pool_pda(pool_authority);
     let (member_pda, _) = member_pda(signer, pool_pda);
     let (pool_proof_pda, _) = pool_proof_pda(pool_pda);
     Instruction {
