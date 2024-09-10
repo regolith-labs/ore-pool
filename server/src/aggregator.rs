@@ -148,7 +148,7 @@ impl Aggregator {
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
-            lash_hash_at: 1,
+            lash_hash_at: proof.last_hash_at,
             min_difficulty,
             cutoff_time,
         };
@@ -192,8 +192,13 @@ impl Aggregator {
         operator: &Operator,
         db_client: &deadpool_postgres::Pool,
     ) -> Result<(), Error> {
-        // reset
-        self.reset(operator).await?;
+        // check if reset is needed
+        // this may happen if a solution is landed on chain
+        // but a subsequent application error is thrown before resetting
+        if self.check_for_reset(operator).await? {
+            log::error!("irregular reset");
+            self.reset(operator).await?;
+        };
         // prepare best solution and attestation of hash-power
         let winner = self.winner()?;
         log::info!("winner: {:?}", winner);
@@ -228,6 +233,8 @@ impl Aggregator {
         // write rewards to db
         let mut db_client = db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
+        // reset
+        self.reset(operator).await?;
         Ok(())
     }
 
@@ -303,6 +310,13 @@ impl Aggregator {
     fn winner(&self) -> Result<Winner, Error> {
         self.winner
             .ok_or(Error::Internal("no solutions were submitted".to_string()))
+    }
+
+    async fn check_for_reset(&self, operator: &Operator) -> Result<bool, Error> {
+        let last_hash_at = self.challenge.lash_hash_at;
+        let proof = operator.get_proof().await?;
+        let needs_reset = proof.last_hash_at != last_hash_at;
+        Ok(needs_reset)
     }
 
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {
