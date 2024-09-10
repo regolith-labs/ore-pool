@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{ContributePayload, GetMemberPayload, MemberChallenge, RegisterPayload};
+use types::{ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload};
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
@@ -27,6 +27,12 @@ pub async fn register(
             http_response
         }
     }
+}
+
+pub async fn pool_address(operator: web::Data<Operator>) -> Pubkey {
+    let operator = operator.as_ref();
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
+    HttpResponse::Ok().json(&PoolAddress { address: pool_pda })
 }
 
 // TODO: have client build and sign for tx, valdiate here

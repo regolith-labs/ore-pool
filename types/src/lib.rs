@@ -8,6 +8,12 @@ pub struct RegisterPayload {
     pub authority: Pubkey,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PoolAddress {
+    /// The pubkey address of the pool pda of this operator.
+    pub address: Pubkey,
+}
+
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Challenge {
     /// The current challenge the pool is accepting solutions for.

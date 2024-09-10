@@ -79,6 +79,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(operator.clone())
             .app_data(aggregator.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
+            .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))

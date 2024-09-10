@@ -92,6 +92,7 @@ impl Operator {
         }
     }
 
+    // TODO: try writing this data to the pool account
     pub async fn parse_reward_with_retries(&self, sig: &Signature) -> Result<u64, Error> {
         let mut retries = 0;
         let max_retries = 10;
