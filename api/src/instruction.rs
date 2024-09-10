@@ -141,7 +141,7 @@ pub fn claim(
             AccountMeta::new(signer, true),
             AccountMeta::new(beneficiary, false),
             AccountMeta::new(member_pda, false),
-            AccountMeta::new_readonly(pool_pda, false),
+            AccountMeta::new(pool_pda, false),
             AccountMeta::new(pool_proof_pda, false),
             AccountMeta::new_readonly(TREASURY_ADDRESS, false),
             AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),

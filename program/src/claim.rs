@@ -28,7 +28,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     load_signer(signer)?;
     load_token_account(beneficiary_info, None, &MINT_ADDRESS, true)?;
     load_member(member_info, signer.key, pool_info.key, true)?;
-    load_any_pool(pool_info, false)?;
+    load_any_pool(pool_info, true)?;
     load_treasury(treasury_info, false)?;
     load_treasury_tokens(treasury_tokens_info, true)?;
     load_program(ore_program, ore_api::id())?;
