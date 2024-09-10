@@ -148,7 +148,7 @@ impl Aggregator {
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
-            lash_hash_at: proof.last_hash_at,
+            lash_hash_at: pool.last_hash_at,
             min_difficulty,
             cutoff_time,
         };
@@ -314,8 +314,8 @@ impl Aggregator {
 
     async fn check_for_reset(&self, operator: &Operator) -> Result<bool, Error> {
         let last_hash_at = self.challenge.lash_hash_at;
-        let proof = operator.get_proof().await?;
-        let needs_reset = proof.last_hash_at != last_hash_at;
+        let pool = operator.get_pool().await?;
+        let needs_reset = pool.last_hash_at != last_hash_at;
         Ok(needs_reset)
     }
 
@@ -344,11 +344,12 @@ impl Aggregator {
         let last_hash_at = self.challenge.lash_hash_at;
         loop {
             let proof = operator.get_proof().await?;
-            if proof.last_hash_at != last_hash_at {
+            let pool = operator.get_pool().await?;
+            if pool.last_hash_at != last_hash_at {
                 let cutoff_time = operator.get_cutoff(&proof).await?;
                 let min_difficulty = operator.min_difficulty().await?;
                 self.challenge.challenge = proof.challenge;
-                self.challenge.lash_hash_at = proof.last_hash_at;
+                self.challenge.lash_hash_at = pool.last_hash_at;
                 self.challenge.min_difficulty = min_difficulty;
                 self.challenge.cutoff_time = cutoff_time;
                 return Ok(());
