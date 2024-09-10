@@ -47,7 +47,7 @@ async fn main() -> Result<(), error::Error> {
     });
 
     // Kick off attribution loop
-    const ATTRIBUTION_PERIOD: u64 = 3; // minutes
+    const ATTRIBUTION_PERIOD: u64 = 5; // minutes
     tokio::task::spawn({
         let aggregator = aggregator.clone();
         let operator = operator.clone();
