@@ -1,12 +1,17 @@
 use drillx::Solution;
 use ore_api::{
+    event::MineEvent,
     loaders::{load_any_bus, load_config, load_proof},
     state::Proof,
 };
-use ore_pool_api::{instruction::*, loaders::*, state::Pool};
+use ore_pool_api::{error::PoolError, instruction::*, loaders::*, state::Pool};
 use ore_utils::{load_program, load_signer, load_sysvar, AccountDeserialize};
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    self,
+    account_info::AccountInfo,
+    entrypoint::ProgramResult,
+    program::{get_return_data, set_return_data},
+    program_error::ProgramError,
     system_program, sysvar,
 };
 
@@ -61,6 +66,14 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
             slot_hashes_sysvar.clone(),
         ],
     )?;
+
+    // Parse reward from return data
+    let (_, reward_bytes) = get_return_data().ok_or(PoolError::MissingMiningReward)?;
+    let reward: MineEvent = *bytemuck::try_from_bytes(reward_bytes.as_slice())
+        .map_err(|_| PoolError::CouldNotParseMiningReward)?;
+
+    // Write rewards back to return data to parse from client
+    set_return_data(reward.to_bytes());
 
     Ok(())
 }

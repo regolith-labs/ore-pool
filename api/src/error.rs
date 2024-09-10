@@ -5,8 +5,10 @@ use thiserror::Error;
 #[derive(Debug, Error, Clone, Copy, PartialEq, Eq, IntoPrimitive)]
 #[repr(u32)]
 pub enum PoolError {
-    #[error("Dummy error")]
-    Dummy = 0,
+    #[error("Missing mining reward")]
+    MissingMiningReward = 0,
+    #[error("Could not parse mining reward")]
+    CouldNotParseMiningReward = 1,
 }
 
 #[derive(Debug, Error)]
