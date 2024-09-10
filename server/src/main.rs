@@ -14,6 +14,8 @@ use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
 
+// TODO: publish attestation to s3
+// write attestation url to db with last-hash-at as foreign key
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
     let pool = create_pool();
