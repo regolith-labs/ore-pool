@@ -100,7 +100,11 @@ impl Operator {
                 reward @ Ok(_) => {
                     return reward;
                 }
-                Err(_) => retries += 1,
+                Err(_) => {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    retries += 1;
+                    log::info!("retries: {}", retries);
+                }
             }
         }
         Err(Error::Internal(
@@ -111,7 +115,7 @@ impl Operator {
     async fn parse_reward(&self, sig: &Signature) -> Result<u64, Error> {
         let rpc_client = &self.rpc_client;
         let tx = rpc_client
-            .get_transaction(sig, UiTransactionEncoding::Base64)
+            .get_transaction(sig, UiTransactionEncoding::Json)
             .await?;
         if let Some(meta) = tx.transaction.meta {
             if let OptionSerializer::Some(return_data) = meta.return_data {
