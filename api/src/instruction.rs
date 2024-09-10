@@ -38,6 +38,7 @@ pub struct Attribute {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Claim {
     pub amount: [u8; 8],
+    pub pool_bump: u8,
 }
 
 #[repr(C)]
@@ -125,16 +126,22 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
 }
 
 /// Builds a claim instruction.
-pub fn claim(signer: Pubkey, pool: Pubkey, beneficiary: Pubkey, amount: u64) -> Instruction {
-    let (member_pda, _) = member_pda(signer, pool);
-    let (pool_proof_pda, _) = pool_proof_pda(pool);
+pub fn claim(
+    signer: Pubkey,
+    pool_authority: Pubkey,
+    beneficiary: Pubkey,
+    amount: u64,
+) -> Instruction {
+    let (pool_pda, pool_bump) = pool_pda(pool_authority);
+    let (member_pda, _) = member_pda(signer, pool_pda);
+    let (pool_proof_pda, _) = pool_proof_pda(pool_pda);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
             AccountMeta::new(signer, true),
             AccountMeta::new(beneficiary, false),
             AccountMeta::new(member_pda, false),
-            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new_readonly(pool_pda, false),
             AccountMeta::new(pool_proof_pda, false),
             AccountMeta::new_readonly(TREASURY_ADDRESS, false),
             AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),
@@ -143,6 +150,7 @@ pub fn claim(signer: Pubkey, pool: Pubkey, beneficiary: Pubkey, amount: u64) -> 
         ],
         data: Claim {
             amount: amount.to_le_bytes(),
+            pool_bump,
         }
         .to_bytes(),
     }

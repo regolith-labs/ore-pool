@@ -54,7 +54,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
             treasury_tokens_info.clone(),
             token_program.clone(),
         ],
-        &[&[POOL, pool_authority.as_ref(), &[POOL_BUMP]]],
+        &[&[POOL, pool_authority.as_ref(), &[args.pool_bump]]],
     )?;
 
     Ok(())

@@ -11,10 +11,7 @@ use solana_sdk::{
     signer::{EncodableKey, Signer},
     sysvar,
 };
-use solana_transaction_status::{
-    option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
-    UiTransactionEncoding,
-};
+use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
 
 use crate::{database, error::Error};
 
