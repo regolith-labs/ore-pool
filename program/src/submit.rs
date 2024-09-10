@@ -10,7 +10,7 @@ use solana_program::{
     self,
     account_info::AccountInfo,
     entrypoint::ProgramResult,
-    log,
+    log::{self, sol_log},
     program::{get_return_data, set_return_data},
     program_error::ProgramError,
     system_program, sysvar,
@@ -69,7 +69,9 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     )?;
 
     // Parse reward from return data
-    let (_, reward_bytes) = get_return_data().ok_or(PoolError::MissingMiningReward)?;
+    let (pubkey, reward_bytes) = get_return_data().ok_or(PoolError::MissingMiningReward)?;
+    log::sol_log(format!("pubkey: {:?}", pubkey).as_str());
+    log::sol_log(format!("bytes: {:?}", reward_bytes.as_slice()).as_str());
     let reward = *MineEvent::from_bytes(reward_bytes.as_slice());
     log::sol_log(format!("reward: {:?}", reward).as_str());
     // let reward: MineEvent = *bytemuck::try_from_bytes(reward_bytes.as_slice())
