@@ -20,6 +20,9 @@ pub struct Pool {
     /// Foreign key to the ORE proof account.
     pub last_hash_at: i64,
 
+    /// The reward from the most recent solution.
+    pub reward: u64,
+
     /// The total number of hashes this pool has submitted.
     pub total_submissions: u64,
 

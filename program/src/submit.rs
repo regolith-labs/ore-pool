@@ -3,15 +3,10 @@ use ore_api::{
     loaders::{load_any_bus, load_config, load_proof},
     state::Proof,
 };
-use ore_pool_api::{error::PoolError, instruction::*, loaders::*, state::Pool};
+use ore_pool_api::{instruction::*, loaders::*, state::Pool};
 use ore_utils::{load_program, load_signer, load_sysvar, AccountDeserialize};
 use solana_program::{
-    self,
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    log::{self},
-    program::{get_return_data, set_return_data},
-    program_error::ProgramError,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
     system_program, sysvar,
 };
 
@@ -51,6 +46,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
     pool.last_hash_at = proof.last_hash_at;
     pool.last_total_members = pool.total_members;
+    let previous_balance = proof.balance;
     drop(proof_data);
 
     // Submit solution to the ORE program
@@ -67,13 +63,12 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         ],
     )?;
 
-    // Parse reward from return data
-    let (pubkey, reward_bytes) = get_return_data().ok_or(PoolError::MissingMiningReward)?;
-    log::sol_log(format!("pubkey: {:?}", pubkey).as_str());
-    log::sol_log(format!("bytes: {:?}", reward_bytes.as_slice()).as_str());
-
-    // Write rewards back to return data to parse from client
-    set_return_data(reward_bytes.as_slice());
+    // parse proof info again for updated balance
+    let mut proof_data = proof_info.data.borrow_mut();
+    let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
+    let new_balance = proof.balance;
+    let reward = new_balance.saturating_sub(previous_balance);
+    pool.reward = reward;
 
     Ok(())
 }

@@ -228,7 +228,7 @@ impl Aggregator {
         .await?;
         log::info!("{:?}", sig);
         // parse mining reward
-        let reward = operator.parse_reward_with_retries(&sig).await?;
+        let reward = self.parse_reward(operator).await?;
         let rewards_distribution = self.rewards_distribution(pool_pda, reward);
         // write rewards to db
         let mut db_client = db_client.get().await?;
@@ -317,6 +317,24 @@ impl Aggregator {
         let proof = operator.get_proof().await?;
         let needs_reset = proof.last_hash_at != last_hash_at;
         Ok(needs_reset)
+    }
+
+    async fn parse_reward(&self, operator: &Operator) -> Result<u64, Error> {
+        let max_retries = 10;
+        let mut retries = 0;
+        let last_hash_at = self.challenge.lash_hash_at;
+        loop {
+            let pool = operator.get_pool().await?;
+            if pool.last_hash_at != last_hash_at {
+                return Ok(pool.reward);
+            } else {
+                retries += 1;
+                if retries == max_retries {
+                    return Err(Error::Internal("failed to fetch reward".to_string()));
+                }
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
     }
 
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {

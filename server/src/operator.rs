@@ -1,4 +1,3 @@
-use base64::prelude::*;
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool};
 use ore_utils::AccountDeserialize;
@@ -7,11 +6,10 @@ use solana_sdk::{
     clock::Clock,
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
+    signature::Keypair,
     signer::{EncodableKey, Signer},
     sysvar,
 };
-use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
 
 use crate::{database, error::Error};
 
@@ -87,44 +85,6 @@ impl Operator {
             }
             None => Ok(program_min),
         }
-    }
-
-    // TODO: try writing this data to the pool account
-    pub async fn parse_reward_with_retries(&self, sig: &Signature) -> Result<u64, Error> {
-        let mut retries = 0;
-        let max_retries = 10;
-        while retries < max_retries {
-            match self.parse_reward(sig).await {
-                reward @ Ok(_) => {
-                    return reward;
-                }
-                Err(_) => {
-                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                    retries += 1;
-                    log::info!("retries: {}", retries);
-                }
-            }
-        }
-        Err(Error::Internal(
-            "could not get transaction from rpc".to_string(),
-        ))
-    }
-
-    async fn parse_reward(&self, sig: &Signature) -> Result<u64, Error> {
-        let rpc_client = &self.rpc_client;
-        let tx = rpc_client
-            .get_transaction(sig, UiTransactionEncoding::Json)
-            .await?;
-        if let Some(meta) = tx.transaction.meta {
-            if let OptionSerializer::Some(return_data) = meta.return_data {
-                let (data, _) = return_data.data;
-                let bytes = BASE64_STANDARD.decode(data)?;
-                let event: &ore_api::event::MineEvent = bytemuck::try_from_bytes(bytes.as_slice())
-                    .map_err(|err| Error::Internal(err.to_string()))?;
-                return Ok(event.reward);
-            }
-        }
-        Err(Error::Internal("could not parse return data".to_string()))
     }
 
     pub async fn attribute_members(
