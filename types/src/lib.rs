@@ -12,6 +12,9 @@ pub struct RegisterPayload {
 pub struct PoolAddress {
     /// The pubkey address of the pool pda of this operator.
     pub address: Pubkey,
+
+    /// The bump returned when deriving the pda.
+    pub bump: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]

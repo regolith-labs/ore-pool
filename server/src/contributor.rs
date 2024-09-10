@@ -31,8 +31,11 @@ pub async fn register(
 
 pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
     let operator = operator.as_ref();
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
-    HttpResponse::Ok().json(&PoolAddress { address: pool_pda })
+    let (pool_pda, bump) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
+    HttpResponse::Ok().json(&PoolAddress {
+        address: pool_pda,
+        bump,
+    })
 }
 
 // TODO: have client build and sign for tx, valdiate here
