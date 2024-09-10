@@ -6,8 +6,8 @@ use ore_api::{
 use ore_pool_api::{instruction::*, loaders::*, state::Pool};
 use ore_utils::{load_program, load_signer, load_sysvar, AccountDeserialize};
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program, sysvar,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log,
+    program_error::ProgramError, system_program, sysvar,
 };
 
 /// Submit sends the pool's best hash to the ORE mining contract.
@@ -38,13 +38,9 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     // And the attestation of observed hash-power
     pool.attestation = args.attestation;
 
-    // Update the last hash to align with the proof that we are currently solving for.
-    // can think of this is a foreign key join.
-    // the idea is that the state of this account will/can be indexed,
-    // and later referenced or played back for historical information.
+    // TODO: doc string
     let mut proof_data = proof_info.data.borrow_mut();
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
-    pool.last_hash_at = proof.last_hash_at;
     pool.last_total_members = pool.total_members;
     let previous_balance = proof.balance;
     drop(proof_data);
@@ -63,12 +59,17 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         ],
     )?;
 
+    // TODO: doc string
     // parse proof info again for updated balance
     let mut proof_data = proof_info.data.borrow_mut();
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
     let new_balance = proof.balance;
     let reward = new_balance.saturating_sub(previous_balance);
+    sol_log(format!("prev balance: {}", previous_balance).as_str());
+    sol_log(format!("new balance: {}", new_balance).as_str());
+    sol_log(format!("reward: {}", reward).as_str());
     pool.reward = reward;
+    pool.last_hash_at = proof.last_hash_at;
 
     Ok(())
 }
