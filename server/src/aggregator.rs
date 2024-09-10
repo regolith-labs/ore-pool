@@ -320,7 +320,7 @@ impl Aggregator {
     }
 
     async fn parse_reward(&self, operator: &Operator) -> Result<u64, Error> {
-        let max_retries = 10;
+        let max_retries = 20;
         let mut retries = 0;
         let last_hash_at = self.challenge.lash_hash_at;
         loop {
@@ -332,6 +332,7 @@ impl Aggregator {
                 if retries == max_retries {
                     return Err(Error::Internal("failed to fetch reward".to_string()));
                 }
+                log::info!("reward retries: {}", retries);
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             }
         }
