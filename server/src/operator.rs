@@ -11,7 +11,10 @@ use solana_sdk::{
     signer::{EncodableKey, Signer},
     sysvar,
 };
-use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
+use solana_transaction_status::{
+    option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
+    UiTransactionEncoding,
+};
 
 use crate::{database, error::Error};
 
@@ -89,7 +92,23 @@ impl Operator {
         }
     }
 
-    pub async fn parse_reward(&self, sig: &Signature) -> Result<u64, Error> {
+    pub async fn parse_reward_with_retries(&self, sig: &Signature) -> Result<u64, Error> {
+        let mut retries = 0;
+        let max_retries = 10;
+        while retries < max_retries {
+            match self.parse_reward(sig).await {
+                reward @ Ok(_) => {
+                    return reward;
+                }
+                Err(_) => retries += 1,
+            }
+        }
+        Err(Error::Internal(
+            "could not get transaction from rpc".to_string(),
+        ))
+    }
+
+    async fn parse_reward(&self, sig: &Signature) -> Result<u64, Error> {
         let rpc_client = &self.rpc_client;
         let tx = rpc_client
             .get_transaction(sig, UiTransactionEncoding::Base64)
@@ -150,5 +169,27 @@ impl Operator {
 
     fn rpc_url() -> Result<String, Error> {
         std::env::var("RPC_URL").map_err(From::from)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use ore_api::event::MineEvent;
+
+    #[test]
+    fn one() {
+        let bytes = vec![
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 245, 15, 0, 0, 0, 0, 0, 0,
+        ];
+        let res = bytemuck::try_from_bytes::<MineEvent>(bytes.as_slice()).cloned();
+        println!("res: {:?}", res);
+    }
+
+    #[test]
+    fn two() {
+        let base64 = "CgAAAAAAAAAAAAAAAAAAAPUPAAAAAAAA".to_string();
+        let bytes = BASE64_STANDARD.decode(base64);
+        println!("bytes: {:?}", bytes);
     }
 }

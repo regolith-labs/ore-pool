@@ -223,7 +223,7 @@ impl Aggregator {
         .await?;
         log::info!("{:?}", sig);
         // parse mining reward
-        let reward = operator.parse_reward(&sig).await?;
+        let reward = operator.parse_reward_with_retries(&sig).await?;
         let rewards_distribution = self.rewards_distribution(pool_pda, reward);
         // write rewards to db
         let mut db_client = db_client.get().await?;

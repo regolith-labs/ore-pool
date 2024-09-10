@@ -1,6 +1,5 @@
 use drillx::Solution;
 use ore_api::{
-    event::MineEvent,
     loaders::{load_any_bus, load_config, load_proof},
     state::Proof,
 };
@@ -10,7 +9,7 @@ use solana_program::{
     self,
     account_info::AccountInfo,
     entrypoint::ProgramResult,
-    log::{self, sol_log},
+    log::{self},
     program::{get_return_data, set_return_data},
     program_error::ProgramError,
     system_program, sysvar,
@@ -72,13 +71,9 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let (pubkey, reward_bytes) = get_return_data().ok_or(PoolError::MissingMiningReward)?;
     log::sol_log(format!("pubkey: {:?}", pubkey).as_str());
     log::sol_log(format!("bytes: {:?}", reward_bytes.as_slice()).as_str());
-    let reward = *MineEvent::from_bytes(reward_bytes.as_slice());
-    log::sol_log(format!("reward: {:?}", reward).as_str());
-    // let reward: MineEvent = *bytemuck::try_from_bytes(reward_bytes.as_slice())
-    //     .map_err(|_| PoolError::CouldNotParseMiningReward)?;
 
     // Write rewards back to return data to parse from client
-    set_return_data(reward.to_bytes());
+    set_return_data(reward_bytes.as_slice());
 
     Ok(())
 }
