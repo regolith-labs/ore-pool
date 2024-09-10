@@ -241,11 +241,13 @@ impl Aggregator {
 
     fn rewards_distribution(&self, pool: Pubkey, reward: u64) -> Vec<(String, u64)> {
         let denominator = self.total_score;
+        log::info!("denominator: {}", denominator);
         let contributions = self.contributions.iter();
         contributions
             .map(|c| {
                 let score = c.score.saturating_div(denominator);
                 let score = score.saturating_mul(reward);
+                log::info!("attributed score: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
                 (member_pda.to_string(), score)
             })

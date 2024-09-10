@@ -27,6 +27,7 @@ pub async fn write_member_total_balances(
     let transaction = conn.transaction().await?;
     for batch in increments.chunks(BATCH_SIZE) {
         for (address, increment) in batch {
+            log::info!("address:increment {}:{}", address, increment);
             // perform an individual update for each record in the batch
             transaction
                 .execute(
