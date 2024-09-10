@@ -3,7 +3,7 @@
 **Infrastructure to manage an ORE mining pool.**
 
 ## Admin
-- Must `cargo run` the ./admin/src/main.rs application before starting server.
+- Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
 This creates the pool account on-chain which the server expects to exist upon starting.
 
 
