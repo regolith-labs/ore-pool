@@ -66,13 +66,13 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         &[&[POOL, signer.key.as_ref(), &[args.pool_bump]]],
     )?;
 
-    // Parse proof account for last-hash-at
-    let mut proof_data = pool_info.try_borrow_mut_data()?;
+    // Parse proof account for last-hash-at.
+    let mut proof_data = proof_info.try_borrow_mut_data()?;
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
     let last_hash_at = proof.last_hash_at;
     sol_log(format!("last hash at: {:?}", last_hash_at).as_str());
 
-    // Initialize pool account
+    // Initialize pool account data.
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     pool_data[0] = Pool::discriminator();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
