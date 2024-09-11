@@ -24,12 +24,17 @@ pub enum Error {
     SolanaPubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
     #[error("member already exists")]
     MemberAlreadyExisits,
+    #[error("member doesn't exist yet")]
+    MemberDoesNotExist,
     #[error("{0}")]
     Internal(String),
 }
 
 impl From<Error> for HttpResponse {
-    fn from(_value: Error) -> Self {
-        HttpResponse::InternalServerError().finish()
+    fn from(value: Error) -> Self {
+        match value {
+            Error::MemberDoesNotExist => HttpResponse::NotFound().finish(),
+            _ => HttpResponse::InternalServerError().finish(),
+        }
     }
 }
