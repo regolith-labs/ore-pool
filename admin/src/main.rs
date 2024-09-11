@@ -16,7 +16,7 @@ async fn main() -> Result<(), error::Error> {
     // build open pool ix
     let signer = keypair.pubkey();
     let miner = keypair.pubkey();
-    let ix = ore_pool_api::instruction::launch(signer, miner, pool_url)?;
+    let ix = ore_pool_api::sdk::launch(signer, miner, pool_url)?;
     let blockhash = rpc_client.get_latest_blockhash().await?;
     let mut tx = Transaction::new_with_payer(&[ix], Some(&signer));
     tx.sign(&[&keypair], blockhash);

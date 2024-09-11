@@ -74,7 +74,7 @@ async fn register_new_member(
             // land tx to create new member account
             log::error!("{:?}", err);
             // build ix
-            let ix = ore_pool_api::instruction::join(member_authority, pool_pda, payer.pubkey());
+            let ix = ore_pool_api::sdk::join(member_authority, pool_pda, payer.pubkey());
             // submit and confirm
             let _ = tx::submit_and_confirm(payer, rpc_client, &[ix], 1_000_000, 50_000).await?;
             // fetch member account for assigned id

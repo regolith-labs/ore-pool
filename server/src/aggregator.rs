@@ -211,12 +211,8 @@ impl Aggregator {
         let bus = self.find_bus(operator).await?;
         // build instructions
         let auth_ix = ore_api::instruction::auth(pool_proof_pda);
-        let submit_ix = ore_pool_api::instruction::submit(
-            operator.keypair.pubkey(),
-            best_solution,
-            attestation,
-            bus,
-        );
+        let submit_ix =
+            ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit_and_confirm(
             &operator.keypair,
