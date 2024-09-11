@@ -145,7 +145,7 @@ async fn validate_nonce(
 ) -> Result<(), Error> {
     let member = get_member(operator, db_client, member_authority.to_string().as_str()).await?;
     let nonce_index = member.id as u64;
-    let u64_unit = u64::MAX.saturating_div(num_members);
+    let u64_unit = u64::MAX.saturating_div(num_members.max(1));
     let left_bound = u64_unit.saturating_mul(nonce_index);
     let right_bound = u64_unit.saturating_mul(nonce_index + 1);
     let ge_left = nonce >= left_bound;
