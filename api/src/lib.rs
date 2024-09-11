@@ -6,4 +6,4 @@ pub mod state;
 
 use solana_program::declare_id;
 
-declare_id!("GuV9YAos5fNb96QktcekT598E7DzMGHEsczp66KDXpqG");
+declare_id!("4K7KY2bNGm56qFRNPyYWYk8gDD3NuhkvbygcD57Pdjg9");
