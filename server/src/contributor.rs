@@ -135,6 +135,9 @@ async fn validate_nonce(
     nonce: u64,
     num_members: u64,
 ) -> Result<(), Error> {
+    if num_members.eq(&0) {
+        return Ok(());
+    }
     let member = get_member(operator, db_client, member_authority.to_string().as_str()).await?;
     let nonce_index = member.id as u64;
     let u64_unit = u64::MAX.saturating_div(num_members);
