@@ -7,8 +7,8 @@ use ore_utils::{
     AccountDeserialize, Discriminator,
 };
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log,
-    program_error::ProgramError, system_program, sysvar,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    system_program, sysvar,
 };
 
 /// Launch creates a new pool.
@@ -70,7 +70,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let mut proof_data = proof_info.try_borrow_mut_data()?;
     let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
     let last_hash_at = proof.last_hash_at;
-    sol_log(format!("last hash at: {:?}", last_hash_at).as_str());
 
     // Initialize pool account data.
     let mut pool_data = pool_info.try_borrow_mut_data()?;
