@@ -9,7 +9,7 @@ use crate::{
     database,
     error::Error,
     operator::Operator,
-    tx, Contribution,
+    Contribution,
 };
 
 pub async fn register(
@@ -38,7 +38,6 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
     })
 }
 
-// TODO: have client build and sign for tx, valdiate here
 async fn register_new_member(
     operator: &Operator,
     db_client: &deadpool_postgres::Pool,
@@ -49,7 +48,6 @@ async fn register_new_member(
     let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
     // check if on-chain account already exists
     let member = operator.get_member(&member_authority).await;
-    let rpc_client = &operator.rpc_client;
     let db_client = db_client.get().await?;
     match member {
         Ok(member) => {
@@ -73,15 +71,9 @@ async fn register_new_member(
             // member doesn't exist yet on-chain
             // land tx to create new member account
             log::error!("{:?}", err);
-            // build ix
-            let ix = ore_pool_api::sdk::join(member_authority, pool_pda, payer.pubkey());
-            // submit and confirm
-            let _ = tx::submit_and_confirm(payer, rpc_client, &[ix], 1_000_000, 50_000).await?;
-            // fetch member account for assigned id
-            let member = operator.get_member(&member_authority).await?;
-            // write member to db
-            let db_member = database::write_new_member(&db_client, &member, false).await?;
-            Ok(db_member)
+            // return error to http client
+            // bc they should create the member account before hitting this path
+            Err(Error::MemberDoesNotExist)
         }
     }
 }

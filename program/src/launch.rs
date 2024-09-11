@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use ore_api::consts::*;
+use ore_api::{consts::*, state::Proof};
 use ore_pool_api::{consts::*, instruction::Launch, state::Pool};
 use ore_utils::{
     create_pda, load_any, load_program, load_signer, load_sysvar, load_uninitialized_pda,
@@ -51,16 +51,8 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         system_program,
         signer,
     )?;
-    let mut pool_data = pool_info.try_borrow_mut_data()?;
-    pool_data[0] = Pool::discriminator();
-    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.authority = *signer.key;
-    pool.url = args.url;
-    pool.attestation = [0; 32];
-    pool.last_total_members = 0;
 
     // Open proof account.
-    drop(pool_data);
     solana_program::program::invoke_signed(
         &ore_api::instruction::open(*pool_info.key, *miner_info.key, *signer.key),
         &[
@@ -73,6 +65,21 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         ],
         &[&[POOL, signer.key.as_ref(), &[args.pool_bump]]],
     )?;
+
+    // Parse proof account for last-hash-at.
+    let mut proof_data = proof_info.try_borrow_mut_data()?;
+    let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
+    let last_hash_at = proof.last_hash_at;
+
+    // Initialize pool account data.
+    let mut pool_data = pool_info.try_borrow_mut_data()?;
+    pool_data[0] = Pool::discriminator();
+    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
+    pool.authority = *signer.key;
+    pool.url = args.url;
+    pool.attestation = [0; 32];
+    pool.last_total_members = 0;
+    pool.last_hash_at = last_hash_at;
 
     Ok(())
 }
