@@ -1,4 +1,4 @@
-# ORE Pool
+# ORE Pool (beta)
 
 **Infrastructure for ORE mining pools.**
 
