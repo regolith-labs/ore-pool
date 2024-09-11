@@ -1,13 +1,13 @@
 mod attribute;
 mod claim;
+mod join;
 mod launch;
-mod open;
 mod submit;
 
 use attribute::*;
 use claim::*;
+use join::*;
 use launch::*;
-use open::*;
 use submit::*;
 
 use ore_pool_api::instruction::PoolInstruction;
@@ -33,7 +33,7 @@ pub fn process_instruction(
 
     match PoolInstruction::try_from(*tag).or(Err(ProgramError::InvalidInstructionData))? {
         // User
-        PoolInstruction::Open => process_open(accounts, data)?,
+        PoolInstruction::Join => process_join(accounts, data)?,
         PoolInstruction::Claim => process_claim(accounts, data)?,
 
         // Admin

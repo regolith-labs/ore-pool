@@ -20,8 +20,9 @@ use crate::{
 #[rustfmt::skip]
 pub enum PoolInstruction {
     // User
-    Open = 0,
+    Join = 0,
     Claim = 1,
+
     // Operator
     Attribute = 100,
     Launch = 101,
@@ -51,7 +52,7 @@ pub struct Launch {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct Open {
+pub struct Join {
     pub member_bump: u8,
 }
 
@@ -66,7 +67,7 @@ pub struct Submit {
 instruction!(PoolInstruction, Launch);
 instruction!(PoolInstruction, Claim);
 instruction!(PoolInstruction, Attribute);
-instruction!(PoolInstruction, Open);
+instruction!(PoolInstruction, Join);
 instruction!(PoolInstruction, Submit);
 
 /// Builds a launch instruction.
@@ -109,8 +110,8 @@ fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
     }
 }
 
-/// Builds an open instruction.
-pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
+/// Builds an join instruction.
+pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
     let (member_pda, member_bump) = member_pda(member_authority, pool);
     Instruction {
         program_id: crate::id(),
@@ -121,7 +122,7 @@ pub fn open(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
             AccountMeta::new(pool, false),
             AccountMeta::new_readonly(system_program::id(), false),
         ],
-        data: Open { member_bump }.to_bytes(),
+        data: Join { member_bump }.to_bytes(),
     }
 }
 
