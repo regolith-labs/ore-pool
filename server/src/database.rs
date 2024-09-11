@@ -69,8 +69,7 @@ pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> R
         let member_authority = Pubkey::from_str(member_authority.as_str())?;
         let total_balance: i64 = row.try_get(2)?;
         // build instruction
-        let ix =
-            ore_pool_api::instruction::attribute(signer, member_authority, total_balance as u64);
+        let ix = ore_pool_api::sdk::attribute(signer, member_authority, total_balance as u64);
         ix_buffer.push(ix);
         address_buffer.push(address);
         // if buffer is full

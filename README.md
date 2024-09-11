@@ -1,6 +1,6 @@
 # ORE Pool
 
-**Infrastructure to manage an ORE mining pool.**
+**Infrastructure for ORE mining pools.**
 
 ## Admin
 - Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.

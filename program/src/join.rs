@@ -15,10 +15,10 @@ use solana_program::{
     system_program,
 };
 
-/// Open creates a new account for a pool participant.
-pub fn process_open(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
+/// Join creates a new account for a pool participant.
+pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = Open::try_from_bytes(data)?;
+    let args = Join::try_from_bytes(data)?;
 
     // Load accounts.
     let [signer, member_authority_info, member_info, pool_info, system_program] = accounts else {
