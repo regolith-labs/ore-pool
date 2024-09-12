@@ -6,7 +6,6 @@
 - Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
 This creates the pool account on-chain which the server expects to exist upon starting.
 
-
 ## Considerations
 - This implementation is still in active development and is subject to breaking changes.
 - The idea is for this to be a reference implementation for operators.
@@ -20,11 +19,8 @@ This creates the pool account on-chain which the server expects to exist upon st
 ## For now
 - For now this server only supports one "operator keypair" and thus one pool. So all of your members will participate in the same pool. This could be abstracted to support an arbitrary number of pools per operator server.
 - For now this server does not collect commissions. We want to parameterize this as an env var.
-- For now this server is attributing member balances every 5 minutes. This frequency should be parameterized as an env var.
-
 
 ## Local database
-
 To spin up the database locally:
 ```
 docker-compose up

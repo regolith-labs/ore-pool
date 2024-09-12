@@ -16,6 +16,8 @@ pub enum Error {
     StdIO(#[from] std::io::Error),
     #[error("std env")]
     StdEnv(#[from] std::env::VarError),
+    #[error("std parse int")]
+    StdParseInt(#[from] std::num::ParseIntError),
     #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]

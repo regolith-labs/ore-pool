@@ -18,15 +18,20 @@ use utils::create_cors;
 // write attestation url to db with last-hash-at as foreign key
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
+    // db connection pool
     let pool = create_pool();
     let pool = web::Data::new(pool);
+    // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
+    // contributions async channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);
+    // env vars
+    let attribution_epoch = attribution_epoch()?;
 
-    // Aggregate contributions
+    // aggregate contributions
     tokio::task::spawn({
         log::info!("starting aggregator thread");
         let operator = operator.clone();
@@ -46,8 +51,7 @@ async fn main() -> Result<(), error::Error> {
         }
     });
 
-    // Kick off attribution loop
-    const ATTRIBUTION_PERIOD: u64 = 5; // minutes
+    // kick off attribution loop
     tokio::task::spawn({
         let aggregator = aggregator.clone();
         let operator = operator.clone();
@@ -62,12 +66,12 @@ async fn main() -> Result<(), error::Error> {
                 }
                 drop(lock);
                 // sleep until next attribution epoch
-                tokio::time::sleep(tokio::time::Duration::from_secs(60 * ATTRIBUTION_PERIOD)).await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(60 * attribution_epoch)).await;
             }
         }
     });
 
-    // Launch server
+    // launch server
     HttpServer::new(move || {
         env_logger::init();
         log::info!("starting server");
@@ -89,6 +93,13 @@ async fn main() -> Result<(), error::Error> {
     .run()
     .await
     .map_err(From::from)
+}
+
+// denominated in minutes
+fn attribution_epoch() -> Result<u64, error::Error> {
+    let string = std::env::var("ATTR_EPOCH")?;
+    let epoch: u64 = string.parse()?;
+    Ok(epoch)
 }
 
 #[get("/health")]
