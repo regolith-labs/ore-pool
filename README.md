@@ -18,7 +18,6 @@ This creates the pool account on-chain which the server expects to exist upon st
 - For reference, you'll find the required HTTP paths [here](./server/src/contributor.rs) and also the client-side API types [here](./types/src/lib.rs).
 
 ## For now
-- For now this server is paying transaction fees for new members to join the pool. We'll try to parameterize this (some operators may want to continue onboarding new members free of charge).
 - For now this server only supports one "operator keypair" and thus one pool. So all of your members will participate in the same pool. This could be abstracted to support an arbitrary number of pools per operator server.
 - For now this server does not collect commissions. We want to parameterize this as an env var.
 - For now this server is attributing member balances every 5 minutes. This frequency should be parameterized as an env var.
