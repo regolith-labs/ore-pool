@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool};
 use ore_utils::AccountDeserialize;
@@ -88,11 +90,12 @@ impl Operator {
     }
 
     pub async fn attribute_members(
-        &self,
+        self: Arc<Self>,
         db_client: &deadpool_postgres::Pool,
     ) -> Result<(), Error> {
         let db_client = db_client.get().await?;
-        database::stream_members_attribution(&db_client, self).await?;
+        let db_client = Arc::new(db_client);
+        database::stream_members_attribution(db_client, self).await?;
         Ok(())
     }
 

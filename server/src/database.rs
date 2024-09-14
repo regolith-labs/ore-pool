@@ -1,4 +1,4 @@
-use std::{env, str::FromStr};
+use std::{env, str::FromStr, sync::Arc};
 
 use crate::{error::Error, operator::Operator, tx};
 use deadpool_postgres::{Object, Pool};
@@ -47,7 +47,10 @@ pub async fn write_member_total_balances(
 // the on-chain attribution instruction is idempotent
 // so any failures here are recoverable
 const NUM_ATTRIBUTIONS_PER_TX: usize = 10;
-pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> Result<(), Error> {
+pub async fn stream_members_attribution(
+    conn: Arc<Object>,
+    operator: Arc<Operator>,
+) -> Result<(), Error> {
     // fetch count(*) to determine min buffer size
     let count_query = "SELECT COUNT(*) FROM members WHERE is_synced = false";
     let row = conn.query_one(count_query, &[]).await?;
@@ -62,6 +65,7 @@ pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> R
     let buffer_size = NUM_ATTRIBUTIONS_PER_TX.min(record_count as usize);
     let mut ix_buffer: Vec<Instruction> = Vec::with_capacity(buffer_size);
     let mut address_buffer: Vec<String> = Vec::with_capacity(buffer_size);
+    let mut handles: Vec<tokio::task::JoinHandle<()>> = vec![];
     while let Some(row) = stream.try_next().await? {
         // parse row
         let address: String = row.try_get(0)?;
@@ -74,22 +78,46 @@ pub async fn stream_members_attribution(conn: &Object, operator: &Operator) -> R
         address_buffer.push(address);
         // if buffer is full
         if ix_buffer.len().eq(&buffer_size) {
-            // attribute
-            let sig = tx::submit_and_confirm(
-                &operator.keypair,
-                &operator.rpc_client,
-                ix_buffer.as_slice(),
-                1_500_000,
-                20_000,
-            )
-            .await?;
-            log::info!("attribution sig: {:?}", sig);
-            // mark as synced
-            write_synced_members(conn, address_buffer.as_slice()).await?;
+            // spawn thread
+            let conn = conn.clone();
+            let operator = operator.clone();
+            let handle = tokio::spawn({
+                let ix_buffer = ix_buffer.clone();
+                let address_buffer = address_buffer.clone();
+                async move {
+                    // attribute
+                    match tx::submit_and_confirm(
+                        &operator.keypair,
+                        &operator.rpc_client,
+                        ix_buffer.as_slice(),
+                        1_500_000,
+                        20_000,
+                    )
+                    .await
+                    {
+                        Ok(sig) => {
+                            log::info!("attribution sig: {:?}", sig);
+                            // mark as synced
+                            if let Err(err) =
+                                write_synced_members(conn.as_ref(), address_buffer.as_slice()).await
+                            {
+                                log::error!("{:?}", err);
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("{:?}", err);
+                        }
+                    }
+                }
+            });
+            handles.push(handle);
+            // clear buffers
             address_buffer.clear();
             ix_buffer.clear();
         }
     }
+    // join handles
+    let _ = futures::future::join_all(handles).await;
     Ok(())
 }
 

@@ -61,6 +61,7 @@ async fn main() -> Result<(), error::Error> {
                 // acquire aggregator lock to freeze contributions while submitting attributions
                 let lock = aggregator.write().await;
                 // submit attributions
+                let operator = operator.clone().into_inner();
                 if let Err(err) = operator.attribute_members(pool.as_ref()).await {
                     panic!("{:?}", err)
                 }
