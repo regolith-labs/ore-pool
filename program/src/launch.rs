@@ -26,7 +26,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     load_any(miner_info, false)?;
     load_uninitialized_pda(
         pool_info,
-        &[POOL, signer.key.as_ref()],
+        &[POOL, miner_info.key.as_ref()],
         args.pool_bump,
         &ore_pool_api::id(),
     )?;
@@ -47,7 +47,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         pool_info,
         &ore_pool_api::id(),
         8 + size_of::<Pool>(),
-        &[POOL, signer.key.as_ref(), &[args.pool_bump]],
+        &[POOL, miner_info.key.as_ref(), &[args.pool_bump]],
         system_program,
         signer,
     )?;
@@ -63,7 +63,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
             system_program.clone(),
             slot_hashes_sysvar.clone(),
         ],
-        &[&[POOL, signer.key.as_ref(), &[args.pool_bump]]],
+        &[&[POOL, miner_info.key.as_ref(), &[args.pool_bump]]],
     )?;
 
     // Parse proof account for last-hash-at.
@@ -75,7 +75,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let mut pool_data = pool_info.try_borrow_mut_data()?;
     pool_data[0] = Pool::discriminator();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.authority = *signer.key;
+    pool.authority = *miner_info.key;
     pool.url = args.url;
     pool.attestation = [0; 32];
     pool.last_total_members = 0;
