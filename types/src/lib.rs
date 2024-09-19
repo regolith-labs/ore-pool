@@ -1,13 +1,47 @@
 use drillx::Solution;
 use serde::{Deserialize, Serialize};
-use solana_sdk::{pubkey::Pubkey, signature::Signature};
+use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 
+///////////////////////////////////////////////////////////////////////////
+/// Request ///////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RegisterPayload {
     /// The authority of the member account sending the payload.
     pub authority: Pubkey,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GetMemberPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ContributePayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+
+    /// The solution submitted.
+    pub solution: Solution,
+
+    /// Must be a valid signature of the solution
+    pub signature: Signature,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UpdateBalancePayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+
+    /// The transaction containing the attribute instruction
+    /// signed by the client as fee payer.
+    pub transaction: Transaction,
+}
+
+///////////////////////////////////////////////////////////////////////////
+/// Response //////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PoolAddress {
     /// The pubkey address of the pool pda of this operator.
@@ -30,12 +64,6 @@ pub struct Challenge {
 
     // The cutoff time to stop accepting contributions.
     pub cutoff_time: u64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GetMemberPayload {
-    /// The authority of the member account sending the payload.
-    pub authority: String,
 }
 
 // The member record that sits in the operator database
@@ -79,17 +107,4 @@ pub struct MemberChallenge {
 
     // The number of total members to divide the nonce space by.
     pub num_total_members: u64,
-}
-
-/// The payload to send to the /contribute endpoint.
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ContributePayload {
-    /// The authority of the member account sending the payload.
-    pub authority: Pubkey,
-
-    /// The solution submitted.
-    pub solution: Solution,
-
-    /// Must be a valid signature of the solution
-    pub signature: Signature,
 }
