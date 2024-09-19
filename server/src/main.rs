@@ -33,7 +33,6 @@ async fn main() -> Result<(), error::Error> {
 
     // aggregate contributions
     tokio::task::spawn({
-        log::info!("starting aggregator thread");
         let operator = operator.clone();
         let aggregator = aggregator.clone();
         let pool = pool.clone();
@@ -53,19 +52,15 @@ async fn main() -> Result<(), error::Error> {
 
     // kick off attribution loop
     tokio::task::spawn({
-        let aggregator = aggregator.clone();
         let operator = operator.clone();
         let pool = pool.clone();
         async move {
             loop {
-                // acquire aggregator lock to freeze contributions while submitting attributions
-                let lock = aggregator.write().await;
                 // submit attributions
                 let operator = operator.clone().into_inner();
                 if let Err(err) = operator.attribute_members(pool.as_ref()).await {
                     panic!("{:?}", err)
                 }
-                drop(lock);
                 // sleep until next attribution epoch
                 tokio::time::sleep(tokio::time::Duration::from_secs(60 * attribution_epoch)).await;
             }
