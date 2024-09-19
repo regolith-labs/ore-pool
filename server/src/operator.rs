@@ -24,15 +24,20 @@ pub struct Operator {
 
     // Solana RPC client.
     pub rpc_client: RpcClient,
+
+    // Postgres connection pool.
+    pub db_client: deadpool_postgres::Pool,
 }
 
 impl Operator {
     pub fn new() -> Result<Operator, Error> {
         let keypair = Operator::keypair()?;
         let rpc_client = Operator::rpc_client()?;
+        let pool = database::create_pool();
         Ok(Operator {
             keypair,
             rpc_client,
+            db_client: pool,
         })
     }
 
@@ -55,12 +60,8 @@ impl Operator {
         Ok(*member)
     }
 
-    pub async fn get_member_db(
-        &self,
-        db_client: &deadpool_postgres::Pool,
-        member_authority: &str,
-    ) -> Result<types::Member, Error> {
-        let db_client = db_client.get().await?;
+    pub async fn get_member_db(&self, member_authority: &str) -> Result<types::Member, Error> {
+        let db_client = self.db_client.get().await?;
         let member_authority = Pubkey::from_str(member_authority)?;
         let pool_authority = self.keypair.pubkey();
         let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
@@ -102,11 +103,8 @@ impl Operator {
         }
     }
 
-    pub async fn attribute_members(
-        self: Arc<Self>,
-        db_client: &deadpool_postgres::Pool,
-    ) -> Result<(), Error> {
-        let db_client = db_client.get().await?;
+    pub async fn attribute_members(self: Arc<Self>) -> Result<(), Error> {
+        let db_client = self.db_client.get().await?;
         let db_client = Arc::new(db_client);
         database::stream_members_attribution(db_client, self).await?;
         Ok(())

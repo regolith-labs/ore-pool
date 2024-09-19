@@ -10,7 +10,6 @@ use core::panic;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
-use database::create_pool;
 use operator::Operator;
 use utils::create_cors;
 
@@ -18,9 +17,6 @@ use utils::create_cors;
 // write attestation url to db with last-hash-at as foreign key
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
-    // db connection pool
-    let pool = create_pool();
-    let pool = web::Data::new(pool);
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
@@ -35,15 +31,10 @@ async fn main() -> Result<(), error::Error> {
     tokio::task::spawn({
         let operator = operator.clone();
         let aggregator = aggregator.clone();
-        let pool = pool.clone();
         async move {
-            if let Err(err) = aggregator::process_contributions(
-                aggregator.as_ref(),
-                operator.as_ref(),
-                pool.as_ref(),
-                &mut rx,
-            )
-            .await
+            if let Err(err) =
+                aggregator::process_contributions(aggregator.as_ref(), operator.as_ref(), &mut rx)
+                    .await
             {
                 log::error!("{:?}", err);
             }
@@ -53,12 +44,11 @@ async fn main() -> Result<(), error::Error> {
     // kick off attribution loop
     tokio::task::spawn({
         let operator = operator.clone();
-        let pool = pool.clone();
         async move {
             loop {
                 // submit attributions
                 let operator = operator.clone().into_inner();
-                if let Err(err) = operator.attribute_members(pool.as_ref()).await {
+                if let Err(err) = operator.attribute_members().await {
                     panic!("{:?}", err)
                 }
                 // sleep until next attribution epoch
@@ -74,7 +64,6 @@ async fn main() -> Result<(), error::Error> {
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(create_cors())
-            .app_data(pool.clone())
             .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())

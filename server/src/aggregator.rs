@@ -80,7 +80,6 @@ impl Hash for Contribution {
 pub async fn process_contributions(
     aggregator: &tokio::sync::RwLock<Aggregator>,
     operator: &Operator,
-    db_client: &deadpool_postgres::Pool,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Contribution>,
 ) -> Result<(), Error> {
     // outer loop for new challenges
@@ -123,7 +122,7 @@ pub async fn process_contributions(
         if total_score > 0 {
             // submit if contributions exist
             let mut aggregator = aggregator.write().await;
-            if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
+            if let Err(err) = aggregator.submit_and_reset(operator).await {
                 log::error!("{:?}", err);
             }
         } else {
@@ -131,7 +130,7 @@ pub async fn process_contributions(
             if let Some(contribution) = rx.recv().await {
                 let mut aggregator = aggregator.write().await;
                 aggregator.insert(&contribution);
-                if let Err(err) = aggregator.submit_and_reset(operator, db_client).await {
+                if let Err(err) = aggregator.submit_and_reset(operator).await {
                     log::error!("{:?}", err);
                 }
             }
@@ -187,11 +186,7 @@ impl Aggregator {
     }
 
     // TODO Publish block to S3
-    async fn submit_and_reset(
-        &mut self,
-        operator: &Operator,
-        db_client: &deadpool_postgres::Pool,
-    ) -> Result<(), Error> {
+    async fn submit_and_reset(&mut self, operator: &Operator) -> Result<(), Error> {
         // check if reset is needed
         // this may happen if a solution is landed on chain
         // but a subsequent application error is thrown before resetting
@@ -228,7 +223,7 @@ impl Aggregator {
         log::info!("reward: {}", reward);
         let rewards_distribution = self.rewards_distribution(pool_pda, reward);
         // write rewards to db
-        let mut db_client = db_client.get().await?;
+        let mut db_client = operator.db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
         // reset
         self.reset(operator).await?;

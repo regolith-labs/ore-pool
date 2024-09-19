@@ -12,11 +12,10 @@ use crate::{
 
 pub async fn register(
     operator: web::Data<Operator>,
-    db_client: web::Data<deadpool_postgres::Pool>,
     payload: web::Json<RegisterPayload>,
 ) -> impl Responder {
     let operator = operator.as_ref();
-    let res = register_new_member(operator, db_client.as_ref(), payload.into_inner()).await;
+    let res = register_new_member(operator, payload.into_inner()).await;
     match res {
         Ok(db_member) => HttpResponse::Ok().json(&db_member),
         Err(err) => {
@@ -38,7 +37,6 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
 
 async fn register_new_member(
     operator: &Operator,
-    db_client: &deadpool_postgres::Pool,
     payload: RegisterPayload,
 ) -> Result<types::Member, Error> {
     let payer = &operator.keypair;
@@ -46,7 +44,7 @@ async fn register_new_member(
     let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
     // check if on-chain account already exists
     let member = operator.get_member_onchain(&member_authority).await;
-    let db_client = db_client.get().await?;
+    let db_client = operator.db_client.get().await?;
     match member {
         Ok(member) => {
             // member already exists on-chain
@@ -78,11 +76,10 @@ async fn register_new_member(
 
 pub async fn member(
     operator: web::Data<Operator>,
-    db_client: web::Data<deadpool_postgres::Pool>,
     path: web::Path<GetMemberPayload>,
 ) -> impl Responder {
     match operator
-        .get_member_db(db_client.as_ref(), path.into_inner().authority.as_str())
+        .get_member_db(path.into_inner().authority.as_str())
         .await
     {
         Ok(member) => HttpResponse::Ok().json(&member),
@@ -112,7 +109,6 @@ pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -
 // TODO: consider fitting lookup table from member authority to id, in memory
 async fn validate_nonce(
     operator: &Operator,
-    db_client: &deadpool_postgres::Pool,
     member_authority: &Pubkey,
     nonce: u64,
     num_members: u64,
@@ -121,7 +117,7 @@ async fn validate_nonce(
         return Ok(());
     }
     let member = operator
-        .get_member_db(db_client, member_authority.to_string().as_str())
+        .get_member_db(member_authority.to_string().as_str())
         .await?;
     let nonce_index = member.id as u64;
     let u64_unit = u64::MAX.saturating_div(num_members);
@@ -141,7 +137,6 @@ async fn validate_nonce(
 pub async fn contribute(
     operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    db_client: web::Data<deadpool_postgres::Pool>,
     tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
     payload: web::Json<ContributePayload>,
 ) -> impl Responder {
@@ -174,14 +169,7 @@ pub async fn contribute(
     let member_authority = &payload.authority;
     let nonce = solution.n;
     let nonce = u64::from_le_bytes(nonce);
-    if let Err(err) = validate_nonce(
-        operator.as_ref(),
-        db_client.as_ref(),
-        member_authority,
-        nonce,
-        num_members,
-    )
-    .await
+    if let Err(err) = validate_nonce(operator.as_ref(), member_authority, nonce, num_members).await
     {
         log::error!("{:?}", err);
         return HttpResponse::Unauthorized().finish();
