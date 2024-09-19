@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload};
@@ -47,7 +45,7 @@ async fn register_new_member(
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
     // check if on-chain account already exists
-    let member = operator.get_member(&member_authority).await;
+    let member = operator.get_member_onchain(&member_authority).await;
     let db_client = db_client.get().await?;
     match member {
         Ok(member) => {
@@ -83,12 +81,9 @@ pub async fn member(
     db_client: web::Data<deadpool_postgres::Pool>,
     path: web::Path<GetMemberPayload>,
 ) -> impl Responder {
-    match get_member(
-        operator.as_ref(),
-        db_client.as_ref(),
-        path.into_inner().authority.as_str(),
-    )
-    .await
+    match operator
+        .get_member_db(db_client.as_ref(), path.into_inner().authority.as_str())
+        .await
     {
         Ok(member) => HttpResponse::Ok().json(&member),
         Err(err) => {
@@ -96,19 +91,6 @@ pub async fn member(
             HttpResponse::NotFound().finish()
         }
     }
-}
-
-async fn get_member(
-    operator: &Operator,
-    db_client: &deadpool_postgres::Pool,
-    member_authority: &str,
-) -> Result<types::Member, Error> {
-    let db_client = db_client.get().await?;
-    let member_authority = Pubkey::from_str(member_authority)?;
-    let pool_authority = operator.keypair.pubkey();
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
-    let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
-    database::read_member(&db_client, &member_pda.to_string()).await
 }
 
 // TODO: consider the need for auth on this get/read?
@@ -138,7 +120,9 @@ async fn validate_nonce(
     if num_members.eq(&0) {
         return Ok(());
     }
-    let member = get_member(operator, db_client, member_authority.to_string().as_str()).await?;
+    let member = operator
+        .get_member_db(db_client, member_authority.to_string().as_str())
+        .await?;
     let nonce_index = member.id as u64;
     let u64_unit = u64::MAX.saturating_div(num_members);
     let left_bound = u64_unit.saturating_mul(nonce_index);

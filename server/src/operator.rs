@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool};
@@ -45,7 +45,7 @@ impl Operator {
         Ok(*pool)
     }
 
-    pub async fn get_member(&self, member_authority: &Pubkey) -> Result<Member, Error> {
+    pub async fn get_member_onchain(&self, member_authority: &Pubkey) -> Result<Member, Error> {
         let authority = self.keypair.pubkey();
         let rpc_client = &self.rpc_client;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
@@ -53,6 +53,19 @@ impl Operator {
         let data = rpc_client.get_account_data(&member_pda).await?;
         let member = Member::try_from_bytes(data.as_slice())?;
         Ok(*member)
+    }
+
+    pub async fn get_member_db(
+        &self,
+        db_client: &deadpool_postgres::Pool,
+        member_authority: &str,
+    ) -> Result<types::Member, Error> {
+        let db_client = db_client.get().await?;
+        let member_authority = Pubkey::from_str(member_authority)?;
+        let pool_authority = self.keypair.pubkey();
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
+        let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
+        database::read_member(&db_client, &member_pda.to_string()).await
     }
 
     pub async fn get_proof(&self) -> Result<Proof, Error> {
