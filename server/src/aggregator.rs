@@ -209,7 +209,7 @@ impl Aggregator {
         let submit_ix =
             ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
         let rpc_client = &operator.rpc_client;
-        let sig = tx::submit_and_confirm(
+        let sig = tx::submit_and_confirm_instructions(
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix],

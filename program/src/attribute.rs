@@ -4,6 +4,8 @@ use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };
 
+// TODO: add fee-payer account
+
 /// Attribute updates a member's claimable balance.
 ///
 /// The arguments to this function expect the member's lifetime earnings. This way,

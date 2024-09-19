@@ -1,6 +1,9 @@
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload};
+use types::{
+    ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
+    UpdateBalancePayload,
+};
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
@@ -33,6 +36,31 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
         address: pool_pda,
         bump,
     })
+}
+
+// TODO: jazz,
+// validate instruction
+async fn update_balance_onchain(
+    operator: &Operator,
+    payload: UpdateBalancePayload,
+) -> Result<(), Error> {
+    let keypair = &operator.keypair;
+    let member_authority = payload.authority;
+    // fetch member balance
+    let member = operator
+        .get_member_db(member_authority.to_string().as_str())
+        .await?;
+    // assert that the fee payer is someone else
+    let tx = payload.transaction;
+    let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
+        "missing fee payer in update balance payload".to_string(),
+    ))?;
+    if fee_payer.ne(&member_authority) {
+        return Err(Error::Internal(
+            "fee payer must be client for update balance".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 async fn register_new_member(

@@ -86,7 +86,7 @@ pub async fn stream_members_attribution(
                 let address_buffer = address_buffer.clone();
                 async move {
                     // attribute
-                    match tx::submit_and_confirm(
+                    match tx::submit_and_confirm_instructions(
                         &operator.keypair,
                         &operator.rpc_client,
                         ix_buffer.as_slice(),

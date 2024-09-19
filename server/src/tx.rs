@@ -10,7 +10,7 @@ use solana_sdk::{
 
 use crate::error::Error;
 
-pub async fn submit_and_confirm(
+pub async fn submit_and_confirm_instructions(
     signer: &Keypair,
     rpc_client: &RpcClient,
     ixs: &[Instruction],
@@ -20,7 +20,7 @@ pub async fn submit_and_confirm(
     let max_retries = 5;
     let mut retries = 0;
     while retries < max_retries {
-        let sig = submit(signer, rpc_client, ixs, cu_limit, cu_price).await?;
+        let sig = submit_instructions(signer, rpc_client, ixs, cu_limit, cu_price).await?;
         match confirm_transaction(rpc_client, &sig).await {
             Ok(()) => return Ok(sig),
             Err(err) => {
@@ -34,7 +34,7 @@ pub async fn submit_and_confirm(
     ))
 }
 
-pub async fn submit(
+pub async fn submit_instructions(
     signer: &Keypair,
     rpc_client: &RpcClient,
     ixs: &[Instruction],
@@ -49,6 +49,27 @@ pub async fn submit(
     let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
     tx.sign(&[signer], hash);
     rpc_client.send_transaction(&tx).await.map_err(From::from)
+}
+
+pub async fn submit_and_confirm_transaction(
+    rpc_client: &RpcClient,
+    tx: &Transaction,
+) -> Result<Signature, Error> {
+    let max_retries = 5;
+    let mut retries = 0;
+    while retries < max_retries {
+        let sig = rpc_client.send_transaction(tx).await?;
+        match confirm_transaction(rpc_client, &sig).await {
+            Ok(()) => return Ok(sig),
+            Err(err) => {
+                log::info!("{:?}", err);
+                retries += 1;
+            }
+        }
+    }
+    Err(Error::Internal(
+        "failed to land transaction with confirmation".to_string(),
+    ))
 }
 
 async fn confirm_transaction(rpc_client: &RpcClient, sig: &Signature) -> Result<(), Error> {
