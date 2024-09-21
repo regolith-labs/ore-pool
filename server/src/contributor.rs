@@ -10,7 +10,7 @@ use crate::{
     database,
     error::Error,
     operator::Operator,
-    Contribution,
+    tx, Contribution,
 };
 
 pub async fn register(
@@ -38,8 +38,19 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
     })
 }
 
-// TODO: jazz,
-// validate instruction
+pub async fn update_balance(
+    operator: web::Data<Operator>,
+    payload: web::Json<UpdateBalancePayload>,
+) -> impl Responder {
+    match update_balance_onchain(operator.as_ref(), payload.into_inner()).await {
+        Ok(()) => HttpResponse::Ok().finish(),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::InternalServerError().body(err.to_string())
+        }
+    }
+}
+
 async fn update_balance_onchain(
     operator: &Operator,
     payload: UpdateBalancePayload,
@@ -55,11 +66,20 @@ async fn update_balance_onchain(
     let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
         "missing fee payer in update balance payload".to_string(),
     ))?;
-    if fee_payer.ne(&member_authority) {
+    if fee_payer.ne(&keypair.pubkey()) {
         return Err(Error::Internal(
             "fee payer must be client for update balance".to_string(),
         ));
     }
+    // validate transaction
+    tx::validate::validate_attribution(&tx, member.total_balance)?;
+    // sign transaction and submit
+    let mut tx = tx;
+    let rpc_client = &operator.rpc_client;
+    let hash = rpc_client.get_latest_blockhash().await?;
+    tx.sign(&[keypair], hash);
+    let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
+    log::info!("on demand attribution sig: {:?}", sig);
     Ok(())
 }
 
