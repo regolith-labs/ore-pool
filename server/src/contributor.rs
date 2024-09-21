@@ -66,7 +66,7 @@ async fn update_balance_onchain(
     let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
         "missing fee payer in update balance payload".to_string(),
     ))?;
-    if fee_payer.ne(&keypair.pubkey()) {
+    if fee_payer.eq(&keypair.pubkey()) {
         return Err(Error::Internal(
             "fee payer must be client for update balance".to_string(),
         ));
