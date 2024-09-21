@@ -121,7 +121,7 @@ pub async fn stream_members_attribution(
     Ok(())
 }
 
-async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
+pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
     let query = "UPDATE members SET is_synced = true WHERE address = ANY($1)";
     conn.execute(query, &[&address_buffer]).await?;
     Ok(())
