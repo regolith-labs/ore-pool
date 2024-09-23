@@ -1,13 +1,16 @@
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload};
+use types::{
+    ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
+    UpdateBalancePayload,
+};
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
     database,
     error::Error,
     operator::Operator,
-    Contribution,
+    tx, Contribution,
 };
 
 pub async fn register(
@@ -33,6 +36,59 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
         address: pool_pda,
         bump,
     })
+}
+
+pub async fn update_balance(
+    operator: web::Data<Operator>,
+    payload: web::Json<UpdateBalancePayload>,
+) -> impl Responder {
+    match update_balance_onchain(operator.as_ref(), payload.into_inner()).await {
+        Ok(()) => HttpResponse::Ok().finish(),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::InternalServerError().body(err.to_string())
+        }
+    }
+}
+
+async fn update_balance_onchain(
+    operator: &Operator,
+    payload: UpdateBalancePayload,
+) -> Result<(), Error> {
+    let keypair = &operator.keypair;
+    let member_authority = payload.authority;
+    let hash = payload.hash;
+    // fetch member balance
+    let member = operator
+        .get_member_db(member_authority.to_string().as_str())
+        .await?;
+    // assert that the fee payer is someone else
+    let tx = payload.transaction;
+    let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
+        "missing fee payer in update balance payload".to_string(),
+    ))?;
+    if fee_payer.eq(&keypair.pubkey()) {
+        return Err(Error::Internal(
+            "fee payer must be client for update balance".to_string(),
+        ));
+    }
+    // validate transaction
+    tx::validate::validate_attribution(&tx, member.total_balance)?;
+    // sign transaction and submit
+    let mut tx = tx;
+    let rpc_client = &operator.rpc_client;
+    log::info!("signatures 0: {:?}", tx.signatures);
+    tx.partial_sign(&[keypair], hash);
+    log::info!("sigatures 1: {:?}", tx.signatures);
+    let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
+    log::info!("on demand attribution sig: {:?}", sig);
+    // set member as synced in db
+    let db_client = &operator.db_client;
+    let db_client = db_client.get().await?;
+    let (pool_address, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+    let (member_address, _) = ore_pool_api::state::member_pda(member_authority, pool_address);
+    database::write_synced_members(&db_client, &[member_address.to_string()]).await?;
+    Ok(())
 }
 
 async fn register_new_member(
