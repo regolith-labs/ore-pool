@@ -1,5 +1,5 @@
 use ore_pool_api::instruction::Attribute;
-use solana_sdk::transaction::Transaction;
+use solana_sdk::{program_error::ProgramError, transaction::Transaction};
 
 use crate::error::Error;
 
@@ -42,7 +42,11 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
         ));
     }
     // validate attribution amount
-    let args = Attribute::try_from_bytes(last.data.as_slice())?;
+    let data = last.data.as_slice();
+    let (_tag, data) = data
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    let args = Attribute::try_from_bytes(data)?;
     let args_total_balance = u64::from_le_bytes(args.total_balance);
     if args_total_balance.ne(&(total_balance as u64)) {
         return Err(Error::Internal("invalid total balance arg".to_string()));
