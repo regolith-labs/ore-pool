@@ -57,6 +57,7 @@ async fn update_balance_onchain(
 ) -> Result<(), Error> {
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
+    let hash = payload.hash;
     // fetch member balance
     let member = operator
         .get_member_db(member_authority.to_string().as_str())
@@ -76,7 +77,6 @@ async fn update_balance_onchain(
     // sign transaction and submit
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
-    let hash = rpc_client.get_latest_blockhash().await?;
     log::info!("signatures 0: {:?}", tx.signatures);
     tx.partial_sign(&[keypair], hash);
     log::info!("sigatures 1: {:?}", tx.signatures);
