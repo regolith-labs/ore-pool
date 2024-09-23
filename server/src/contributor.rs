@@ -77,7 +77,9 @@ async fn update_balance_onchain(
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
     let hash = rpc_client.get_latest_blockhash().await?;
+    log::info!("signatures 0: {:?}", tx.signatures);
     tx.partial_sign(&[keypair], hash);
+    log::info!("sigatures 1: {:?}", tx.signatures);
     let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
     log::info!("on demand attribution sig: {:?}", sig);
     // set member as synced in db
