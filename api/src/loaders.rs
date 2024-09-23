@@ -1,7 +1,7 @@
 use ore_utils::{AccountDeserialize, Discriminator};
 use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
-use crate::state::{Member, Pool};
+use crate::state::{Member, Pool, Share};
 
 /// Errors if:
 /// - Owner is not pool program.
@@ -46,7 +46,7 @@ pub fn load_member(
 /// - Data is empty.
 /// - Account discriminator does not match expected value.
 /// - Expected to be writable, but is not.
-pub fn load_pool_member(
+pub fn load_any_member(
     info: &AccountInfo<'_>,
     pool: &Pubkey,
     is_writable: bool,
@@ -122,6 +122,50 @@ pub fn load_any_pool(info: &AccountInfo<'_>, is_writable: bool) -> Result<(), Pr
 
     if info.data.borrow()[0].ne(&(Pool::discriminator())) {
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
+    }
+
+    if is_writable && !info.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    Ok(())
+}
+
+/// Errors if:
+/// - Owner is not pool program.
+/// - Data is empty.
+/// - Data cannot be deserialized into a share account.
+/// - Share authority is not expected value.
+/// - Share mint account is not the expected value.
+/// - Expected to be writable, but is not.
+pub fn load_share(
+    info: &AccountInfo<'_>,
+    authority: &Pubkey,
+    pool: &Pubkey,
+    mint: &Pubkey,
+    is_writable: bool,
+) -> Result<(), ProgramError> {
+    if info.owner.ne(&crate::id()) {
+        return Err(ProgramError::InvalidAccountOwner);
+    }
+
+    if info.data_is_empty() {
+        return Err(ProgramError::UninitializedAccount);
+    }
+
+    let share_data = info.data.borrow();
+    let share = Share::try_from_bytes(&share_data)?;
+
+    if share.authority.ne(authority) {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    if share.pool.ne(pool) {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    if share.mint.ne(mint) {
+        return Err(ProgramError::InvalidAccountData);
     }
 
     if is_writable && !info.is_writable {

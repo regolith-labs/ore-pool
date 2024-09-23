@@ -11,6 +11,9 @@ pub struct Pool {
     /// The authority of this pool.
     pub authority: Pubkey,
 
+    /// The bump used for signing CPIs.
+    pub bump: u64,
+
     /// The url where hashes should be submitted (right padded with 0s).
     pub url: [u8; 128],
 

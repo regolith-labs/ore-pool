@@ -28,8 +28,9 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-ore-pool-api = { path = "api", version = "0.1.0" }
 ore-api = "2.1.9"
+ore-boost-api = "0.1.0"
+ore-pool-api = { path = "api", version = "0.1.0" }
 ore-utils = { features = ["spl"], version = "2.1.9" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 serde = { features = ["derive"], version = "1.0" }
@@ -40,9 +41,7 @@ solana-program = "^1.18"
 solana-sdk = "^1.18"
 solana-transaction-status = "^1.18"
 spl-token = { features = ["no-entrypoint"], version = "^4" }
-spl-associated-token-account = { features = [
-  "no-entrypoint",
-], version = "^2.3" }
+spl-associated-token-account = { features = ["no-entrypoint"], version = "^2.3" }
 static_assertions = "1.1.0"
 thiserror = "1.0.57"
 tokio = "1.39"
