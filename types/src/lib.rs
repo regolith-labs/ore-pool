@@ -1,6 +1,6 @@
 use drillx::Solution;
 use serde::{Deserialize, Serialize};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
+use solana_sdk::{hash::Hash, pubkey::Pubkey, signature::Signature, transaction::Transaction};
 
 ///////////////////////////////////////////////////////////////////////////
 /// Request ///////////////////////////////////////////////////////////////
@@ -37,6 +37,9 @@ pub struct UpdateBalancePayload {
     /// The transaction containing the attribute instruction
     /// signed by the client as fee payer.
     pub transaction: Transaction,
+
+    /// The hash used to signed the transaction on the client.
+    pub hash: Hash,
 }
 
 ///////////////////////////////////////////////////////////////////////////
