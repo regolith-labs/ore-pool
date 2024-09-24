@@ -205,7 +205,7 @@ impl Aggregator {
         let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
         let bus = self.find_bus(operator).await?;
         // build instructions
-        let auth_ix = ore_api::instruction::auth(pool_proof_pda);
+        let auth_ix = ore_api::sdk::auth(pool_proof_pda);
         let submit_ix =
             ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
         let rpc_client = &operator.rpc_client;

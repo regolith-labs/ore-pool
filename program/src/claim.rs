@@ -45,7 +45,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     let pool_authority = pool.authority;
     drop(pool_data);
     solana_program::program::invoke_signed(
-        &ore_api::instruction::claim(*pool_info.key, *beneficiary_info.key, amount),
+        &ore_api::sdk::claim(*pool_info.key, *beneficiary_info.key, amount),
         &[
             pool_info.clone(),
             beneficiary_info.clone(),

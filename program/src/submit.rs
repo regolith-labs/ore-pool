@@ -49,7 +49,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     // Submit solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
     solana_program::program::invoke(
-        &ore_api::instruction::mine(*signer.key, *pool_info.key, *bus_info.key, solution),
+        &ore_api::sdk::mine(*signer.key, *pool_info.key, *bus_info.key, solution),
         &[
             signer.clone(),
             bus_info.clone(),
