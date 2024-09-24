@@ -76,6 +76,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     pool_data[0] = Pool::discriminator();
     let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
     pool.authority = *signer.key;
+    pool.bump = args.pool_bump as u64;
     pool.url = args.url;
     pool.attestation = [0; 32];
     pool.last_total_members = 0;
