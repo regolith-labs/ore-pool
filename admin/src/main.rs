@@ -1,34 +1,25 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::Keypair,
-    signer::{EncodableKey, Signer},
-    transaction::Transaction,
-};
+use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::EncodableKey};
 
 mod error;
+mod init;
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
+    // parse resources
     let keypair = keypair()?;
     let pool_url = pool_url()?;
     let rpc_client = rpc_client()?;
-    // build open pool ix
-    let signer = keypair.pubkey();
-    let miner = keypair.pubkey();
-    let ix = ore_pool_api::sdk::launch(signer, miner, pool_url)?;
-    let blockhash = rpc_client.get_latest_blockhash().await?;
-    let mut tx = Transaction::new_with_payer(&[ix], Some(&signer));
-    tx.sign(&[&keypair], blockhash);
-    match rpc_client.send_transaction(&tx).await {
-        Ok(sig) => {
-            println!("sig: {:?}", sig);
-        }
-        Err(err) => {
-            println!("{:?}", err);
-        }
+    let command = command()?;
+    // run
+    match command.as_str() {
+        "init" => init::init(&rpc_client, &keypair, pool_url).await,
+        _ => Err(error::Error::InvalidCommand),
     }
-    Ok(())
+}
+
+fn command() -> Result<String, error::Error> {
+    std::env::var("COMMAND").map_err(From::from)
 }
 
 fn rpc_url() -> Result<String, error::Error> {

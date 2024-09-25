@@ -10,4 +10,6 @@ pub enum Error {
     PoolApi(#[from] ore_pool_api::error::ApiError),
     #[error("solana client error")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
+    #[error("invalid command")]
+    InvalidCommand,
 }
