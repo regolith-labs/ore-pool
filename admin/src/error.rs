@@ -6,10 +6,16 @@ pub enum Error {
     StdEnv(#[from] VarError),
     #[error("could not ready keypair from provided path: {0}")]
     KeypairRead(String),
-    #[error("pool api error")]
+    #[error("pool api")]
     PoolApi(#[from] ore_pool_api::error::ApiError),
-    #[error("solana client error")]
+    #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
+    #[error("solana parse pubkey")]
+    SolanaParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
+    #[error("missing boost mint")]
+    MissingBoostMint,
+    #[error("missing pool url")]
+    MissingPoolUrl,
     #[error("invalid command")]
     InvalidCommand,
 }

@@ -139,6 +139,30 @@ pub fn submit(
     }
 }
 
+/// Builds an open stake instruction.
+pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
+    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let (pool_pda, _) = pool_pda(signer);
+    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(signer, boost_pda);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(boost_pda, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(pool_pda, false),
+            AccountMeta::new(pool_tokens, false),
+            AccountMeta::new(stake_pda, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+            AccountMeta::new_readonly(spl_associated_token_account::id(), false),
+            AccountMeta::new_readonly(ore_boost_api::id(), false),
+        ],
+        data: OpenStake {}.to_bytes(),
+    }
+}
+
 fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
     let bytes = input.as_bytes();
     let len = bytes.len();
