@@ -144,7 +144,7 @@ pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let (pool_pda, _) = pool_pda(signer);
     let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(signer, boost_pda);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool_pda, boost_pda);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
