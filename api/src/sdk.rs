@@ -1,6 +1,5 @@
 use drillx::Solution;
 use ore_api::consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS};
-use ore_boost_api::state::stake_pda;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -115,9 +114,7 @@ pub fn submit(
     bus: Pubkey,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
-    println!("pool pda ix builder: {:?}", pool_pda);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
-    println!("proof pda ix builder: {:?}", proof_pda);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
@@ -140,11 +137,40 @@ pub fn submit(
     }
 }
 
+pub fn stake(
+    signer: Pubkey,
+    mint: Pubkey,
+    pool: Pubkey,
+    sender: Pubkey,
+    amount: u64,
+) -> Instruction {
+    let (member_pda, _) = member_pda(signer, pool);
+    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
+    let (share_pda, _) = share_pda(signer, pool, mint);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new_readonly(member_pda, false),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new(pool_tokens, false),
+            AccountMeta::new(sender, false),
+            AccountMeta::new(share_pda, false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+        ],
+        data: Stake {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
 /// Builds an open share instruction.
 pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let (share_pda, share_bump) = share_pda(signer, pool, mint);
-    let (stake_pda, _) = stake_pda(pool, boost_pda);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool, boost_pda);
     Instruction {
         program_id: crate::id(),
         accounts: vec![
