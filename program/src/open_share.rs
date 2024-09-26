@@ -22,7 +22,7 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     load_signer(signer)?;
     load_boost(boost_info, mint_info.key, false)?;
     load_any_mint(mint_info, false)?;
-    load_pool(pool_info, signer.key, true)?;
+    load_pool(pool_info, signer.key, false)?;
     load_uninitialized_pda(
         share_info,
         &[

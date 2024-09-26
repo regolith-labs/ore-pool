@@ -1,5 +1,6 @@
 use drillx::Solution;
 use ore_api::consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS};
+use ore_boost_api::state::stake_pda;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -10,7 +11,7 @@ use solana_program::{
 use crate::{
     error::ApiError,
     instruction::*,
-    state::{member_pda, pool_pda, pool_proof_pda},
+    state::{member_pda, pool_pda, pool_proof_pda, share_pda},
 };
 
 /// Builds a launch instruction.
@@ -136,6 +137,26 @@ pub fn submit(
             nonce: solution.n,
         }
         .to_bytes(),
+    }
+}
+
+/// Builds an open share instruction.
+pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
+    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let (share_pda, share_bump) = share_pda(signer, pool, mint);
+    let (stake_pda, _) = stake_pda(pool, boost_pda);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(boost_pda, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new(share_pda, false),
+            AccountMeta::new_readonly(stake_pda, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: OpenShare { share_bump }.to_bytes(),
     }
 }
 
