@@ -17,6 +17,7 @@ use utils::create_cors;
 // write attestation url to db with last-hash-at as foreign key
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
+    env_logger::init();
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
@@ -59,7 +60,6 @@ async fn main() -> Result<(), error::Error> {
 
     // launch server
     HttpServer::new(move || {
-        env_logger::init();
         log::info!("starting server");
         App::new()
             .wrap(middleware::Logger::default())
