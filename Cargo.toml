@@ -28,14 +28,10 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-## ore-api = "2.1.9"
-## ore-boost-api = "0.1.0"
-## ore-pool-api = { path = "api", version = "0.1.0" }
-## ore-utils = { features = ["spl"], version = "2.1.9" }
-ore-api = { path = "../ore/api" }
-ore-boost-api = { path = "../ore-boost/api" }
+ore-api = "2.1.9"
+ore-boost-api = "0.1.0"
 ore-pool-api = { path = "api", version = "0.1.0" }
-ore-utils = { features = ["spl"], path = "../ore/utils" }
+ore-utils = { features = ["spl"], version = "2.1.9" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 serde = { features = ["derive"], version = "1.0" }
 serde_json = "1.0"
