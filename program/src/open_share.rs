@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use ore_boost_api::loaders::{load_boost, load_stake};
-use ore_pool_api::{consts::*, instruction::OpenShare, loaders::load_pool, state::Share};
+use ore_pool_api::{consts::*, instruction::OpenShare, loaders::load_any_pool, state::Share};
 use ore_utils::*;
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
@@ -22,7 +22,7 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     load_signer(signer)?;
     load_boost(boost_info, mint_info.key, false)?;
     load_any_mint(mint_info, false)?;
-    load_pool(pool_info, signer.key, false)?;
+    load_any_pool(pool_info, false)?;
     load_uninitialized_pda(
         share_info,
         &[
