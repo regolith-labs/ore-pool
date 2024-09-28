@@ -16,8 +16,9 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Submit::try_from_bytes(data)?;
 
     // Load accounts.
+    let (required_accounts, optional_accounts) = accounts.split_at(9);
     let [signer, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
-        accounts
+        required_accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -48,16 +49,18 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     // Submit solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
+    let mine_accounts = &[
+        signer.clone(),
+        bus_info.clone(),
+        config_info.clone(),
+        proof_info.clone(),
+        instructions_sysvar.clone(),
+        slot_hashes_sysvar.clone(),
+    ];
+    let mine_accounts = [mine_accounts, optional_accounts].concat();
     solana_program::program::invoke(
         &ore_api::sdk::mine(*signer.key, *pool_info.key, *bus_info.key, solution),
-        &[
-            signer.clone(),
-            bus_info.clone(),
-            config_info.clone(),
-            proof_info.clone(),
-            instructions_sysvar.clone(),
-            slot_hashes_sysvar.clone(),
-        ],
+        &mine_accounts,
     )?;
 
     // Parse the proof balance again

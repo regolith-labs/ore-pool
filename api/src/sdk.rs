@@ -137,22 +137,29 @@ pub fn submit(
     solution: Solution,
     attestation: [u8; 32],
     bus: Pubkey,
+    boost_accounts: Vec<Pubkey>,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
+    let accounts = vec![
+        AccountMeta::new(signer, true),
+        AccountMeta::new(bus, false),
+        AccountMeta::new_readonly(CONFIG_ADDRESS, false),
+        AccountMeta::new(pool_pda, false),
+        AccountMeta::new(proof_pda, false),
+        AccountMeta::new_readonly(ore_api::id(), false),
+        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(instructions::id(), false),
+        AccountMeta::new_readonly(slot_hashes::id(), false),
+    ];
+    let boost_accounts = boost_accounts
+        .into_iter()
+        .map(|pk| AccountMeta::new_readonly(pk, false))
+        .collect();
+    let accounts = [accounts, boost_accounts].concat();
     Instruction {
         program_id: crate::id(),
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(bus, false),
-            AccountMeta::new_readonly(CONFIG_ADDRESS, false),
-            AccountMeta::new(pool_pda, false),
-            AccountMeta::new(proof_pda, false),
-            AccountMeta::new_readonly(ore_api::id(), false),
-            AccountMeta::new_readonly(system_program::id(), false),
-            AccountMeta::new_readonly(instructions::id(), false),
-            AccountMeta::new_readonly(slot_hashes::id(), false),
-        ],
+        accounts,
         data: Submit {
             attestation,
             digest: solution.d,

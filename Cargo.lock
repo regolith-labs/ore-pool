@@ -2824,6 +2824,7 @@ dependencies = [
  "futures-util",
  "log",
  "ore-api",
+ "ore-boost-api",
  "ore-pool-api",
  "ore-utils",
  "postgres-types",

@@ -19,25 +19,59 @@ pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = None;
 
 pub struct Operator {
-    // The pool authority keypair.
+    /// The pool authority keypair.
     pub keypair: Keypair,
 
-    // Solana RPC client.
+    /// Solana RPC client.
     pub rpc_client: RpcClient,
 
-    // Postgres connection pool.
+    /// Postgres connection pool.
     pub db_client: deadpool_postgres::Pool,
+
+    /// The boost accounts for mining multipliers.
+    pub boost_accounts: Vec<BoostAccount>,
+}
+
+pub struct BoostAccount {
+    /// The mint account used to derive the boost account.
+    pub mint: Pubkey,
+
+    /// The boost account.
+    pub boost: Pubkey,
+
+    /// The pool's stake account derived from the boost.
+    pub stake: Pubkey,
+}
+
+impl BoostAccount {
+    fn new(mint: Pubkey, operator_pubkey: Pubkey) -> Self {
+        let (boost, _) = ore_boost_api::state::boost_pda(mint);
+        let (pool, _) = ore_pool_api::state::pool_pda(operator_pubkey);
+        let (stake, _) = ore_boost_api::state::stake_pda(pool, boost);
+        Self { mint, boost, stake }
+    }
+
+    fn new_from_vec(mint_vec: Vec<Pubkey>, operator_pubkey: Pubkey) -> Vec<Self> {
+        mint_vec
+            .into_iter()
+            .map(|mint| Self::new(mint, operator_pubkey))
+            .collect()
+    }
 }
 
 impl Operator {
     pub fn new() -> Result<Operator, Error> {
-        let keypair = Operator::keypair()?;
-        let rpc_client = Operator::rpc_client()?;
-        let pool = database::create_pool();
+        let keypair = Self::keypair()?;
+        let rpc_client = Self::rpc_client()?;
+        let db_client = database::create_pool();
+        let boosts = Self::load_boosts()?;
+        log::info!("boosts: {:?}", boosts);
+        let boost_accounts = BoostAccount::new_from_vec(boosts, keypair.pubkey());
         Ok(Operator {
             keypair,
             rpc_client,
-            db_client: pool,
+            db_client,
+            boost_accounts,
         })
     }
 
@@ -103,31 +137,50 @@ impl Operator {
         }
     }
 
-    pub async fn commit_stake(self: Arc<Self>, boost_mints: &[Pubkey]) -> Result<(), Error> {
-        let authority = &self.keypair;
-        let rpc_client = &self.rpc_client;
-        let mut ixs = vec![];
-        for mint in boost_mints {
-            let ix = ore_pool_api::sdk::commit(authority.pubkey(), *mint);
-            ixs.push(ix);
-        }
-        let sig = tx::submit::submit_and_confirm_instructions(
-            authority,
-            rpc_client,
-            ixs.as_slice(),
-            1_000_000,
-            10_000,
-        )
-        .await?;
-        log::info!("commit stake sig: {:?}", sig);
-        Ok(())
-    }
-
     pub async fn attribute_members(self: Arc<Self>) -> Result<(), Error> {
         let db_client = self.db_client.get().await?;
         let db_client = Arc::new(db_client);
         database::stream_members_attribution(db_client, self).await?;
         Ok(())
+    }
+
+    pub async fn commit_stake(self: Arc<Self>) -> Result<(), Error> {
+        let authority = &self.keypair;
+        let rpc_client = &self.rpc_client;
+        let boost_mints = self.get_boosts();
+        if boost_mints.len().gt(&0) {
+            let mut ixs = vec![];
+            for mint in boost_mints.iter() {
+                let ix = ore_pool_api::sdk::commit(authority.pubkey(), *mint);
+                ixs.push(ix);
+            }
+            let sig = tx::submit::submit_and_confirm_instructions(
+                authority,
+                rpc_client,
+                ixs.as_slice(),
+                1_000_000,
+                10_000,
+            )
+            .await?;
+            log::info!("commit stake sig: {:?}", sig);
+        }
+        Ok(())
+    }
+
+    /// the optional boost accounts for the mine instruction.
+    pub fn get_boost_mine_accounts(&self) -> Vec<Pubkey> {
+        let mut vec = vec![];
+        let boost_accounts = &self.boost_accounts;
+        for ba in boost_accounts.iter() {
+            vec.push(ba.boost);
+            vec.push(ba.stake);
+        }
+        vec
+    }
+
+    fn get_boosts(&self) -> Vec<Pubkey> {
+        let boost_accounts = &self.boost_accounts;
+        boost_accounts.iter().map(|ba| ba.mint).collect()
     }
 
     async fn get_config(&self) -> Result<Config, Error> {
@@ -165,6 +218,40 @@ impl Operator {
 
     fn rpc_url() -> Result<String, Error> {
         std::env::var("RPC_URL").map_err(From::from)
+    }
+
+    fn load_boosts() -> Result<Vec<Pubkey>, Error> {
+        let boost_1 = Self::boost_one()?;
+        let boost_2 = Self::boost_two()?;
+        let boost_3 = Self::boost_three()?;
+        let boosts: Vec<Pubkey> = vec![boost_1, boost_2, boost_3]
+            .into_iter()
+            .flatten()
+            .collect();
+        Ok(boosts)
+    }
+
+    fn load_boost(var: String) -> Result<Option<Pubkey>, Error> {
+        match std::env::var(var) {
+            Ok(boost) => {
+                let boost = Pubkey::from_str(boost.as_str())?;
+                Ok(Some(boost))
+            }
+            // optional
+            Err(_) => Ok(None),
+        }
+    }
+
+    fn boost_one() -> Result<Option<Pubkey>, Error> {
+        Self::load_boost("BOOST_ONE".to_string())
+    }
+
+    fn boost_two() -> Result<Option<Pubkey>, Error> {
+        Self::load_boost("BOOST_TWO".to_string())
+    }
+
+    fn boost_three() -> Result<Option<Pubkey>, Error> {
+        Self::load_boost("BOOST_THREE".to_string())
     }
 }
 

@@ -7,12 +7,10 @@ mod tx;
 mod utils;
 
 use core::panic;
-use std::str::FromStr;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
 use operator::Operator;
-use solana_sdk::pubkey::Pubkey;
 use utils::create_cors;
 
 // TODO: publish attestation to s3
@@ -30,7 +28,6 @@ async fn main() -> Result<(), error::Error> {
     // env vars
     let attribution_epoch = attribution_epoch()?;
     let stake_commit_epoch = stake_commit_epoch()?;
-    let boosts = load_boosts()?;
 
     // aggregate contributions
     tokio::task::spawn({
@@ -66,16 +63,13 @@ async fn main() -> Result<(), error::Error> {
     tokio::task::spawn({
         let operator = operator.clone();
         async move {
-            if boosts.len().gt(&0) {
-                loop {
-                    let operator = operator.clone().into_inner();
-                    if let Err(err) = operator.commit_stake(boosts.as_slice()).await {
-                        panic!("{:?}", err)
-                    }
-                    // sleep until next epoch
-                    tokio::time::sleep(tokio::time::Duration::from_secs(60 * stake_commit_epoch))
-                        .await;
+            loop {
+                let operator = operator.clone().into_inner();
+                if let Err(err) = operator.commit_stake().await {
+                    panic!("{:?}", err)
                 }
+                // sleep until next epoch
+                tokio::time::sleep(tokio::time::Duration::from_secs(60 * stake_commit_epoch)).await;
             }
         }
     });
@@ -103,40 +97,6 @@ async fn main() -> Result<(), error::Error> {
     .run()
     .await
     .map_err(From::from)
-}
-
-fn load_boosts() -> Result<Vec<Pubkey>, error::Error> {
-    let boost_1 = boost_one()?;
-    let boost_2 = boost_two()?;
-    let boost_3 = boost_three()?;
-    let boosts: Vec<Pubkey> = vec![boost_1, boost_2, boost_3]
-        .into_iter()
-        .flatten()
-        .collect();
-    Ok(boosts)
-}
-
-fn load_boost(var: String) -> Result<Option<Pubkey>, error::Error> {
-    match std::env::var(var) {
-        Ok(boost) => {
-            let boost = Pubkey::from_str(boost.as_str())?;
-            Ok(Some(boost))
-        }
-        // optional
-        Err(_) => Ok(None),
-    }
-}
-
-fn boost_one() -> Result<Option<Pubkey>, error::Error> {
-    load_boost("BOOST_ONE".to_string())
-}
-
-fn boost_two() -> Result<Option<Pubkey>, error::Error> {
-    load_boost("BOOST_TWO".to_string())
-}
-
-fn boost_three() -> Result<Option<Pubkey>, error::Error> {
-    load_boost("BOOST_THREE".to_string())
 }
 
 // denominated in minutes
