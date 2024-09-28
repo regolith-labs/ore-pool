@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, vec};
 
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool};
@@ -13,7 +13,7 @@ use solana_sdk::{
     sysvar,
 };
 
-use crate::{database, error::Error};
+use crate::{database, error::Error, tx};
 
 pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = None;
@@ -101,6 +101,26 @@ impl Operator {
             }
             None => Ok(program_min),
         }
+    }
+
+    pub async fn commit_stake(self: Arc<Self>, boost_mints: &[Pubkey]) -> Result<(), Error> {
+        let authority = &self.keypair;
+        let rpc_client = &self.rpc_client;
+        let mut ixs = vec![];
+        for mint in boost_mints {
+            let ix = ore_pool_api::sdk::commit(authority.pubkey(), *mint);
+            ixs.push(ix);
+        }
+        let sig = tx::submit::submit_and_confirm_instructions(
+            authority,
+            rpc_client,
+            ixs.as_slice(),
+            1_000_000,
+            10_000,
+        )
+        .await?;
+        log::info!("commit stake sig: {:?}", sig);
+        Ok(())
     }
 
     pub async fn attribute_members(self: Arc<Self>) -> Result<(), Error> {

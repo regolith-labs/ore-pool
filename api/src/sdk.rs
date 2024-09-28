@@ -106,6 +106,31 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
     }
 }
 
+/// Builds a commit instruction.
+pub fn commit(signer: Pubkey, mint: Pubkey) -> Instruction {
+    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let boost_tokens =
+        spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
+    let (pool_pda, _) = pool_pda(signer);
+    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool_pda, boost_pda);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(boost_pda, false),
+            AccountMeta::new(boost_tokens, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(pool_pda, false),
+            AccountMeta::new(pool_tokens, false),
+            AccountMeta::new(stake_pda, false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+            AccountMeta::new_readonly(ore_boost_api::id(), false),
+        ],
+        data: Commit {}.to_bytes(),
+    }
+}
+
 /// Builds an submit instruction.
 pub fn submit(
     signer: Pubkey,

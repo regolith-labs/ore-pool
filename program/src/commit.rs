@@ -3,24 +3,23 @@ use ore_pool_api::{consts::POOL, loaders::*, state::Pool};
 use ore_utils::*;
 use solana_program::{
     self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    program_pack::Pack, system_program,
+    program_pack::Pack,
 };
 
 /// Commit pending stake from the pool program into the boost program.
 pub fn process_commit(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResult {
     // Load accounts.
-    let [signer, boost_info, boost_tokens_info, mint_info, pool_info, pool_tokens_info, stake_info, system_program, spl_token_program, ore_boost_program] =
+    let [signer, boost_info, boost_tokens_info, mint_info, pool_info, pool_tokens_info, stake_info, spl_token_program, ore_boost_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load_signer(signer)?;
-    load_boost(boost_info, mint_info.key, false)?;
+    load_boost(boost_info, mint_info.key, true)?;
     load_associated_token_account(boost_tokens_info, boost_info.key, mint_info.key, true)?;
     load_any_mint(mint_info, false)?;
-    load_pool(pool_info, signer.key, false)?;
+    load_pool(pool_info, signer.key, true)?;
     load_associated_token_account(pool_tokens_info, pool_info.key, mint_info.key, true)?;
-    load_program(system_program, system_program::id())?;
     load_program(spl_token_program, spl_token::id())?;
     load_program(ore_boost_program, ore_boost_api::id())?;
 
@@ -46,7 +45,6 @@ pub fn process_commit(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResu
             mint_info.clone(),
             pool_tokens_info.clone(),
             stake_info.clone(),
-            system_program.clone(),
             spl_token_program.clone(),
         ],
         &[&[POOL, signer.key.as_ref(), &[pool_bump]]],
