@@ -1,13 +1,17 @@
 use actix_web::{web, HttpResponse, Responder};
-use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use ore_utils::AccountDeserialize;
+use solana_sdk::{
+    pubkey::Pubkey,
+    signer::{keypair, Signer},
+};
 use types::{
     ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
-    UpdateBalancePayload,
+    RegisterStakerPayload, UpdateBalancePayload,
 };
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
-    database,
+    database::{self, Staker},
     error::Error,
     operator::Operator,
     tx, Contribution,
@@ -21,6 +25,22 @@ pub async fn register(
     let res = register_new_member(operator, payload.into_inner()).await;
     match res {
         Ok(db_member) => HttpResponse::Ok().json(&db_member),
+        Err(err) => {
+            log::error!("{:?}", err);
+            let http_response: HttpResponse = err.into();
+            http_response
+        }
+    }
+}
+
+pub async fn register_staker(
+    operator: web::Data<Operator>,
+    payload: web::Json<RegisterStakerPayload>,
+) -> impl Responder {
+    let operator = operator.as_ref();
+    let res = register_new_staker(operator, payload.into_inner()).await;
+    match res {
+        Ok(_staker) => HttpResponse::Ok().finish(),
         Err(err) => {
             log::error!("{:?}", err);
             let http_response: HttpResponse = err.into();
@@ -91,13 +111,54 @@ async fn update_balance_onchain(
     Ok(())
 }
 
+async fn register_new_staker(
+    operator: &Operator,
+    payload: RegisterStakerPayload,
+) -> Result<Staker, Error> {
+    let keypair = &operator.keypair;
+    let member_authority = payload.authority;
+    let mint = payload.mint;
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+    // check if on-chain account already exists
+    let staker = operator.get_staker_onchain(&member_authority, &mint).await;
+    match staker {
+        Ok(_staker) => {
+            // staker already exists on-chain
+            // check if record is in db already
+            let db_staker = operator.get_staker_db(&member_authority, &mint).await;
+            match db_staker {
+                Ok(db_staker) => {
+                    // staker already exits in db
+                    Ok(db_staker)
+                }
+                Err(_) => {
+                    // write staker to db
+                    let conn = operator.db_client.get().await?;
+                    let db_staker =
+                        database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
+                            .await?;
+                    // TODO: add address to webhook
+                    Ok(db_staker)
+                }
+            }
+        }
+        Err(err) => {
+            // staker doesn't exist yet on-chain
+            log::error!("{:?}", err);
+            // return error to http client
+            // bc they should create the staker (share) account before hitting this path
+            Err(Error::StakerDoesNotExist)
+        }
+    }
+}
+
 async fn register_new_member(
     operator: &Operator,
     payload: RegisterPayload,
 ) -> Result<types::Member, Error> {
-    let payer = &operator.keypair;
+    let keypair = &operator.keypair;
     let member_authority = payload.authority;
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(payer.pubkey());
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
     // check if on-chain account already exists
     let member = operator.get_member_onchain(&member_authority).await;
     let db_client = operator.db_client.get().await?;

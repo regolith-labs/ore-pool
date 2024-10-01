@@ -1,12 +1,23 @@
 use std::{env, str::FromStr, sync::Arc};
 
 use crate::{error::Error, operator::Operator, tx};
-use deadpool_postgres::{Object, Pool};
+use deadpool_postgres::{GenericClient, Object, Pool};
 use futures::TryStreamExt;
 use futures_util::pin_mut;
-use ore_pool_api::state::member_pda;
+use ore_pool_api::state::{member_pda, share_pda};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use tokio_postgres::NoTls;
+
+pub struct Staker {
+    /// the share account address
+    pub address: Pubkey,
+
+    /// the member id (foreign key relation to members table)
+    pub member_id: u64,
+
+    /// the mint of the boost account the member is staking to
+    pub mint: Pubkey,
+}
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
@@ -127,6 +138,30 @@ pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> R
     Ok(())
 }
 
+pub async fn write_new_staker(
+    conn: &Object,
+    member_authority: &Pubkey,
+    pool: &Pubkey,
+    mint: &Pubkey,
+) -> Result<Staker, Error> {
+    let (member_pda, _) = member_pda(*member_authority, *pool);
+    let member = read_member(conn, &member_authority.to_string()).await?;
+    let (share_pda, _) = share_pda(member_pda, *pool, *mint);
+    conn.execute(
+        "INSERT INTO stakers
+        (address, member_id, mint)
+        VALUES ($1, $2, $3)",
+        &[&share_pda.to_string(), &member.id, &mint.to_string()],
+    )
+    .await?;
+    let staker = Staker {
+        address: share_pda,
+        member_id: member.id as u64,
+        mint: *mint,
+    };
+    Ok(staker)
+}
+
 pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
@@ -159,6 +194,32 @@ pub async fn write_new_member(
     )
     .await?;
     Ok(member)
+}
+
+pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Error> {
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT address, id, mint
+                FROM stakers
+                WHERE address = '{}'",
+                address
+            ),
+            &[],
+        )
+        .await?;
+    let address: String = row.try_get(0)?;
+    let address = Pubkey::from_str(address.as_str())?;
+    let member_id: i64 = row.try_get(1)?;
+    let member_id = member_id as u64;
+    let mint: String = row.try_get(2)?;
+    let mint = Pubkey::from_str(mint.as_str())?;
+    let staker = Staker {
+        address,
+        member_id,
+        mint,
+    };
+    Ok(staker)
 }
 
 pub async fn read_member(conn: &Object, address: &String) -> Result<types::Member, Error> {

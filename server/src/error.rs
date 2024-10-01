@@ -1,4 +1,4 @@
-use actix_web::HttpResponse;
+use actix_web::{http::header::ToStrError, HttpResponse};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -10,8 +10,14 @@ pub enum Error {
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("tokio postgres")]
     TokioPostgres(#[from] tokio_postgres::Error),
-    #[error("deadpool postgress error")]
+    #[error("deadpool postgress")]
     DeadpoolPostgres(#[from] deadpool_postgres::PoolError),
+    #[error("http header to string")]
+    HttpHeader(#[from] ToStrError),
+    #[error("reqwest")]
+    Reqwest(#[from] reqwest::Error),
+    #[error("serde json")]
+    SerdeJson(#[from] serde_json::Error),
     #[error("std io")]
     StdIO(#[from] std::io::Error),
     #[error("std env")]
@@ -24,10 +30,10 @@ pub enum Error {
     SolanaProgram(#[from] solana_sdk::program_error::ProgramError),
     #[error("solana pubkey")]
     SolanaPubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
-    #[error("member already exists")]
-    MemberAlreadyExisits,
     #[error("member doesn't exist yet")]
     MemberDoesNotExist,
+    #[error("staker doesn't exist yet")]
+    StakerDoesNotExist,
     #[error("{0}")]
     Internal(String),
 }
@@ -35,7 +41,9 @@ pub enum Error {
 impl From<Error> for HttpResponse {
     fn from(value: Error) -> Self {
         match value {
-            Error::MemberDoesNotExist => HttpResponse::NotFound().finish(),
+            Error::MemberDoesNotExist | Error::StakerDoesNotExist => {
+                HttpResponse::NotFound().finish()
+            }
             _ => HttpResponse::InternalServerError().finish(),
         }
     }

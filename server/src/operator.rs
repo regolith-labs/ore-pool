@@ -13,7 +13,11 @@ use solana_sdk::{
     sysvar,
 };
 
-use crate::{database, error::Error, tx};
+use crate::{
+    database::{self, Staker},
+    error::Error,
+    tx,
+};
 
 pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = None;
@@ -82,6 +86,33 @@ impl Operator {
         let data = rpc_client.get_account_data(&pool_pda).await?;
         let pool = Pool::try_from_bytes(data.as_slice())?;
         Ok(*pool)
+    }
+
+    pub async fn get_staker_onchain(
+        &self,
+        member_authority: &Pubkey,
+        mint: &Pubkey,
+    ) -> Result<ore_pool_api::state::Share, Error> {
+        let keypair = &self.keypair;
+        let rpc_client = &self.rpc_client;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+        let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
+        let data = rpc_client.get_account_data(&share_pda).await?;
+        let share = ore_pool_api::state::Share::try_from_bytes(data.as_slice())?;
+        Ok(*share)
+    }
+
+    pub async fn get_staker_db(
+        &self,
+        member_authority: &Pubkey,
+        mint: &Pubkey,
+    ) -> Result<Staker, Error> {
+        let keypair = &self.keypair;
+        let db_client = &self.db_client;
+        let db_client = db_client.get().await?;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+        let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
+        database::read_staker(&db_client, &share_pda.to_string()).await
     }
 
     pub async fn get_member_onchain(&self, member_authority: &Pubkey) -> Result<Member, Error> {

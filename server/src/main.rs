@@ -5,6 +5,7 @@ mod error;
 mod operator;
 mod tx;
 mod utils;
+mod webhook;
 
 use core::panic;
 
@@ -22,6 +23,8 @@ async fn main() -> Result<(), error::Error> {
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
+    let webhook_handler = web::Data::new(webhook::Handle::new()?);
+    let webhook_client = web::Data::new(webhook::Client::new_stake()?);
     // contributions async channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);
@@ -83,13 +86,22 @@ async fn main() -> Result<(), error::Error> {
             .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())
+            .app_data(webhook_handler.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
+            .service(
+                web::resource("/register-staker")
+                    .route(web::post().to(contributor::register_staker)),
+            )
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))
             .service(
                 web::resource("/update-balance").route(web::post().to(contributor::update_balance)),
+            )
+            .service(
+                web::resource("/webhook/share-account")
+                    .route(web::post().to(webhook::Handle::share_account)),
             )
             .service(health)
     })

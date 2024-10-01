@@ -42,6 +42,15 @@ pub struct UpdateBalancePayload {
     pub hash: Hash,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RegisterStakerPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+
+    /// The mint for the boost account the member is staking to.
+    pub mint: Pubkey,
+}
+
 ///////////////////////////////////////////////////////////////////////////
 /// Response //////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////

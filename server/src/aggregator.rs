@@ -1,4 +1,7 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use drillx::Solution;
 use ore_api::{
@@ -18,13 +21,13 @@ use crate::{
     tx,
 };
 
-// The client submits slightly earlier
-// than the operator's cutoff time to create a "submission window".
+/// The client submits slightly earlier
+/// than the operator's cutoff time to create a "submission window".
 pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
-    // The current challenge.
+    /// The current challenge.
     pub challenge: Challenge,
 
     /// The set of contributions aggregated for the current challenge.
@@ -33,11 +36,24 @@ pub struct Aggregator {
     /// The total difficulty score of all the contributions aggregated so far.
     pub total_score: u64,
 
-    // The best solution submitted.
+    /// The best solution submitted.
     pub winner: Option<Winner>,
 
-    // The number of workers that have been approved for the current challenge.
+    /// The number of workers that have been approved for the current challenge.
     pub num_members: u64,
+
+    /// The map of stake contributors to be attributed.
+    pub stake: Stake,
+}
+
+pub struct Stake {
+    /// The active map of stake.
+    /// Decrements can be made at any time.
+    pub active: HashMap<Pubkey, u64>,
+
+    /// The pending map of stake.
+    /// Increments are synced at the commit loop.
+    pub pending: HashMap<Pubkey, u64>,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -157,6 +173,12 @@ impl Aggregator {
             total_score: 0,
             winner: None,
             num_members: pool.last_total_members,
+            // TODO: fetch stake addresses from db
+            // fetch onchain accounts in batch
+            stake: Stake {
+                active: HashMap::new(),
+                pending: HashMap::new(),
+            },
         };
         Ok(aggregator)
     }
