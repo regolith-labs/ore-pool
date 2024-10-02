@@ -1,9 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
-use ore_utils::AccountDeserialize;
-use solana_sdk::{
-    pubkey::Pubkey,
-    signer::{keypair, Signer},
-};
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{
     ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
     RegisterStakerPayload, UpdateBalancePayload,
@@ -17,6 +13,9 @@ use crate::{
     tx, Contribution,
 };
 
+////////////////////////////////////////////////////////////////////////////////////
+/// HTTP HANDLERS //////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 pub async fn register(
     operator: web::Data<Operator>,
     payload: web::Json<RegisterPayload>,
@@ -71,6 +70,95 @@ pub async fn update_balance(
     }
 }
 
+pub async fn member(
+    operator: web::Data<Operator>,
+    path: web::Path<GetMemberPayload>,
+) -> impl Responder {
+    match operator
+        .get_member_db(path.into_inner().authority.as_str())
+        .await
+    {
+        Ok(member) => HttpResponse::Ok().json(&member),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::NotFound().finish()
+        }
+    }
+}
+
+// TODO: consider the need for auth on this get/read?
+pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
+    // acquire read on aggregator for challenge
+    let (challenge, last_num_members) = {
+        let aggregator = aggregator.read().await;
+        (aggregator.challenge, aggregator.num_members)
+    };
+    // build member challenge
+    let member_challenge = MemberChallenge {
+        challenge,
+        buffer: BUFFER_CLIENT,
+        num_total_members: last_num_members,
+    };
+    HttpResponse::Ok().json(&member_challenge)
+}
+
+/// Accepts solutions from pool members. If their solutions are valid, it
+/// aggregates the contributions into a list for publishing and submission.
+pub async fn contribute(
+    operator: web::Data<Operator>,
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
+    payload: web::Json<ContributePayload>,
+) -> impl Responder {
+    // acquire read on aggregator for challenge
+    let aggregator = aggregator.read().await;
+    let challenge = aggregator.challenge;
+    let num_members = aggregator.num_members;
+    drop(aggregator);
+    // decode solution difficulty
+    let solution = &payload.solution;
+    let difficulty = solution.to_hash().difficulty();
+    // authenticate the sender signature
+    if !payload
+        .signature
+        .verify(&payload.authority.to_bytes(), &solution.to_bytes())
+    {
+        return HttpResponse::Unauthorized().finish();
+    }
+    // error if solution below min difficulty
+    if difficulty < (challenge.min_difficulty as u32) {
+        log::error!("solution below min difficulity: {:?}", payload.authority);
+        return HttpResponse::BadRequest().finish();
+    }
+    // error if digest is invalid
+    if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
+        log::error!("invalid solution");
+        return HttpResponse::BadRequest().finish();
+    }
+    // validate nonce
+    let member_authority = &payload.authority;
+    let nonce = solution.n;
+    let nonce = u64::from_le_bytes(nonce);
+    if let Err(err) = validate_nonce(operator.as_ref(), member_authority, nonce, num_members).await
+    {
+        log::error!("{:?}", err);
+        return HttpResponse::Unauthorized().finish();
+    }
+    // calculate score
+    let score = 2u64.pow(difficulty);
+    // update the aggegator
+    if let Err(err) = tx.send(Contribution {
+        member: payload.authority,
+        score,
+        solution: payload.solution,
+    }) {
+        log::error!("{:?}", err);
+    }
+    HttpResponse::Ok().finish()
+}
+////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
 async fn update_balance_onchain(
     operator: &Operator,
     payload: UpdateBalancePayload,
@@ -118,7 +206,6 @@ async fn register_new_staker(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let mint = payload.mint;
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
     // check if on-chain account already exists
     let staker = operator.get_staker_onchain(&member_authority, &mint).await;
     match staker {
@@ -134,6 +221,7 @@ async fn register_new_staker(
                 Err(_) => {
                     // write staker to db
                     let conn = operator.db_client.get().await?;
+                    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
                     let db_staker =
                         database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
                             .await?;
@@ -191,38 +279,6 @@ async fn register_new_member(
     }
 }
 
-pub async fn member(
-    operator: web::Data<Operator>,
-    path: web::Path<GetMemberPayload>,
-) -> impl Responder {
-    match operator
-        .get_member_db(path.into_inner().authority.as_str())
-        .await
-    {
-        Ok(member) => HttpResponse::Ok().json(&member),
-        Err(err) => {
-            log::error!("{:?}", err);
-            HttpResponse::NotFound().finish()
-        }
-    }
-}
-
-// TODO: consider the need for auth on this get/read?
-pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
-    // acquire read on aggregator for challenge
-    let (challenge, last_num_members) = {
-        let aggregator = aggregator.read().await;
-        (aggregator.challenge, aggregator.num_members)
-    };
-    // build member challenge
-    let member_challenge = MemberChallenge {
-        challenge,
-        buffer: BUFFER_CLIENT,
-        num_total_members: last_num_members,
-    };
-    HttpResponse::Ok().json(&member_challenge)
-}
-
 // TODO: consider fitting lookup table from member authority to id, in memory
 async fn validate_nonce(
     operator: &Operator,
@@ -247,59 +303,4 @@ async fn validate_nonce(
     } else {
         Err(Error::Internal("invalid nonce from client".to_string()))
     }
-}
-
-/// Accepts solutions from pool members. If their solutions are valid, it
-/// aggregates the contributions into a list for publishing and submission.
-pub async fn contribute(
-    operator: web::Data<Operator>,
-    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
-    payload: web::Json<ContributePayload>,
-) -> impl Responder {
-    // acquire read on aggregator for challenge
-    let aggregator = aggregator.read().await;
-    let challenge = aggregator.challenge;
-    let num_members = aggregator.num_members;
-    drop(aggregator);
-    // decode solution difficulty
-    let solution = &payload.solution;
-    let difficulty = solution.to_hash().difficulty();
-    // authenticate the sender signature
-    if !payload
-        .signature
-        .verify(&payload.authority.to_bytes(), &solution.to_bytes())
-    {
-        return HttpResponse::Unauthorized().finish();
-    }
-    // error if solution below min difficulty
-    if difficulty < (challenge.min_difficulty as u32) {
-        log::error!("solution below min difficulity: {:?}", payload.authority);
-        return HttpResponse::BadRequest().finish();
-    }
-    // error if digest is invalid
-    if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
-        log::error!("invalid solution");
-        return HttpResponse::BadRequest().finish();
-    }
-    // validate nonce
-    let member_authority = &payload.authority;
-    let nonce = solution.n;
-    let nonce = u64::from_le_bytes(nonce);
-    if let Err(err) = validate_nonce(operator.as_ref(), member_authority, nonce, num_members).await
-    {
-        log::error!("{:?}", err);
-        return HttpResponse::Unauthorized().finish();
-    }
-    // calculate score
-    let score = 2u64.pow(difficulty);
-    // update the aggegator
-    if let Err(err) = tx.send(Contribution {
-        member: payload.authority,
-        score,
-        solution: payload.solution,
-    }) {
-        log::error!("{:?}", err);
-    }
-    HttpResponse::Ok().finish()
 }

@@ -42,18 +42,8 @@ pub struct Aggregator {
     /// The number of workers that have been approved for the current challenge.
     pub num_members: u64,
 
-    /// The map of stake contributors to be attributed.
-    pub stake: Stake,
-}
-
-pub struct Stake {
-    /// The active map of stake.
-    /// Decrements can be made at any time.
-    pub active: HashMap<Pubkey, u64>,
-
-    /// The pending map of stake.
-    /// Increments are synced at the commit loop.
-    pub pending: HashMap<Pubkey, u64>,
+    /// The map of stake contributors for attribution.
+    pub stake: HashMap<Pubkey, u64>,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -175,10 +165,7 @@ impl Aggregator {
             num_members: pool.last_total_members,
             // TODO: fetch stake addresses from db
             // fetch onchain accounts in batch
-            stake: Stake {
-                active: HashMap::new(),
-                pending: HashMap::new(),
-            },
+            stake: HashMap::new(),
         };
         Ok(aggregator)
     }

@@ -1,10 +1,12 @@
-use std::{str::FromStr, sync::Arc, vec};
+use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, vec};
 
+use futures::{Future, StreamExt, TryFutureExt, TryStreamExt};
 use ore_api::state::{Config, Proof};
-use ore_pool_api::state::{Member, Pool};
+use ore_pool_api::state::{Member, Pool, Share};
 use ore_utils::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
+    account::Account,
     clock::Clock,
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
@@ -113,6 +115,36 @@ impl Operator {
         let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
         let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
         database::read_staker(&db_client, &share_pda.to_string()).await
+    }
+
+    pub async fn get_stakers_db(&self) -> Result<HashMap<Pubkey, u64>, Error> {
+        let rpc_client = &self.rpc_client;
+        let db_client = &self.db_client;
+        let conn = db_client.get().await?;
+        let stream = database::stream_stakers(&conn)
+            .await?
+            .map(|staker| staker.map(|ok| ok.address));
+        let vec: Vec<Pubkey> = stream.try_collect().await?;
+        let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers>>>> = vec![];
+        for chunk in vec.chunks(100) {
+            let query = rpc_client
+                .get_multiple_accounts(chunk)
+                .map_err(Into::<Error>::into);
+            queries.push(Box::pin(query));
+        }
+        let results: Vec<Vec<Option<Account>>> = futures::future::try_join_all(queries).await?;
+        let results: HashMap<Pubkey, u64> = results
+            .into_iter()
+            .flat_map(|v| v.into_iter())
+            .filter_map(|option| {
+                option.and_then(|account| {
+                    let data = account.data;
+                    let share = Share::try_from_bytes(data.as_slice()).ok();
+                    share.map(|s| (s.authority, s.balance))
+                })
+            })
+            .collect();
+        Ok(results)
     }
 
     pub async fn get_member_onchain(&self, member_authority: &Pubkey) -> Result<Member, Error> {
@@ -285,6 +317,8 @@ impl Operator {
         Self::load_boost("BOOST_THREE".to_string())
     }
 }
+
+type GetManyStakers = Result<Vec<Option<Account>>, Error>;
 
 #[cfg(test)]
 mod tests {

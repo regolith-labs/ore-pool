@@ -1,12 +1,12 @@
-use std::{env, str::FromStr, sync::Arc};
+use std::{env, pin::Pin, str::FromStr, sync::Arc};
 
 use crate::{error::Error, operator::Operator, tx};
 use deadpool_postgres::{GenericClient, Object, Pool};
-use futures::TryStreamExt;
+use futures::{Stream, StreamExt, TryStreamExt};
 use futures_util::pin_mut;
 use ore_pool_api::state::{member_pda, share_pda};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
-use tokio_postgres::NoTls;
+use tokio_postgres::{NoTls, Row, RowStream};
 
 pub struct Staker {
     /// the share account address
@@ -138,6 +138,17 @@ pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> R
     Ok(())
 }
 
+pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>>>>;
+pub async fn stream_stakers(conn: &Object) -> Result<StakersStream, Error> {
+    let stmt = "SELECT * from stakers";
+    let params: Vec<String> = vec![];
+    let stream = conn.query_raw(stmt, params).await?;
+    let stream = stream
+        .map_err(Into::<Error>::into)
+        .map(|row| row.and_then(|r| decode_staker(&r)));
+    Ok(Box::pin(stream))
+}
+
 pub async fn write_new_staker(
     conn: &Object,
     member_authority: &Pubkey,
@@ -208,6 +219,10 @@ pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Erro
             &[],
         )
         .await?;
+    decode_staker(&row)
+}
+
+fn decode_staker(row: &Row) -> Result<Staker, Error> {
     let address: String = row.try_get(0)?;
     let address = Pubkey::from_str(address.as_str())?;
     let member_id: i64 = row.try_get(1)?;

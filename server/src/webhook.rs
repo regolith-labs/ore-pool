@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::error::Error;
+use crate::{aggregator::Aggregator, error::Error};
 
 const HELIUS_URL: &str = "https://api.helius.xyz";
 const HELIUS_WEBHOOK_API_PATH: &str = "v0/webhooks";
@@ -97,8 +97,16 @@ impl Client {
         Ok(s)
     }
 
+    pub async fn put(
+        &self,
+        aggregator: &tokio::sync::RwLock<Aggregator>,
+        address: Pubkey,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
     /// edit the listen-for accounts by passing the entire collection
-    pub async fn edit(&self, account_addresses: Vec<Pubkey>) -> Result<(), Error> {
+    async fn edit(&self, account_addresses: Vec<Pubkey>) -> Result<(), Error> {
         // const response = await fetch('https://api.helius.xyz/v0/webhooks/{webhookID}?api-key=text', {
         let edit_url = format!(
             "{}/{}/{}?{}",
