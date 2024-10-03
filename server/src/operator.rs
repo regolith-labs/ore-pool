@@ -94,14 +94,14 @@ impl Operator {
         &self,
         member_authority: &Pubkey,
         mint: &Pubkey,
-    ) -> Result<ore_pool_api::state::Share, Error> {
+    ) -> Result<(ore_pool_api::state::Share, Pubkey), Error> {
         let keypair = &self.keypair;
         let rpc_client = &self.rpc_client;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
         let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
         let data = rpc_client.get_account_data(&share_pda).await?;
         let share = ore_pool_api::state::Share::try_from_bytes(data.as_slice())?;
-        Ok(*share)
+        Ok((*share, share_pda))
     }
 
     pub async fn get_staker_db(
@@ -117,14 +117,19 @@ impl Operator {
         database::read_staker(&db_client, &share_pda.to_string()).await
     }
 
-    pub async fn get_stakers_db(&self) -> Result<HashMap<Pubkey, u64>, Error> {
-        let rpc_client = &self.rpc_client;
+    pub async fn get_stakers_db(&self, mint: &Pubkey) -> Result<Vec<Pubkey>, Error> {
         let db_client = &self.db_client;
         let conn = db_client.get().await?;
-        let stream = database::stream_stakers(&conn)
+        let stream = database::stream_stakers(&conn, mint)
             .await?
             .map(|staker| staker.map(|ok| ok.address));
         let vec: Vec<Pubkey> = stream.try_collect().await?;
+        Ok(vec)
+    }
+
+    pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
+        let rpc_client = &self.rpc_client;
+        let vec = self.get_stakers_db(mint).await?;
         let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers>>>> = vec![];
         for chunk in vec.chunks(100) {
             let query = rpc_client

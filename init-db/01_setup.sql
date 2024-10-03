@@ -25,6 +25,7 @@ BEGIN
           address VARCHAR PRIMARY KEY, -- address of share account
           member_id BIGINT NOT NULL,
           mint VARCHAR NOT NULL, -- the mint of the boost account
+          webhook BOOLEAN NOT NULL, -- whether or not the address has been added to the webhook
           FOREIGN KEY (member_id) REFERENCES members(id)
         );
     END IF;

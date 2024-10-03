@@ -87,6 +87,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(operator.clone())
             .app_data(aggregator.clone())
             .app_data(webhook_handler.clone())
+            .app_data(webhook_client.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))

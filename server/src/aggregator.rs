@@ -146,6 +146,7 @@ pub async fn process_contributions(
 
 impl Aggregator {
     pub async fn new(operator: &Operator) -> Result<Self, Error> {
+        // fetch accounts
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
         log::info!("proof: {:?}", proof);
@@ -157,15 +158,21 @@ impl Aggregator {
             min_difficulty,
             cutoff_time,
         };
+        // fetch boosts
+        let boost_mint_1 = operator
+            .boost_accounts
+            .first()
+            .ok_or(Error::Internal("missing boost account".to_string()))?;
+        // fetch staker balances
+        let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
+        // build self
         let aggregator = Aggregator {
             challenge,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
             num_members: pool.last_total_members,
-            // TODO: fetch stake addresses from db
-            // fetch onchain accounts in batch
-            stake: HashMap::new(),
+            stake: stakers,
         };
         Ok(aggregator)
     }

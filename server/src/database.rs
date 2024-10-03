@@ -6,17 +6,20 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use futures_util::pin_mut;
 use ore_pool_api::state::{member_pda, share_pda};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
-use tokio_postgres::{NoTls, Row, RowStream};
+use tokio_postgres::{NoTls, Row};
 
 pub struct Staker {
     /// the share account address
     pub address: Pubkey,
 
     /// the member id (foreign key relation to members table)
-    pub member_id: u64,
+    pub _member_id: u64,
 
     /// the mint of the boost account the member is staking to
-    pub mint: Pubkey,
+    pub _mint: Pubkey,
+
+    /// whether or not this account has been added to the webhook
+    pub webhook: bool,
 }
 
 pub fn create_pool() -> Pool {
@@ -138,11 +141,22 @@ pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> R
     Ok(())
 }
 
+pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), Error> {
+    let share = share.to_string();
+    let address_buffer: &[String] = &[share];
+    let query = "UPDATE stakers SET webhook = true WHERE address = ANY($1)";
+    conn.execute(query, &[&address_buffer]).await?;
+    Ok(())
+}
+
 pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>>>>;
-pub async fn stream_stakers(conn: &Object) -> Result<StakersStream, Error> {
-    let stmt = "SELECT * from stakers";
+pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
+    let stmt = format!(
+        "SELECT address, id, mint, webhook FROM stakers WHERE webhook = true AND mint = {}",
+        mint
+    );
     let params: Vec<String> = vec![];
-    let stream = conn.query_raw(stmt, params).await?;
+    let stream = conn.query_raw(stmt.as_str(), params).await?;
     let stream = stream
         .map_err(Into::<Error>::into)
         .map(|row| row.and_then(|r| decode_staker(&r)));
@@ -160,15 +174,21 @@ pub async fn write_new_staker(
     let (share_pda, _) = share_pda(member_pda, *pool, *mint);
     conn.execute(
         "INSERT INTO stakers
-        (address, member_id, mint)
-        VALUES ($1, $2, $3)",
-        &[&share_pda.to_string(), &member.id, &mint.to_string()],
+        (address, member_id, mint, webhook)
+        VALUES ($1, $2, $3, $4)",
+        &[
+            &share_pda.to_string(),
+            &member.id,
+            &mint.to_string(),
+            &false,
+        ],
     )
     .await?;
     let staker = Staker {
         address: share_pda,
-        member_id: member.id as u64,
-        mint: *mint,
+        _member_id: member.id as u64,
+        _mint: *mint,
+        webhook: false,
     };
     Ok(staker)
 }
@@ -211,7 +231,7 @@ pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Erro
     let row = conn
         .query_one(
             &format!(
-                "SELECT address, id, mint
+                "SELECT address, id, mint, webhook
                 FROM stakers
                 WHERE address = '{}'",
                 address
@@ -229,10 +249,12 @@ fn decode_staker(row: &Row) -> Result<Staker, Error> {
     let member_id = member_id as u64;
     let mint: String = row.try_get(2)?;
     let mint = Pubkey::from_str(mint.as_str())?;
+    let webhook: bool = row.try_get(3)?;
     let staker = Staker {
         address,
-        member_id,
-        mint,
+        _member_id: member_id,
+        _mint: mint,
+        webhook,
     };
     Ok(staker)
 }

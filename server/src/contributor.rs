@@ -10,7 +10,7 @@ use crate::{
     database::{self, Staker},
     error::Error,
     operator::Operator,
-    tx, Contribution,
+    tx, webhook, Contribution,
 };
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -34,10 +34,17 @@ pub async fn register(
 
 pub async fn register_staker(
     operator: web::Data<Operator>,
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    webhook_client: web::Data<webhook::Client>,
     payload: web::Json<RegisterStakerPayload>,
 ) -> impl Responder {
-    let operator = operator.as_ref();
-    let res = register_new_staker(operator, payload.into_inner()).await;
+    let res = register_new_staker(
+        operator.as_ref(),
+        aggregator.as_ref(),
+        webhook_client.as_ref(),
+        payload.into_inner(),
+    )
+    .await;
     match res {
         Ok(_staker) => HttpResponse::Ok().finish(),
         Err(err) => {
@@ -201,6 +208,8 @@ async fn update_balance_onchain(
 
 async fn register_new_staker(
     operator: &Operator,
+    aggregator: &tokio::sync::RwLock<Aggregator>,
+    webhook_client: &webhook::Client,
     payload: RegisterStakerPayload,
 ) -> Result<Staker, Error> {
     let keypair = &operator.keypair;
@@ -209,13 +218,23 @@ async fn register_new_staker(
     // check if on-chain account already exists
     let staker = operator.get_staker_onchain(&member_authority, &mint).await;
     match staker {
-        Ok(_staker) => {
+        Ok(staker) => {
             // staker already exists on-chain
             // check if record is in db already
             let db_staker = operator.get_staker_db(&member_authority, &mint).await;
             match db_staker {
                 Ok(db_staker) => {
-                    // staker already exits in db
+                    // check if marked as added to webhook in db
+                    if !db_staker.webhook {
+                        // add to webhook
+                        let entry = webhook::ClientPutEntry {
+                            share: staker.1,
+                            authority: member_authority,
+                            mint,
+                            share_account: staker.0,
+                        };
+                        webhook_client.put(operator, aggregator, &entry).await?;
+                    }
                     Ok(db_staker)
                 }
                 Err(_) => {
@@ -225,7 +244,14 @@ async fn register_new_staker(
                     let db_staker =
                         database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
                             .await?;
-                    // TODO: add address to webhook
+                    // add to webhook
+                    let entry = webhook::ClientPutEntry {
+                        share: staker.1,
+                        authority: member_authority,
+                        mint,
+                        share_account: staker.0,
+                    };
+                    webhook_client.put(operator, aggregator, &entry).await?;
                     Ok(db_staker)
                 }
             }

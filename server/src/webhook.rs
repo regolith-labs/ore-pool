@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{aggregator::Aggregator, error::Error};
+use crate::{aggregator::Aggregator, database, error::Error, operator::Operator};
 
 const HELIUS_URL: &str = "https://api.helius.xyz";
 const HELIUS_WEBHOOK_API_PATH: &str = "v0/webhooks";
@@ -84,6 +84,13 @@ impl Handle {
     }
 }
 
+pub struct ClientPutEntry {
+    pub share: Pubkey,
+    pub authority: Pubkey,
+    pub mint: Pubkey,
+    pub share_account: ore_pool_api::state::Share,
+}
+
 impl Client {
     /// create new client for listening to share account state changes
     pub fn new_stake() -> Result<Self, Error> {
@@ -97,16 +104,35 @@ impl Client {
         Ok(s)
     }
 
+    /// puts entry into webhook
+    /// and marks in db
     pub async fn put(
         &self,
+        operator: &Operator,
         aggregator: &tokio::sync::RwLock<Aggregator>,
-        address: Pubkey,
+        entry: &ClientPutEntry,
     ) -> Result<(), Error> {
+        // lock
+        let mut write = aggregator.write().await;
+        // fetch db stakers
+        let db_stakers = operator.get_stakers_db(&entry.mint).await?;
+        // edit webhook
+        let edit = self.edit(db_stakers).await?;
+        log::info!("edit: {:?}", edit.webhook_id);
+        // mark in db
+        let db_client = &operator.db_client;
+        let conn = db_client.get().await?;
+        database::write_webhook_staker(&conn, &entry.share).await?;
+        // insert into staker balancers
+        let stakers = &mut write.stake;
+        if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
+            vacant.insert(entry.share_account.balance);
+        }
         Ok(())
     }
 
     /// edit the listen-for accounts by passing the entire collection
-    async fn edit(&self, account_addresses: Vec<Pubkey>) -> Result<(), Error> {
+    async fn edit(&self, account_addresses: Vec<Pubkey>) -> Result<EditSuccess, Error> {
         // const response = await fetch('https://api.helius.xyz/v0/webhooks/{webhookID}?api-key=text', {
         let edit_url = format!(
             "{}/{}/{}?{}",
@@ -122,8 +148,7 @@ impl Client {
             .await?
             .json::<EditSuccess>()
             .await?;
-        log::info!("edit: {:?}", resp);
-        Ok(())
+        Ok(resp)
     }
 }
 
