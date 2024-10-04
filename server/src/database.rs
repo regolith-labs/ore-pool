@@ -151,12 +151,10 @@ pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), E
 
 pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>>>>;
 pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
-    let stmt = format!(
-        "SELECT address, id, mint, webhook FROM stakers WHERE webhook = true AND mint = {}",
-        mint
-    );
-    let params: Vec<String> = vec![];
-    let stream = conn.query_raw(stmt.as_str(), params).await?;
+    let stmt =
+        "SELECT address, member_id, mint, webhook FROM stakers WHERE webhook = true AND mint = ANY($1)";
+    let params: &[String] = &[mint.to_string()];
+    let stream = conn.query_raw(stmt, &[&params]).await?;
     let stream = stream
         .map_err(Into::<Error>::into)
         .map(|row| row.and_then(|r| decode_staker(&r)));
@@ -231,7 +229,7 @@ pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Erro
     let row = conn
         .query_one(
             &format!(
-                "SELECT address, id, mint, webhook
+                "SELECT address, member_id, mint, webhook
                 FROM stakers
                 WHERE address = '{}'",
                 address

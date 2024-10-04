@@ -157,7 +157,7 @@ fn helius_api_key() -> Result<String, Error> {
 }
 
 fn helius_auth_token() -> Result<String, Error> {
-    std::env::var("HELIUS_AUTH_TOAUTH_TOKEN").map_err(From::from)
+    std::env::var("HELIUS_AUTH_TOKEN").map_err(From::from)
 }
 
 fn helius_webhook_id_stake() -> Result<String, Error> {
