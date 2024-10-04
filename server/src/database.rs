@@ -7,20 +7,7 @@ use futures_util::pin_mut;
 use ore_pool_api::state::{member_pda, share_pda};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use tokio_postgres::{NoTls, Row};
-
-pub struct Staker {
-    /// the share account address
-    pub address: Pubkey,
-
-    /// the member id (foreign key relation to members table)
-    pub _member_id: u64,
-
-    /// the mint of the boost account the member is staking to
-    pub _mint: Pubkey,
-
-    /// whether or not this account has been added to the webhook
-    pub webhook: bool,
-}
+use types::Staker;
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
@@ -151,8 +138,7 @@ pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), E
 
 pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>>>>;
 pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
-    let stmt =
-        "SELECT address, member_id, mint, webhook FROM stakers WHERE webhook = true AND mint = ANY($1)";
+    let stmt = "SELECT address, member_id, mint, webhook FROM stakers WHERE mint = ANY($1)";
     let params: &[String] = &[mint.to_string()];
     let stream = conn.query_raw(stmt, &[&params]).await?;
     let stream = stream
@@ -168,8 +154,8 @@ pub async fn write_new_staker(
     mint: &Pubkey,
 ) -> Result<Staker, Error> {
     let (member_pda, _) = member_pda(*member_authority, *pool);
-    let member = read_member(conn, &member_authority.to_string()).await?;
-    let (share_pda, _) = share_pda(member_pda, *pool, *mint);
+    let member = read_member(conn, &member_pda.to_string()).await?;
+    let (share_pda, _) = share_pda(*member_authority, *pool, *mint);
     conn.execute(
         "INSERT INTO stakers
         (address, member_id, mint, webhook)
@@ -184,8 +170,8 @@ pub async fn write_new_staker(
     .await?;
     let staker = Staker {
         address: share_pda,
-        _member_id: member.id as u64,
-        _mint: *mint,
+        member_id: member.id as u64,
+        mint: *mint,
         webhook: false,
     };
     Ok(staker)
@@ -250,8 +236,8 @@ fn decode_staker(row: &Row) -> Result<Staker, Error> {
     let webhook: bool = row.try_get(3)?;
     let staker = Staker {
         address,
-        _member_id: member_id,
-        _mint: mint,
+        member_id,
+        mint,
         webhook,
     };
     Ok(staker)

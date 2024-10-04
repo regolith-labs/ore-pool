@@ -2,12 +2,12 @@ use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{
     ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
-    RegisterStakerPayload, UpdateBalancePayload,
+    RegisterStakerPayload, Staker, UpdateBalancePayload,
 };
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
-    database::{self, Staker},
+    database,
     error::Error,
     operator::Operator,
     tx, webhook, Contribution,
@@ -46,7 +46,7 @@ pub async fn register_staker(
     )
     .await;
     match res {
-        Ok(_staker) => HttpResponse::Ok().finish(),
+        Ok(staker) => HttpResponse::Ok().json(staker),
         Err(err) => {
             log::error!("{:?}", err);
             let http_response: HttpResponse = err.into();
@@ -192,9 +192,7 @@ async fn update_balance_onchain(
     // sign transaction and submit
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
-    log::info!("signatures 0: {:?}", tx.signatures);
     tx.partial_sign(&[keypair], hash);
-    log::info!("sigatures 1: {:?}", tx.signatures);
     let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
     log::info!("on demand attribution sig: {:?}", sig);
     // set member as synced in db
@@ -237,7 +235,7 @@ async fn register_new_staker(
                     }
                     Ok(db_staker)
                 }
-                Err(_) => {
+                Err(_err) => {
                     // write staker to db
                     let conn = operator.db_client.get().await?;
                     let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());

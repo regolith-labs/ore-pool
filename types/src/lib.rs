@@ -78,45 +78,61 @@ pub struct Challenge {
     pub cutoff_time: u64,
 }
 
-// The member record that sits in the operator database
+/// The member record that sits in the operator database
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Member {
-    // The respective pda pubkey of the on-chain account.
+    /// The respective pda pubkey of the on-chain account.
     pub address: String,
 
-    // The id as assigned by the on-chain program.
+    /// The id as assigned by the on-chain program.
     pub id: i64,
 
-    // The authority pubkey of this account.
+    /// The authority pubkey of this account.
     pub authority: String,
 
-    // The pool pubkey this account belongs to.
+    /// The pool pubkey this account belongs to.
     pub pool_address: String,
 
-    // The total balance assigned to this account.
-    // Always increments for idempotent on-chain updates.
+    /// The total balance assigned to this account.
+    /// Always increments for idempotent on-chain updates.
     pub total_balance: i64,
 
-    // Whether or not this member is approved by the operator.
+    /// Whether or not this member is approved by the operator.
     pub is_approved: bool,
 
-    // Whether or not this member is KYC'd by the operator.
+    /// Whether or not this member is KYC'd by the operator.
     pub is_kyc: bool,
 
-    // Whether or not this member's on-chain balance is in sync with the operator db balance.
+    /// Whether or not this member's on-chain balance is in sync with the operator db balance.
     pub is_synced: bool,
 }
 
-// The response from the /challenge request.
+/// The staker record that sits in the operator database
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Staker {
+    /// the share account address
+    pub address: Pubkey,
+
+    /// the member id (foreign key relation to members table)
+    pub member_id: u64,
+
+    /// the mint of the boost account the member is staking to
+    pub mint: Pubkey,
+
+    /// whether or not this account has been added to the webhook
+    pub webhook: bool,
+}
+
+/// The response from the /challenge request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MemberChallenge {
-    // The challenge to mine for.
+    /// The challenge to mine for.
     pub challenge: Challenge,
 
-    // Additional seconds to be subtracted from the cuttoff time
-    // to create a "submission window".
+    /// Additional seconds to be subtracted from the cuttoff time
+    /// to create a "submission window".
     pub buffer: u64,
 
-    // The number of total members to divide the nonce space by.
+    /// The number of total members to divide the nonce space by.
     pub num_total_members: u64,
 }

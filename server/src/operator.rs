@@ -14,12 +14,9 @@ use solana_sdk::{
     signer::{EncodableKey, Signer},
     sysvar,
 };
+use types::Staker;
 
-use crate::{
-    database::{self, Staker},
-    error::Error,
-    tx,
-};
+use crate::{database, error::Error, tx};
 
 pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = None;
@@ -127,6 +124,16 @@ impl Operator {
         Ok(vec)
     }
 
+    pub async fn get_stakers_db_as_string(&self, mint: &Pubkey) -> Result<Vec<String>, Error> {
+        let db_client = &self.db_client;
+        let conn = db_client.get().await?;
+        let stream = database::stream_stakers(&conn, mint)
+            .await?
+            .map(|staker| staker.map(|ok| ok.address.to_string()));
+        let vec: Vec<String> = stream.try_collect().await?;
+        Ok(vec)
+    }
+
     pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
         let rpc_client = &self.rpc_client;
         let vec = self.get_stakers_db(mint).await?;
@@ -175,9 +182,7 @@ impl Operator {
         let authority = self.keypair.pubkey();
         let rpc_client = &self.rpc_client;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
-        log::info!("pool pda: {}", pool_pda);
         let (proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
-        log::info!("proof pda: {}", proof_pda);
         let data = rpc_client.get_account_data(&proof_pda).await?;
         let proof = Proof::try_from_bytes(data.as_slice())?;
         Ok(*proof)

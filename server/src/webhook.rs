@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use solana_sdk::pubkey::Pubkey;
 
@@ -7,15 +5,19 @@ use crate::{aggregator::Aggregator, database, error::Error, operator::Operator};
 
 const HELIUS_URL: &str = "https://api.helius.xyz";
 const HELIUS_WEBHOOK_API_PATH: &str = "v0/webhooks";
+const HELIUS_WEBHOOK_TYPE: &str = "raw";
+const HELIUS_TRANSACTION_TYPE: &str = "all";
 
 /// client for managing helius webhooks
 pub struct Client {
     http_client: reqwest::Client,
-    /// query paramter added to the url for making http requets to helius.
+    /// query paramter added to the url for making http requets to helius
     helius_api_key: String,
     /// the helius webhook id created in the console
     /// for tracking share accounts
     helius_webhook_id_stake: String,
+    /// the /webhook path that your server exposes to helius
+    helius_webhook_url: String,
 }
 
 /// handler for receiving helius webhook events
@@ -25,8 +27,28 @@ pub struct Handle {
     helius_auth_token: String,
 }
 
+pub struct ClientPutEntry {
+    pub share: Pubkey,
+    pub authority: Pubkey,
+    pub mint: Pubkey,
+    pub share_account: ore_pool_api::state::Share,
+}
+
+/// the PUT edit payload, idempotent
+#[derive(Debug, serde::Serialize)]
+struct ClientEditPayload {
+    #[serde(rename = "webhookURL")]
+    webhook_url: String,
+    #[serde(rename = "transactionTypes")]
+    transaction_types: [String; 1],
+    #[serde(rename = "accountAddresses")]
+    pub account_addresses: Vec<String>,
+    #[serde(rename = "webhookType")]
+    webhook_type: String,
+}
+
 #[derive(serde::Deserialize, Debug)]
-struct EditSuccess {
+struct ClientEditSuccess {
     #[serde(rename = "webhookID")]
     webhook_id: String,
 }
@@ -65,7 +87,7 @@ impl Handle {
         self.auth(req)?;
         let bytes = bytes.to_vec();
         let event = serde_json::from_slice::<ShareAccountEvent>(bytes.as_slice())?;
-        log::info!("share account event: {:?}", event);
+        log::info!("share account webhook event: {:?}", event);
         Ok(())
     }
 
@@ -84,22 +106,17 @@ impl Handle {
     }
 }
 
-pub struct ClientPutEntry {
-    pub share: Pubkey,
-    pub authority: Pubkey,
-    pub mint: Pubkey,
-    pub share_account: ore_pool_api::state::Share,
-}
-
 impl Client {
     /// create new client for listening to share account state changes
     pub fn new_stake() -> Result<Self, Error> {
         let helius_api_key = helius_api_key()?;
         let helius_webhook_id_stake = helius_webhook_id_stake()?;
+        let helius_webhook_url = helius_webhook_url()?;
         let s = Self {
             http_client: reqwest::Client::new(),
             helius_api_key,
             helius_webhook_id_stake,
+            helius_webhook_url,
         };
         Ok(s)
     }
@@ -115,7 +132,7 @@ impl Client {
         // lock
         let mut write = aggregator.write().await;
         // fetch db stakers
-        let db_stakers = operator.get_stakers_db(&entry.mint).await?;
+        let db_stakers = operator.get_stakers_db_as_string(&entry.mint).await?;
         // edit webhook
         let edit = self.edit(db_stakers).await?;
         log::info!("edit: {:?}", edit.webhook_id);
@@ -132,24 +149,34 @@ impl Client {
     }
 
     /// edit the listen-for accounts by passing the entire collection
-    async fn edit(&self, account_addresses: Vec<Pubkey>) -> Result<EditSuccess, Error> {
+    async fn edit(&self, account_addresses: Vec<String>) -> Result<ClientEditSuccess, Error> {
         // const response = await fetch('https://api.helius.xyz/v0/webhooks/{webhookID}?api-key=text', {
         let edit_url = format!(
-            "{}/{}/{}?{}",
+            "{}/{}/{}?api-key={}",
             HELIUS_URL, HELIUS_WEBHOOK_API_PATH, self.helius_webhook_id_stake, self.helius_api_key
         );
-        let mut json = HashMap::<String, Vec<Pubkey>>::new();
-        json.insert("accountAddresses".to_string(), account_addresses);
+        let webhook_url = self.helius_webhook_url.clone();
+        let json = ClientEditPayload {
+            account_addresses,
+            transaction_types: [HELIUS_TRANSACTION_TYPE.to_string()],
+            webhook_type: HELIUS_WEBHOOK_TYPE.to_string(),
+            webhook_url,
+        };
         let resp = self
             .http_client
             .put(edit_url)
             .json(&json)
             .send()
             .await?
-            .json::<EditSuccess>()
+            .json::<ClientEditSuccess>()
             .await?;
         Ok(resp)
     }
+}
+
+/// this the /webhook path that your server exposes to helius.
+fn helius_webhook_url() -> Result<String, Error> {
+    std::env::var("HELIUS_WEBHOOK_URL").map_err(From::from)
 }
 
 fn helius_api_key() -> Result<String, Error> {
