@@ -1,4 +1,6 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use base64::{prelude::BASE64_STANDARD, Engine};
+use ore_pool_api::event::StakeEvent;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{aggregator::Aggregator, database, error::Error, operator::Operator};
@@ -18,6 +20,9 @@ pub struct Client {
     helius_webhook_id_stake: String,
     /// the /webhook path that your server exposes to helius
     helius_webhook_url: String,
+    /// the auth token expected to be included in webhook events
+    /// posted from helius to our server.
+    helius_auth_token: String,
 }
 
 /// handler for receiving helius webhook events
@@ -45,6 +50,8 @@ struct ClientEditPayload {
     pub account_addresses: Vec<String>,
     #[serde(rename = "webhookType")]
     webhook_type: String,
+    #[serde(rename = "authHeader")]
+    auth_header: String,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -54,7 +61,15 @@ struct ClientEditSuccess {
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct ShareAccountEvent {}
+struct ShareAccountEvent {
+    pub meta: ShareAccountEventMeta,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ShareAccountEventMeta {
+    pub log_messages: Vec<String>,
+}
 
 impl Handle {
     pub fn new() -> Result<Self, Error> {
@@ -86,8 +101,24 @@ impl Handle {
     ) -> Result<(), Error> {
         self.auth(req)?;
         let bytes = bytes.to_vec();
-        let event = serde_json::from_slice::<ShareAccountEvent>(bytes.as_slice())?;
-        log::info!("share account webhook event: {:?}", event);
+        let event = serde_json::from_slice::<Vec<ShareAccountEvent>>(bytes.as_slice())?;
+        // parse logs for updated balance
+        // which sits in the 3rd to last line
+        let event = event
+            .first()
+            .ok_or(Error::Internal("empty webhook event".to_string()))?;
+        let log_messages = &event.meta.log_messages;
+        let index = log_messages.len().checked_sub(3).ok_or(Error::Internal(
+            "invalid webhook event message index".to_string(),
+        ))?;
+        let stake_event = log_messages
+            .get(index)
+            .ok_or(Error::Internal("missing webhook event message".to_string()))?;
+        let stake_event = stake_event.trim_start_matches("Program log: ");
+        let stake_event = BASE64_STANDARD.decode(stake_event)?;
+        let stake_event: &StakeEvent = bytemuck::try_from_bytes(stake_event.as_slice())
+            .map_err(|err| Error::Internal(err.to_string()))?;
+        log::info!("share account webhook event: {:?}", stake_event);
         Ok(())
     }
 
@@ -112,11 +143,13 @@ impl Client {
         let helius_api_key = helius_api_key()?;
         let helius_webhook_id_stake = helius_webhook_id_stake()?;
         let helius_webhook_url = helius_webhook_url()?;
+        let helius_auth_token = helius_auth_token()?;
         let s = Self {
             http_client: reqwest::Client::new(),
             helius_api_key,
             helius_webhook_id_stake,
             helius_webhook_url,
+            helius_auth_token,
         };
         Ok(s)
     }
@@ -150,17 +183,18 @@ impl Client {
 
     /// edit the listen-for accounts by passing the entire collection
     async fn edit(&self, account_addresses: Vec<String>) -> Result<ClientEditSuccess, Error> {
-        // const response = await fetch('https://api.helius.xyz/v0/webhooks/{webhookID}?api-key=text', {
         let edit_url = format!(
             "{}/{}/{}?api-key={}",
             HELIUS_URL, HELIUS_WEBHOOK_API_PATH, self.helius_webhook_id_stake, self.helius_api_key
         );
         let webhook_url = self.helius_webhook_url.clone();
+        let auth_header = self.helius_auth_token.clone();
         let json = ClientEditPayload {
             account_addresses,
             transaction_types: [HELIUS_TRANSACTION_TYPE.to_string()],
             webhook_type: HELIUS_WEBHOOK_TYPE.to_string(),
             webhook_url,
+            auth_header,
         };
         let resp = self
             .http_client

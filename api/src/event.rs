@@ -1,0 +1,18 @@
+use bytemuck::{Pod, Zeroable};
+use ore_utils::event;
+use solana_program::pubkey::Pubkey;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct StakeEvent {
+    /// the authority of the share account
+    pub authority: Pubkey,
+    /// the share account
+    pub share: Pubkey,
+    /// the mint (target of the staking)
+    pub mint: Pubkey,
+    /// latest balance
+    pub balance: u64,
+}
+
+event!(StakeEvent);

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
+base64 = { workspace = true }
 bincode = { workspace = true }
 bytemuck = { workspace = true }
 deadpool-postgres = { workspace = true }
@@ -32,4 +33,3 @@ tokio = { workspace = true }
 tokio-postgres = { workspace = true }
 types = { path = "../types" }
 rand = "0.8.5"
-base64 = "0.22.1"
