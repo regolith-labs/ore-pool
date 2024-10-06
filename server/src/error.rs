@@ -34,6 +34,8 @@ pub enum Error {
     MemberDoesNotExist,
     #[error("staker doesn't exist yet")]
     StakerDoesNotExist,
+    #[error("share account received")]
+    ShareAccountReceived,
     #[error("{0}")]
     Internal(String),
 }
@@ -44,6 +46,7 @@ impl From<Error> for HttpResponse {
             Error::MemberDoesNotExist | Error::StakerDoesNotExist => {
                 HttpResponse::NotFound().finish()
             }
+            Error::ShareAccountReceived => HttpResponse::Ok().finish(),
             _ => HttpResponse::InternalServerError().finish(),
         }
     }

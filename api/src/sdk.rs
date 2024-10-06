@@ -169,6 +169,54 @@ pub fn submit(
     }
 }
 
+/// builds an unstake instruction.
+pub fn unstake(
+    signer: Pubkey,
+    mint: Pubkey,
+    pool: Pubkey,
+    recipient: Pubkey,
+    amount: u64,
+) -> Instruction {
+    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let boost_tokens =
+        spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
+    let (member_pda, _) = member_pda(signer, pool);
+    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
+    let (share_pda, _) = share_pda(signer, pool, mint);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool, boost_pda);
+    println!("boost: {:?}", boost_pda);
+    println!("boost tokens: {:?}", boost_tokens);
+    println!("member: {:?}", member_pda);
+    println!("pool tokens: {:?}", pool_tokens);
+    println!("share: {:?}", share_pda);
+    println!("stake: {:?}", stake_pda);
+    println!("mint: {:?}", mint);
+    println!("pool: {:?}", pool);
+    println!("recipient: {:?}", recipient);
+    Instruction {
+        program_id: crate::id(),
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(boost_pda, false),
+            AccountMeta::new(boost_tokens, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new_readonly(member_pda, false),
+            AccountMeta::new(pool, false),
+            AccountMeta::new(pool_tokens, false),
+            AccountMeta::new(recipient, false),
+            AccountMeta::new(share_pda, false),
+            AccountMeta::new(stake_pda, false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+            AccountMeta::new_readonly(ore_boost_api::id(), false),
+        ],
+        data: Unstake {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
+/// builds a stake instruction.
 pub fn stake(
     signer: Pubkey,
     mint: Pubkey,

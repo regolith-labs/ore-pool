@@ -1,10 +1,8 @@
-use base64::{prelude::BASE64_STANDARD, Engine};
 use ore_api::instruction::Stake;
-use ore_pool_api::{event::StakeEvent, loaders::*, state::Share};
+use ore_pool_api::{loaders::*, state::Share};
 use ore_utils::*;
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log,
-    program_error::ProgramError,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
 };
 
 /// Deposit tokens into a pool's pending stake account.
@@ -41,17 +39,6 @@ pub fn process_stake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         token_program,
         amount,
     )?;
-
-    // Log the balance for parsing.
-    let event = StakeEvent {
-        authority: *signer.key,
-        share: *share_info.key,
-        mint: *mint_info.key,
-        balance: share.balance,
-    };
-    let event = event.to_bytes();
-    let event = BASE64_STANDARD.encode(event);
-    sol_log(event.as_str());
 
     Ok(())
 }

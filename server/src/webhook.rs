@@ -1,6 +1,6 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{prelude::BASE64_STANDARD, Engine};
-use ore_pool_api::event::StakeEvent;
+use ore_pool_api::event::UnstakeEvent;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{aggregator::Aggregator, database, error::Error, operator::Operator};
@@ -80,25 +80,71 @@ impl Handle {
 
     pub async fn share_account(
         handle: web::Data<Handle>,
+        aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
         req: HttpRequest,
         bytes: web::Bytes,
     ) -> impl Responder {
         let handle = handle.into_inner();
-        match handle.handle_share_account_event(&req, &bytes).await {
-            Ok(()) => HttpResponse::Ok().finish(),
+        match handle
+            .handle_share_account_event(aggregator.as_ref(), &req, &bytes)
+            .await
+        {
+            Ok(_event) => HttpResponse::Ok().finish(),
             Err(err) => {
                 log::error!("{:?}", err);
-                HttpResponse::InternalServerError().body(err.to_string())
+                let resp: HttpResponse = err.into();
+                resp
             }
         }
     }
 
-    /// process the share account event
     async fn handle_share_account_event(
         &self,
+        aggregator: &tokio::sync::RwLock<Aggregator>,
         req: &HttpRequest,
         bytes: &web::Bytes,
     ) -> Result<(), Error> {
+        let mut event = self.decode_share_account_event(req, bytes).await?;
+        self.process_share_account_event(aggregator, &mut event)
+            .await?;
+        let stakers = &aggregator.read().await.stake;
+        for s in stakers.iter() {
+            log::info!("staker: {:?}", s);
+        }
+        Ok(())
+    }
+
+    /// decrement share account balance, only.
+    /// increments are handled in the commit loop.
+    /// this prevents an attack vector where stakers time increments,
+    /// only to decrement again before the operator notices.
+    async fn process_share_account_event(
+        &self,
+        aggregator: &tokio::sync::RwLock<Aggregator>,
+        event: &mut UnstakeEvent,
+    ) -> Result<(), Error> {
+        let mut write = aggregator.write().await;
+        let stakers = &mut write.stake;
+        if let std::collections::hash_map::Entry::Occupied(ref mut occupied) =
+            stakers.entry(event.authority)
+        {
+            let balance = occupied.get_mut();
+            if balance > &mut event.balance {
+                *balance = event.balance;
+            }
+        }
+        Ok(())
+    }
+
+    /// decode the share account event.
+    /// if cannot decode as unstake event,
+    /// must have been a stake event which we handle
+    /// and respond to helius with an ok.
+    async fn decode_share_account_event(
+        &self,
+        req: &HttpRequest,
+        bytes: &web::Bytes,
+    ) -> Result<UnstakeEvent, Error> {
         self.auth(req)?;
         let bytes = bytes.to_vec();
         let event = serde_json::from_slice::<Vec<ShareAccountEvent>>(bytes.as_slice())?;
@@ -115,11 +161,13 @@ impl Handle {
             .get(index)
             .ok_or(Error::Internal("missing webhook event message".to_string()))?;
         let stake_event = stake_event.trim_start_matches("Program log: ");
-        let stake_event = BASE64_STANDARD.decode(stake_event)?;
-        let stake_event: &StakeEvent = bytemuck::try_from_bytes(stake_event.as_slice())
-            .map_err(|err| Error::Internal(err.to_string()))?;
+        let stake_event = BASE64_STANDARD
+            .decode(stake_event)
+            .map_err(|_| Error::ShareAccountReceived)?;
+        let stake_event: &UnstakeEvent = bytemuck::try_from_bytes(stake_event.as_slice())
+            .map_err(|_| Error::ShareAccountReceived)?;
         log::info!("share account webhook event: {:?}", stake_event);
-        Ok(())
+        Ok(*stake_event)
     }
 
     /// parse and validate the auth header

@@ -4,7 +4,7 @@ use solana_program::pubkey::Pubkey;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
-pub struct StakeEvent {
+pub struct UnstakeEvent {
     /// the authority of the share account
     pub authority: Pubkey,
     /// the share account
@@ -15,4 +15,4 @@ pub struct StakeEvent {
     pub balance: u64,
 }
 
-event!(StakeEvent);
+event!(UnstakeEvent);
