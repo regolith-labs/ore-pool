@@ -184,15 +184,6 @@ pub fn unstake(
     let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
     let (share_pda, _) = share_pda(signer, pool, mint);
     let (stake_pda, _) = ore_boost_api::state::stake_pda(pool, boost_pda);
-    println!("boost: {:?}", boost_pda);
-    println!("boost tokens: {:?}", boost_tokens);
-    println!("member: {:?}", member_pda);
-    println!("pool tokens: {:?}", pool_tokens);
-    println!("share: {:?}", share_pda);
-    println!("stake: {:?}", stake_pda);
-    println!("mint: {:?}", mint);
-    println!("pool: {:?}", pool);
-    println!("recipient: {:?}", recipient);
     Instruction {
         program_id: crate::id(),
         accounts: vec![

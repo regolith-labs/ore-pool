@@ -107,10 +107,6 @@ impl Handle {
         let mut event = self.decode_share_account_event(req, bytes).await?;
         self.process_share_account_event(aggregator, &mut event)
             .await?;
-        let stakers = &aggregator.read().await.stake;
-        for s in stakers.iter() {
-            log::info!("staker: {:?}", s);
-        }
         Ok(())
     }
 
