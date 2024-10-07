@@ -252,7 +252,7 @@ impl Aggregator {
             .recv()
             .await
             .ok_or(Error::Internal("rewards channel closed".to_string()))?;
-        log::info!("reward: {}", rewards.base);
+        log::info!("reward: {:?}", rewards);
         let rewards_distribution = self.rewards_distribution(pool_pda, rewards.base);
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;

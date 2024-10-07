@@ -10,6 +10,8 @@ pub enum Error {
     PoolApi(#[from] ore_pool_api::error::ApiError),
     #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
+    #[error("solana program")]
+    SolaanProgram(#[from] solana_program::program_error::ProgramError),
     #[error("solana parse pubkey")]
     SolanaParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
     #[error("missing boost mint")]

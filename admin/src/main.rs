@@ -8,6 +8,7 @@ use solana_sdk::{
 mod error;
 mod init;
 mod open_stake;
+mod proof_account;
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
@@ -21,6 +22,7 @@ async fn main() -> Result<(), error::Error> {
     match command.as_str() {
         "init" => init::init(&rpc_client, &keypair, pool_url).await,
         "open-stake" => open_stake::open_stake(&rpc_client, &keypair, boost_mint).await,
+        "proof-account" => proof_account::proof_account(&rpc_client, &keypair).await,
         _ => Err(error::Error::InvalidCommand),
     }
 }
