@@ -58,8 +58,15 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         slot_hashes_sysvar.clone(),
     ];
     let mine_accounts = [mine_accounts, optional_accounts].concat();
+    let optional_accounts = optional_accounts.iter().map(|a| *a.key).collect();
     solana_program::program::invoke(
-        &ore_api::sdk::mine(*signer.key, *pool_info.key, *bus_info.key, solution),
+        &ore_api::sdk::mine(
+            *signer.key,
+            *pool_info.key,
+            *bus_info.key,
+            solution,
+            optional_accounts,
+        ),
         &mine_accounts,
     )?;
 
