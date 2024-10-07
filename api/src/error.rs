@@ -1,9 +1,7 @@
-use num_enum::IntoPrimitive;
-use solana_program::program_error::ProgramError;
-use thiserror::Error;
+use steel::*;
 
-#[derive(Debug, Error, Clone, Copy, PartialEq, Eq, IntoPrimitive)]
 #[repr(u32)]
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq, IntoPrimitive)]
 pub enum PoolError {
     #[error("Missing mining reward")]
     MissingMiningReward = 0,
@@ -17,8 +15,4 @@ pub enum ApiError {
     UrlTooLarge,
 }
 
-impl From<PoolError> for ProgramError {
-    fn from(e: PoolError) -> Self {
-        ProgramError::Custom(e as u32)
-    }
-}
+error!(PoolError);

@@ -1,8 +1,5 @@
-use ore_pool_api::{instruction::*, loaders::*, state::Member};
-use ore_utils::{load_signer, AccountDeserialize};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-};
+use ore_pool_api::prelude::*;
+use steel::*;
 
 /// Attribute updates a member's claimable balance.
 ///
@@ -15,16 +12,18 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let total_balance = u64::from_le_bytes(args.total_balance);
 
     // Load accounts.
-    let [signer, pool_info, member_info] = accounts else {
+    let [signer_info, pool_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_pool(pool_info, signer.key, false)?;
-    load_any_member(member_info, pool_info.key, true)?;
+    signer_info.is_signer()?;
+    pool_info
+        .to_account::<Pool>(&ore_pool_api::ID)?
+        .check(|p| p.authority == *signer_info.key)?;
+    let member = member_info
+        .to_account_mut::<Member>(&ore_pool_api::ID)?
+        .check_mut(|m| m.pool == *pool_info.key)?;
 
     // Update balance idempotently
-    let mut member_data = member_info.data.borrow_mut();
-    let member = Member::try_from_bytes_mut(&mut member_data)?;
     let balance_change = total_balance.saturating_sub(member.total_balance);
     member.balance = member.balance.checked_add(balance_change).unwrap();
     member.total_balance = total_balance;

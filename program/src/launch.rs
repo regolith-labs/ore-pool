@@ -1,15 +1,6 @@
-use std::mem::size_of;
-
-use ore_api::{consts::*, state::Proof};
-use ore_pool_api::{consts::*, instruction::Launch, state::Pool};
-use ore_utils::{
-    create_pda, load_any, load_program, load_signer, load_sysvar, load_uninitialized_pda,
-    AccountDeserialize, Discriminator,
-};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program, sysvar,
-};
+use ore_api::prelude::*;
+use ore_pool_api::prelude::*;
+use steel::*;
 
 /// Launch creates a new pool.
 pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -17,70 +8,60 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Launch::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer, miner_info, pool_info, proof_info, ore_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =
+    let [signer_info, miner_info, pool_info, proof_info, ore_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_any(miner_info, false)?;
-    load_uninitialized_pda(
-        pool_info,
-        &[POOL, signer.key.as_ref()],
+    signer_info.is_signer()?;
+    pool_info.is_empty()?.is_writable()?.has_seeds(
+        &[POOL, signer_info.key.as_ref()],
         args.pool_bump,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
     )?;
-    load_uninitialized_pda(
-        proof_info,
+    proof_info.is_empty()?.is_writable()?.has_seeds(
         &[PROOF, pool_info.key.as_ref()],
         args.proof_bump,
-        &ore_api::id(),
+        &ore_api::ID,
     )?;
-    load_program(ore_program, ore_api::id())?;
-    load_program(token_program, spl_token::id())?;
-    load_program(associated_token_program, spl_associated_token_account::id())?;
-    load_program(system_program, system_program::id())?;
-    load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
-
-    // Initialize pool account.
-    create_pda(
-        pool_info,
-        &ore_pool_api::id(),
-        8 + size_of::<Pool>(),
-        &[POOL, signer.key.as_ref(), &[args.pool_bump]],
-        system_program,
-        signer,
-    )?;
+    ore_program.is_program(&ore_api::ID)?;
+    token_program.is_program(&spl_token::ID)?;
+    associated_token_program.is_program(&spl_associated_token_account::ID)?;
+    system_program.is_program(&system_program::ID)?;
+    slot_hashes_sysvar.is_sysvar(&sysvar::slot_hashes::ID)?;
 
     // Open proof account.
     solana_program::program::invoke_signed(
-        &ore_api::sdk::open(*pool_info.key, *miner_info.key, *signer.key),
+        &ore_api::sdk::open(*pool_info.key, *miner_info.key, *signer_info.key),
         &[
             pool_info.clone(),
             miner_info.clone(),
-            signer.clone(),
+            signer_info.clone(),
             proof_info.clone(),
             system_program.clone(),
             slot_hashes_sysvar.clone(),
         ],
-        &[&[POOL, signer.key.as_ref(), &[args.pool_bump]]],
+        &[&[POOL, signer_info.key.as_ref(), &[args.pool_bump]]],
     )?;
 
-    // Parse proof account for last-hash-at.
-    let mut proof_data = proof_info.try_borrow_mut_data()?;
-    let proof = Proof::try_from_bytes_mut(&mut proof_data)?;
-    let last_hash_at = proof.last_hash_at;
+    // Parse proof.
+    let proof = proof_info.to_account::<Proof>(&ore_api::ID)?;
 
-    // Initialize pool account data.
-    let mut pool_data = pool_info.try_borrow_mut_data()?;
-    pool_data[0] = Pool::discriminator();
-    let pool = Pool::try_from_bytes_mut(&mut pool_data)?;
-    pool.authority = *signer.key;
+    // Initialize pool account.
+    create_account::<Pool>(
+        pool_info,
+        &ore_pool_api::id(),
+        &[POOL, signer_info.key.as_ref(), &[args.pool_bump]],
+        system_program,
+        signer_info,
+    )?;
+    let pool = pool_info.to_account_mut::<Pool>(&ore_pool_api::ID)?;
+    pool.authority = *signer_info.key;
     pool.bump = args.pool_bump as u64;
     pool.url = args.url;
     pool.attestation = [0; 32];
     pool.last_total_members = 0;
-    pool.last_hash_at = last_hash_at;
+    pool.last_hash_at = proof.last_hash_at;
 
     Ok(())
 }

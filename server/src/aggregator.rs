@@ -8,10 +8,10 @@ use ore_api::{
     consts::{BUS_ADDRESSES, BUS_COUNT},
     state::Bus,
 };
-use ore_utils::AccountDeserialize;
 use rand::Rng;
 use sha3::{Digest, Sha3_256};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use steel::AccountDeserialize;
 use types::Challenge;
 
 use crate::{

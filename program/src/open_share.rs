@@ -1,12 +1,6 @@
-use std::mem::size_of;
-
-use ore_boost_api::loaders::{load_boost, load_stake};
-use ore_pool_api::{consts::*, instruction::OpenShare, loaders::load_any_pool, state::Share};
-use ore_utils::*;
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program,
-};
+use ore_boost_api::prelude::*;
+use ore_pool_api::prelude::*;
+use steel::*;
 
 /// Opens a new share account for pool member to deposit stake.
 pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -14,50 +8,51 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     let args = OpenShare::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer, boost_info, mint_info, pool_info, share_info, stake_info, system_program] =
+    let [signer_info, boost_info, mint_info, pool_info, share_info, stake_info, system_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_boost(boost_info, mint_info.key, false)?;
-    load_any_mint(mint_info, false)?;
-    load_any_pool(pool_info, false)?;
-    load_uninitialized_pda(
-        share_info,
+    signer_info.is_signer()?;
+    boost_info
+        .to_account_mut::<Boost>(&ore_boost_api::ID)?
+        .check_mut(|b| b.mint == *mint_info.key)?;
+    mint_info.to_mint()?;
+    pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
+    share_info.is_empty()?.is_writable()?.has_seeds(
         &[
             SHARE,
-            signer.key.as_ref(),
+            signer_info.key.as_ref(),
             pool_info.key.as_ref(),
             mint_info.key.as_ref(),
         ],
         args.share_bump,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
     )?;
-    load_stake(stake_info, pool_info.key, boost_info.key, false)?;
-    load_program(system_program, system_program::id())?;
+    stake_info
+        .to_account::<ore_boost_api::state::Stake>(&ore_boost_api::ID)?
+        .check(|s| s.authority == *pool_info.key)?
+        .check(|s| s.boost == *boost_info.key)?;
+    system_program.is_program(&system_program::ID)?;
 
     // Create the share pda.
-    create_pda(
+    create_account::<Share>(
         share_info,
         &ore_pool_api::id(),
-        8 + size_of::<Share>(),
         &[
             SHARE,
-            signer.key.as_ref(),
+            signer_info.key.as_ref(),
             pool_info.key.as_ref(),
             mint_info.key.as_ref(),
             &[args.share_bump],
         ],
         system_program,
-        signer,
+        signer_info,
     )?;
 
     // Initialize share account data.
-    let mut share_data = share_info.try_borrow_mut_data()?;
-    share_data[0] = Share::discriminator();
-    let share = Share::try_from_bytes_mut(&mut share_data)?;
-    share.authority = *signer.key;
+    let share = share_info.to_account_mut::<Share>(&ore_boost_api::ID)?;
+    share.authority = *signer_info.key;
     share.balance = 0;
     share.pool = *pool_info.key;
     share.mint = *mint_info.key;
