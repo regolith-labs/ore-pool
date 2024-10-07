@@ -229,7 +229,6 @@ async fn register_new_staker(
                             share: staker.1,
                             authority: member_authority,
                             mint,
-                            share_account: staker.0,
                         };
                         webhook_client.put(operator, aggregator, &entry).await?;
                     }
@@ -247,7 +246,6 @@ async fn register_new_staker(
                         share: staker.1,
                         authority: member_authority,
                         mint,
-                        share_account: staker.0,
                     };
                     webhook_client.put(operator, aggregator, &entry).await?;
                     Ok(db_staker)

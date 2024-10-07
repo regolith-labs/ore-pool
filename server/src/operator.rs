@@ -137,7 +137,7 @@ impl Operator {
     pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
         let rpc_client = &self.rpc_client;
         let vec = self.get_stakers_db(mint).await?;
-        let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers>>>> = vec![];
+        let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers> + Send>>> = vec![];
         for chunk in vec.chunks(100) {
             let query = rpc_client
                 .get_multiple_accounts(chunk)
@@ -217,7 +217,7 @@ impl Operator {
         Ok(())
     }
 
-    pub async fn commit_stake(self: Arc<Self>) -> Result<(), Error> {
+    pub async fn commit_stake(&self) -> Result<(), Error> {
         let authority = &self.keypair;
         let rpc_client = &self.rpc_client;
         let boost_mints = self.get_boosts();

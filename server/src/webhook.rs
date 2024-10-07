@@ -36,7 +36,6 @@ pub struct ClientPutEntry {
     pub share: Pubkey,
     pub authority: Pubkey,
     pub mint: Pubkey,
-    pub share_account: ore_pool_api::state::Share,
 }
 
 /// the PUT edit payload, idempotent
@@ -314,8 +313,8 @@ impl Client {
         // insert into staker balancers
         let stakers = &mut write.stake;
         if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
-            // TODO; insert as zero regardless of balance. increments are handled on submit loops.
-            vacant.insert(entry.share_account.balance);
+            // insert as zero regardless of balance. increments are handled on submit loops.
+            vacant.insert(0);
         }
         Ok(())
     }

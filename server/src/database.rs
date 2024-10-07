@@ -136,7 +136,7 @@ pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), E
     Ok(())
 }
 
-pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>>>>;
+pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>> + Send>>;
 pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
     let stmt = "SELECT address, member_id, mint, webhook FROM stakers WHERE mint = ANY($1)";
     let params: &[String] = &[mint.to_string()];

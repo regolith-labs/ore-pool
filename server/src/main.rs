@@ -8,6 +8,7 @@ mod utils;
 mod webhook;
 
 use core::panic;
+use std::sync::Arc;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
@@ -68,10 +69,13 @@ async fn main() -> Result<(), error::Error> {
     // kick off commit-stake loop
     tokio::task::spawn({
         let operator = operator.clone();
+        let aggregator = aggregator.clone();
         async move {
             loop {
                 let operator = operator.clone().into_inner();
-                if let Err(err) = operator.commit_stake().await {
+                let aggregator = aggregator.clone().into_inner();
+                // commit stake
+                if let Err(err) = commit_stake(operator, aggregator).await {
                     panic!("{:?}", err)
                 }
                 // sleep until next epoch
@@ -117,6 +121,25 @@ async fn main() -> Result<(), error::Error> {
     .run()
     .await
     .map_err(From::from)
+}
+
+async fn commit_stake(
+    operator: Arc<Operator>,
+    aggregator: Arc<tokio::sync::RwLock<Aggregator>>,
+) -> Result<(), error::Error> {
+    // commit stake
+    operator.commit_stake().await?;
+    // fetch boosts
+    let boost_mint_1 = operator
+        .boost_accounts
+        .first()
+        .ok_or(error::Error::Internal("missing boost account".to_string()))?;
+    // fetch staker balances
+    let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
+    // set stakers
+    let aggregator = &mut aggregator.write().await;
+    aggregator.stake = stakers;
+    Ok(())
 }
 
 // denominated in minutes
