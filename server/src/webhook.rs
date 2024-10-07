@@ -314,6 +314,7 @@ impl Client {
         // insert into staker balancers
         let stakers = &mut write.stake;
         if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
+            // TODO; insert as zero regardless of balance. increments are handled on submit loops.
             vacant.insert(entry.share_account.balance);
         }
         Ok(())

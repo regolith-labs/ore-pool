@@ -252,11 +252,16 @@ impl Aggregator {
             .recv()
             .await
             .ok_or(Error::Internal("rewards channel closed".to_string()))?;
+        // compute attributions for base reward
         log::info!("reward: {:?}", rewards);
         let rewards_distribution = self.rewards_distribution(pool_pda, rewards.base);
+        // compute attributions for boost one
+        let rewards_distribution_boost_1 =
+            self.rewards_distribution_boost(pool_pda, rewards.boost_1);
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1).await?;
         // reset
         self.reset(operator).await?;
         Ok(())
@@ -264,18 +269,50 @@ impl Aggregator {
 
     fn rewards_distribution(&self, pool: Pubkey, reward: u64) -> Vec<(String, u64)> {
         let denominator = self.total_score;
-        log::info!("denominator: {}", denominator);
+        log::info!("base reward denominator: {}", denominator);
         let contributions = self.contributions.iter();
         contributions
             .map(|c| {
-                log::info!("raw score: {}", c.score);
+                log::info!("raw base reward score: {}", c.score);
                 let score = c.score.saturating_mul(reward);
                 let score = score.checked_div(denominator).unwrap_or(0);
-                log::info!("attributed score: {}", score);
+                log::info!("attributed base reward score: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
                 (member_pda.to_string(), score)
             })
             .collect()
+    }
+
+    fn rewards_distribution_boost(
+        &self,
+        pool: Pubkey,
+        boost_event: Option<ore_api::event::BoostEvent>,
+    ) -> Vec<(String, u64)> {
+        match boost_event {
+            None => vec![],
+            Some(boost_event) => {
+                let total_reward = boost_event.reward as u128;
+                log::info!("total rewards from stake: {}", total_reward);
+                let denominator_iter = self.stake.iter();
+                let distribution_iter = self.stake.iter();
+                let denominator: u64 = denominator_iter.map(|(_, balance)| balance).sum();
+                let denominator = denominator as u128;
+                log::info!("staked reward denominator: {}", denominator);
+                distribution_iter
+                    .map(|(stake_authority, balance)| {
+                        log::info!("staked balance: {:?}", (stake_authority, balance));
+                        let balance = *balance as u128;
+                        let score = balance.saturating_mul(total_reward);
+                        log::info!("scaled score from stake: {}", score);
+                        let score = score.checked_div(denominator).unwrap_or(0);
+                        log::info!("attributed score from stake: {}", score);
+                        let (member_pda, _) =
+                            ore_pool_api::state::member_pda(*stake_authority, pool);
+                        (member_pda.to_string(), score as u64)
+                    })
+                    .collect()
+            }
+        }
     }
 
     async fn find_bus(&self, operator: &Operator) -> Result<Pubkey, Error> {
