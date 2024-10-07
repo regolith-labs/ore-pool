@@ -1,5 +1,7 @@
 use actix_web::{http::header::ToStrError, HttpResponse};
 
+use crate::webhook;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("bincode")]
@@ -8,6 +10,8 @@ pub enum Error {
     Base64Decode(#[from] base64::DecodeError),
     #[error("try from slice")]
     TryFromSlice(#[from] std::array::TryFromSliceError),
+    #[error("rewards channel send")]
+    RewardsChannelSend(#[from] tokio::sync::mpsc::error::SendError<webhook::Rewards>),
     #[error("tokio postgres")]
     TokioPostgres(#[from] tokio_postgres::Error),
     #[error("deadpool postgress")]
@@ -36,6 +40,8 @@ pub enum Error {
     StakerDoesNotExist,
     #[error("share account received")]
     ShareAccountReceived,
+    #[error("proof account received")]
+    ProofAccountReceived,
     #[error("{0}")]
     Internal(String),
 }

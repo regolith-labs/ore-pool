@@ -19,15 +19,18 @@ use utils::create_cors;
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
     env_logger::init();
+    // rewards channel
+    let (rewards_tx, rewards_rx) = tokio::sync::mpsc::channel::<webhook::Rewards>(1);
+    let rewards_tx = web::Data::new(rewards_tx);
+    // contributions channel
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
+    let tx = web::Data::new(tx);
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
-    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
+    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator, rewards_rx).await?);
     let aggregator = web::Data::new(aggregator);
     let webhook_handler = web::Data::new(webhook::Handle::new()?);
     let webhook_client = web::Data::new(webhook::Client::new_stake()?);
-    // contributions async channel
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
-    let tx = web::Data::new(tx);
     // env vars
     let attribution_epoch = attribution_epoch()?;
     let stake_commit_epoch = stake_commit_epoch()?;
@@ -88,6 +91,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(aggregator.clone())
             .app_data(webhook_handler.clone())
             .app_data(webhook_client.clone())
+            .app_data(rewards_tx.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
@@ -103,6 +107,9 @@ async fn main() -> Result<(), error::Error> {
             .service(
                 web::resource("/webhook/share-account")
                     .route(web::post().to(webhook::Handle::share_account)),
+            )
+            .service(
+                web::resource("/webhook/rewards").route(web::post().to(webhook::Handle::rewards)),
             )
             .service(health)
     })

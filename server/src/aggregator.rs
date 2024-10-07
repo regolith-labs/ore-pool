@@ -18,7 +18,7 @@ use crate::{
     database,
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
-    tx,
+    tx, webhook,
 };
 
 /// The client submits slightly earlier
@@ -29,6 +29,9 @@ pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 pub struct Aggregator {
     /// The current challenge.
     pub challenge: Challenge,
+
+    /// The rewards channel receiver.
+    pub rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
 
     /// The set of contributions aggregated for the current challenge.
     pub contributions: HashSet<Contribution>,
@@ -145,7 +148,10 @@ pub async fn process_contributions(
 }
 
 impl Aggregator {
-    pub async fn new(operator: &Operator) -> Result<Self, Error> {
+    pub async fn new(
+        operator: &Operator,
+        rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
+    ) -> Result<Self, Error> {
         // fetch accounts
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
@@ -168,6 +174,7 @@ impl Aggregator {
         // build self
         let aggregator = Aggregator {
             challenge,
+            rewards_rx,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
@@ -239,10 +246,14 @@ impl Aggregator {
         )
         .await?;
         log::info!("{:?}", sig);
-        // parse mining reward
-        let reward = self.parse_reward(operator).await?;
-        log::info!("reward: {}", reward);
-        let rewards_distribution = self.rewards_distribution(pool_pda, reward);
+        // listen for rewards
+        let rewards_rx = &mut self.rewards_rx;
+        let rewards = rewards_rx
+            .recv()
+            .await
+            .ok_or(Error::Internal("rewards channel closed".to_string()))?;
+        log::info!("reward: {}", rewards.base);
+        let rewards_distribution = self.rewards_distribution(pool_pda, rewards.base);
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
@@ -333,25 +344,6 @@ impl Aggregator {
         let pool = operator.get_pool().await?;
         let needs_reset = pool.last_hash_at != last_hash_at;
         Ok(needs_reset)
-    }
-
-    async fn parse_reward(&self, operator: &Operator) -> Result<u64, Error> {
-        let max_retries = 20;
-        let mut retries = 0;
-        let last_hash_at = self.challenge.lash_hash_at;
-        loop {
-            let pool = operator.get_pool().await?;
-            if pool.last_hash_at != last_hash_at {
-                return Ok(pool.reward);
-            } else {
-                retries += 1;
-                if retries == max_retries {
-                    return Err(Error::Internal("failed to fetch reward".to_string()));
-                }
-                log::info!("reward retries: {}", retries);
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
     }
 
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {

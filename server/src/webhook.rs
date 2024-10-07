@@ -61,14 +61,19 @@ struct ClientEditSuccess {
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct ShareAccountEvent {
-    pub meta: ShareAccountEventMeta,
+pub struct Event {
+    pub meta: EventMeta,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct ShareAccountEventMeta {
+pub struct EventMeta {
     pub log_messages: Vec<String>,
+}
+
+pub struct Rewards {
+    pub base: u64,
+    pub boost_1: Option<u64>,
 }
 
 impl Handle {
@@ -89,6 +94,23 @@ impl Handle {
             .handle_share_account_event(aggregator.as_ref(), &req, &bytes)
             .await
         {
+            Ok(_event) => HttpResponse::Ok().finish(),
+            Err(err) => {
+                log::error!("{:?}", err);
+                let resp: HttpResponse = err.into();
+                resp
+            }
+        }
+    }
+
+    pub async fn rewards(
+        handle: web::Data<Handle>,
+        tx: web::Data<tokio::sync::mpsc::Sender<Rewards>>,
+        req: HttpRequest,
+        bytes: web::Bytes,
+    ) -> impl Responder {
+        let handle = handle.into_inner();
+        match handle.handle_rewards_event(&req, &bytes, tx.as_ref()).await {
             Ok(_event) => HttpResponse::Ok().finish(),
             Err(err) => {
                 log::error!("{:?}", err);
@@ -133,9 +155,12 @@ impl Handle {
     }
 
     /// decode the share account event.
-    /// if cannot decode as unstake event,
-    /// must have been a stake event which we handle
-    /// and respond to helius with an ok.
+    /// if cannot decode as unstake event respond with 200 ok
+    /// so that helius server doesn't keep retrying.
+    /// decoding here on our sever is internal to us,
+    /// all helius needs to know is that we received the message.
+    /// in fact, we should probably process on a new spawn
+    /// and respond immediately to helius with an ok.
     async fn decode_share_account_event(
         &self,
         req: &HttpRequest,
@@ -143,7 +168,7 @@ impl Handle {
     ) -> Result<UnstakeEvent, Error> {
         self.auth(req)?;
         let bytes = bytes.to_vec();
-        let event = serde_json::from_slice::<Vec<ShareAccountEvent>>(bytes.as_slice())?;
+        let event = serde_json::from_slice::<Vec<Event>>(bytes.as_slice())?;
         // parse logs for updated balance
         // which sits in the 3rd to last line
         let event = event
@@ -164,6 +189,34 @@ impl Handle {
             .map_err(|_| Error::ShareAccountReceived)?;
         log::info!("share account webhook event: {:?}", stake_event);
         Ok(*stake_event)
+    }
+
+    async fn handle_rewards_event(
+        &self,
+        req: &HttpRequest,
+        bytes: &web::Bytes,
+        tx: &tokio::sync::mpsc::Sender<Rewards>,
+    ) -> Result<(), Error> {
+        let rewards = self.decode_rewards_event(req, bytes).await?;
+        tx.send(rewards).await?;
+        Ok(())
+    }
+
+    /// decodes event that is sent on mine instructions (by listening to the proof account).
+    /// parses logs for base and boost rewards.
+    async fn decode_rewards_event(
+        &self,
+        req: &HttpRequest,
+        bytes: &web::Bytes,
+    ) -> Result<Rewards, Error> {
+        self.auth(req)?;
+        let bytes = bytes.to_vec();
+        let event = serde_json::from_slice::<Vec<Event>>(bytes.as_slice())?;
+        log::info!("proof account event: {:?}", event);
+        Ok(Rewards {
+            base: 0,
+            boost_1: None,
+        })
     }
 
     /// parse and validate the auth header
