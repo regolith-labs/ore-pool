@@ -1,6 +1,8 @@
+use base64::{prelude::BASE64_STANDARD, Engine};
 use ore_boost_api::loaders::{load_boost, load_stake};
 use ore_pool_api::{
     consts::POOL,
+    event::UnstakeEvent,
     instruction::*,
     loaders::*,
     state::{Pool, Share},
@@ -10,8 +12,8 @@ use ore_utils::{
     transfer_signed, AccountDeserialize,
 };
 use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program::invoke_signed,
-    program_error::ProgramError, program_pack::Pack,
+    self, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log,
+    program::invoke_signed, program_error::ProgramError, program_pack::Pack,
 };
 
 /// Unstake tokens from the pool's stake account.
@@ -31,7 +33,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     load_associated_token_account(boost_tokens_info, boost_info.key, mint_info.key, true)?;
     load_any_mint(mint_info, false)?;
     load_member(member_info, signer.key, pool_info.key, false)?;
-    load_any_pool(pool_info, false)?;
+    load_any_pool(pool_info, true)?;
     load_associated_token_account(pool_tokens_info, pool_info.key, mint_info.key, true)?;
     load_token_account(recipient_tokens_info, None, mint_info.key, true)?;
     load_stake(stake_info, pool_info.key, boost_info.key, true)?;
@@ -84,6 +86,17 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         amount,
         &[&[POOL, pool_authority.as_ref(), &[pool_bump]]],
     )?;
+
+    // Log the balance for parsing.
+    let event = UnstakeEvent {
+        authority: *signer.key,
+        share: *share_info.key,
+        mint: *mint_info.key,
+        balance: share.balance,
+    };
+    let event = event.to_bytes();
+    let event = BASE64_STANDARD.encode(event);
+    sol_log(event.as_str());
 
     Ok(())
 }

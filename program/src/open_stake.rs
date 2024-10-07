@@ -33,9 +33,10 @@ pub fn process_open_stake(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Program
 
     // Open the stake account.
     invoke_signed(
-        &ore_boost_api::sdk::open(*pool_info.key, *mint_info.key),
+        &ore_boost_api::sdk::open(*pool_info.key, *signer.key, *mint_info.key),
         &[
             pool_info.clone(),
+            signer.clone(),
             boost_info.clone(),
             mint_info.clone(),
             stake_info.clone(),

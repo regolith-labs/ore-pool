@@ -5,8 +5,10 @@ mod error;
 mod operator;
 mod tx;
 mod utils;
+mod webhook;
 
 use core::panic;
+use std::sync::Arc;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution};
@@ -17,15 +19,22 @@ use utils::create_cors;
 // write attestation url to db with last-hash-at as foreign key
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
-    // operator and aggregator mutex
-    let operator = web::Data::new(Operator::new()?);
-    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
-    let aggregator = web::Data::new(aggregator);
-    // contributions async channel
+    env_logger::init();
+    // rewards channel
+    let (rewards_tx, rewards_rx) = tokio::sync::mpsc::channel::<webhook::Rewards>(1);
+    let rewards_tx = web::Data::new(rewards_tx);
+    // contributions channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);
+    // operator and aggregator mutex
+    let operator = web::Data::new(Operator::new()?);
+    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator, rewards_rx).await?);
+    let aggregator = web::Data::new(aggregator);
+    let webhook_handler = web::Data::new(webhook::Handle::new()?);
+    let webhook_client = web::Data::new(webhook::Client::new_stake()?);
     // env vars
     let attribution_epoch = attribution_epoch()?;
+    let stake_commit_epoch = stake_commit_epoch()?;
 
     // aggregate contributions
     tokio::task::spawn({
@@ -51,15 +60,32 @@ async fn main() -> Result<(), error::Error> {
                 if let Err(err) = operator.attribute_members().await {
                     panic!("{:?}", err)
                 }
-                // sleep until next attribution epoch
+                // sleep until next epoch
                 tokio::time::sleep(tokio::time::Duration::from_secs(60 * attribution_epoch)).await;
+            }
+        }
+    });
+
+    // kick off commit-stake loop
+    tokio::task::spawn({
+        let operator = operator.clone();
+        let aggregator = aggregator.clone();
+        async move {
+            loop {
+                let operator = operator.clone().into_inner();
+                let aggregator = aggregator.clone().into_inner();
+                // commit stake
+                if let Err(err) = commit_stake(operator, aggregator).await {
+                    panic!("{:?}", err)
+                }
+                // sleep until next epoch
+                tokio::time::sleep(tokio::time::Duration::from_secs(60 * stake_commit_epoch)).await;
             }
         }
     });
 
     // launch server
     HttpServer::new(move || {
-        env_logger::init();
         log::info!("starting server");
         App::new()
             .wrap(middleware::Logger::default())
@@ -67,13 +93,27 @@ async fn main() -> Result<(), error::Error> {
             .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())
+            .app_data(webhook_handler.clone())
+            .app_data(webhook_client.clone())
+            .app_data(rewards_tx.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
+            .service(
+                web::resource("/register-staker")
+                    .route(web::post().to(contributor::register_staker)),
+            )
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))
             .service(
                 web::resource("/update-balance").route(web::post().to(contributor::update_balance)),
+            )
+            .service(
+                web::resource("/webhook/share-account")
+                    .route(web::post().to(webhook::Handle::share_account)),
+            )
+            .service(
+                web::resource("/webhook/rewards").route(web::post().to(webhook::Handle::rewards)),
             )
             .service(health)
     })
@@ -81,6 +121,32 @@ async fn main() -> Result<(), error::Error> {
     .run()
     .await
     .map_err(From::from)
+}
+
+async fn commit_stake(
+    operator: Arc<Operator>,
+    aggregator: Arc<tokio::sync::RwLock<Aggregator>>,
+) -> Result<(), error::Error> {
+    // commit stake
+    operator.commit_stake().await?;
+    // fetch boosts
+    let boost_mint_1 = operator
+        .boost_accounts
+        .first()
+        .ok_or(error::Error::Internal("missing boost account".to_string()))?;
+    // fetch staker balances
+    let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
+    // set stakers
+    let aggregator = &mut aggregator.write().await;
+    aggregator.stake = stakers;
+    Ok(())
+}
+
+// denominated in minutes
+fn stake_commit_epoch() -> Result<u64, error::Error> {
+    let string = std::env::var("STAKE_EPOCH")?;
+    let epoch: u64 = string.parse()?;
+    Ok(epoch)
 }
 
 // denominated in minutes

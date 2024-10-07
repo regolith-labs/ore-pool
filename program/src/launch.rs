@@ -54,7 +54,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     // Open proof account.
     solana_program::program::invoke_signed(
-        &ore_api::instruction::open(*pool_info.key, *miner_info.key, *signer.key),
+        &ore_api::sdk::open(*pool_info.key, *miner_info.key, *signer.key),
         &[
             pool_info.clone(),
             miner_info.clone(),

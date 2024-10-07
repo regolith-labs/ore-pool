@@ -1,12 +1,13 @@
-use std::{env, str::FromStr, sync::Arc};
+use std::{env, pin::Pin, str::FromStr, sync::Arc};
 
 use crate::{error::Error, operator::Operator, tx};
-use deadpool_postgres::{Object, Pool};
-use futures::TryStreamExt;
+use deadpool_postgres::{GenericClient, Object, Pool};
+use futures::{Stream, StreamExt, TryStreamExt};
 use futures_util::pin_mut;
-use ore_pool_api::state::member_pda;
+use ore_pool_api::state::{member_pda, share_pda};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
-use tokio_postgres::NoTls;
+use tokio_postgres::{NoTls, Row};
+use types::Staker;
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
@@ -127,6 +128,55 @@ pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> R
     Ok(())
 }
 
+pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), Error> {
+    let share = share.to_string();
+    let address_buffer: &[String] = &[share];
+    let query = "UPDATE stakers SET webhook = true WHERE address = ANY($1)";
+    conn.execute(query, &[&address_buffer]).await?;
+    Ok(())
+}
+
+pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>> + Send>>;
+pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
+    let stmt = "SELECT address, member_id, mint, webhook FROM stakers WHERE mint = ANY($1)";
+    let params: &[String] = &[mint.to_string()];
+    let stream = conn.query_raw(stmt, &[&params]).await?;
+    let stream = stream
+        .map_err(Into::<Error>::into)
+        .map(|row| row.and_then(|r| decode_staker(&r)));
+    Ok(Box::pin(stream))
+}
+
+pub async fn write_new_staker(
+    conn: &Object,
+    member_authority: &Pubkey,
+    pool: &Pubkey,
+    mint: &Pubkey,
+) -> Result<Staker, Error> {
+    let (member_pda, _) = member_pda(*member_authority, *pool);
+    let member = read_member(conn, &member_pda.to_string()).await?;
+    let (share_pda, _) = share_pda(*member_authority, *pool, *mint);
+    conn.execute(
+        "INSERT INTO stakers
+        (address, member_id, mint, webhook)
+        VALUES ($1, $2, $3, $4)",
+        &[
+            &share_pda.to_string(),
+            &member.id,
+            &mint.to_string(),
+            &false,
+        ],
+    )
+    .await?;
+    let staker = Staker {
+        address: share_pda,
+        member_id: member.id as u64,
+        mint: *mint,
+        webhook: false,
+    };
+    Ok(staker)
+}
+
 pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
@@ -159,6 +209,38 @@ pub async fn write_new_member(
     )
     .await?;
     Ok(member)
+}
+
+pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Error> {
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT address, member_id, mint, webhook
+                FROM stakers
+                WHERE address = '{}'",
+                address
+            ),
+            &[],
+        )
+        .await?;
+    decode_staker(&row)
+}
+
+fn decode_staker(row: &Row) -> Result<Staker, Error> {
+    let address: String = row.try_get(0)?;
+    let address = Pubkey::from_str(address.as_str())?;
+    let member_id: i64 = row.try_get(1)?;
+    let member_id = member_id as u64;
+    let mint: String = row.try_get(2)?;
+    let mint = Pubkey::from_str(mint.as_str())?;
+    let webhook: bool = row.try_get(3)?;
+    let staker = Staker {
+        address,
+        member_id,
+        mint,
+        webhook,
+    };
+    Ok(staker)
 }
 
 pub async fn read_member(conn: &Object, address: &String) -> Result<types::Member, Error> {

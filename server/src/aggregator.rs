@@ -1,4 +1,7 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use drillx::Solution;
 use ore_api::{
@@ -15,17 +18,20 @@ use crate::{
     database,
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
-    tx,
+    tx, webhook,
 };
 
-// The client submits slightly earlier
-// than the operator's cutoff time to create a "submission window".
+/// The client submits slightly earlier
+/// than the operator's cutoff time to create a "submission window".
 pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
-    // The current challenge.
+    /// The current challenge.
     pub challenge: Challenge,
+
+    /// The rewards channel receiver.
+    pub rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
 
     /// The set of contributions aggregated for the current challenge.
     pub contributions: HashSet<Contribution>,
@@ -33,11 +39,14 @@ pub struct Aggregator {
     /// The total difficulty score of all the contributions aggregated so far.
     pub total_score: u64,
 
-    // The best solution submitted.
+    /// The best solution submitted.
     pub winner: Option<Winner>,
 
-    // The number of workers that have been approved for the current challenge.
+    /// The number of workers that have been approved for the current challenge.
     pub num_members: u64,
+
+    /// The map of stake contributors for attribution.
+    pub stake: HashMap<Pubkey, u64>,
 }
 
 // Best hash to be submitted for the current challenge.
@@ -139,7 +148,11 @@ pub async fn process_contributions(
 }
 
 impl Aggregator {
-    pub async fn new(operator: &Operator) -> Result<Self, Error> {
+    pub async fn new(
+        operator: &Operator,
+        rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
+    ) -> Result<Self, Error> {
+        // fetch accounts
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
         log::info!("proof: {:?}", proof);
@@ -151,12 +164,22 @@ impl Aggregator {
             min_difficulty,
             cutoff_time,
         };
+        // fetch boosts
+        let boost_mint_1 = operator
+            .boost_accounts
+            .first()
+            .ok_or(Error::Internal("missing boost account".to_string()))?;
+        // fetch staker balances
+        let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
+        // build self
         let aggregator = Aggregator {
             challenge,
+            rewards_rx,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
             num_members: pool.last_total_members,
+            stake: stakers,
         };
         Ok(aggregator)
     }
@@ -205,9 +228,14 @@ impl Aggregator {
         let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
         let bus = self.find_bus(operator).await?;
         // build instructions
-        let auth_ix = ore_api::instruction::auth(pool_proof_pda);
-        let submit_ix =
-            ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
+        let auth_ix = ore_api::sdk::auth(pool_proof_pda);
+        let submit_ix = ore_pool_api::sdk::submit(
+            operator.keypair.pubkey(),
+            best_solution,
+            attestation,
+            bus,
+            operator.get_boost_mine_accounts(),
+        );
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_and_confirm_instructions(
             &operator.keypair,
@@ -218,13 +246,22 @@ impl Aggregator {
         )
         .await?;
         log::info!("{:?}", sig);
-        // parse mining reward
-        let reward = self.parse_reward(operator).await?;
-        log::info!("reward: {}", reward);
-        let rewards_distribution = self.rewards_distribution(pool_pda, reward);
+        // listen for rewards
+        let rewards_rx = &mut self.rewards_rx;
+        let rewards = rewards_rx
+            .recv()
+            .await
+            .ok_or(Error::Internal("rewards channel closed".to_string()))?;
+        // compute attributions for base reward
+        log::info!("reward: {:?}", rewards);
+        let rewards_distribution = self.rewards_distribution(pool_pda, rewards.base);
+        // compute attributions for boost one
+        let rewards_distribution_boost_1 =
+            self.rewards_distribution_boost(pool_pda, rewards.boost_1);
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;
         database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1).await?;
         // reset
         self.reset(operator).await?;
         Ok(())
@@ -232,18 +269,50 @@ impl Aggregator {
 
     fn rewards_distribution(&self, pool: Pubkey, reward: u64) -> Vec<(String, u64)> {
         let denominator = self.total_score;
-        log::info!("denominator: {}", denominator);
+        log::info!("base reward denominator: {}", denominator);
         let contributions = self.contributions.iter();
         contributions
             .map(|c| {
-                log::info!("raw score: {}", c.score);
+                log::info!("raw base reward score: {}", c.score);
                 let score = c.score.saturating_mul(reward);
                 let score = score.checked_div(denominator).unwrap_or(0);
-                log::info!("attributed score: {}", score);
+                log::info!("attributed base reward score: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
                 (member_pda.to_string(), score)
             })
             .collect()
+    }
+
+    fn rewards_distribution_boost(
+        &self,
+        pool: Pubkey,
+        boost_event: Option<ore_api::event::BoostEvent>,
+    ) -> Vec<(String, u64)> {
+        match boost_event {
+            None => vec![],
+            Some(boost_event) => {
+                let total_reward = boost_event.reward as u128;
+                log::info!("total rewards from stake: {}", total_reward);
+                let denominator_iter = self.stake.iter();
+                let distribution_iter = self.stake.iter();
+                let denominator: u64 = denominator_iter.map(|(_, balance)| balance).sum();
+                let denominator = denominator as u128;
+                log::info!("staked reward denominator: {}", denominator);
+                distribution_iter
+                    .map(|(stake_authority, balance)| {
+                        log::info!("staked balance: {:?}", (stake_authority, balance));
+                        let balance = *balance as u128;
+                        let score = balance.saturating_mul(total_reward);
+                        log::info!("scaled score from stake: {}", score);
+                        let score = score.checked_div(denominator).unwrap_or(0);
+                        log::info!("attributed score from stake: {}", score);
+                        let (member_pda, _) =
+                            ore_pool_api::state::member_pda(*stake_authority, pool);
+                        (member_pda.to_string(), score as u64)
+                    })
+                    .collect()
+            }
+        }
     }
 
     async fn find_bus(&self, operator: &Operator) -> Result<Pubkey, Error> {
@@ -312,25 +381,6 @@ impl Aggregator {
         let pool = operator.get_pool().await?;
         let needs_reset = pool.last_hash_at != last_hash_at;
         Ok(needs_reset)
-    }
-
-    async fn parse_reward(&self, operator: &Operator) -> Result<u64, Error> {
-        let max_retries = 20;
-        let mut retries = 0;
-        let last_hash_at = self.challenge.lash_hash_at;
-        loop {
-            let pool = operator.get_pool().await?;
-            if pool.last_hash_at != last_hash_at {
-                return Ok(pool.reward);
-            } else {
-                retries += 1;
-                if retries == max_retries {
-                    return Err(Error::Internal("failed to fetch reward".to_string()));
-                }
-                log::info!("reward retries: {}", retries);
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
     }
 
     async fn update_challenge(&mut self, operator: &Operator) -> Result<(), Error> {

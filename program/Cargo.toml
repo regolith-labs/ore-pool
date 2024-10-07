@@ -17,6 +17,7 @@ crate-type = ["cdylib", "lib"]
 default = []
 
 [dependencies]
+base64.workspace = true
 bytemuck.workspace = true
 drillx.workspace = true
 mpl-token-metadata.workspace = true
