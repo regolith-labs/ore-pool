@@ -1,8 +1,5 @@
 use ore_pool_api::{instruction::*, loaders::*, state::Member};
-use ore_utils::{load_signer, AccountDeserialize};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-};
+use steel::*;
 
 /// Attribute updates a member's claimable balance.
 ///
@@ -18,7 +15,7 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let [signer, pool_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
+    signer.is_signer()?;
     load_pool(pool_info, signer.key, false)?;
     load_any_member(member_info, pool_info.key, true)?;
 

@@ -1,5 +1,4 @@
-use base64::{prelude::BASE64_STANDARD, Engine};
-use ore_boost_api::loaders::{load_boost, load_stake};
+use ore_boost_api::state::{Boost, Stake};
 use ore_pool_api::{
     consts::POOL,
     event::UnstakeEvent,
@@ -7,19 +6,13 @@ use ore_pool_api::{
     loaders::*,
     state::{Pool, Share},
 };
-use ore_utils::{
-    load_any_mint, load_associated_token_account, load_program, load_signer, load_token_account,
-    transfer_signed, AccountDeserialize,
-};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log,
-    program::invoke_signed, program_error::ProgramError, program_pack::Pack,
-};
+use solana_program::{log::sol_log_data, program::invoke_signed, program_pack::Pack};
+use steel::*;
 
 /// Unstake tokens from the pool's stake account.
 pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = Stake::try_from_bytes(data)?;
+    let args = Unstake::try_from_bytes(data)?;
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
@@ -28,18 +21,29 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_boost(boost_info, mint_info.key, true)?;
-    load_associated_token_account(boost_tokens_info, boost_info.key, mint_info.key, true)?;
-    load_any_mint(mint_info, false)?;
+    signer.is_signer()?;
+    boost_info
+        .is_writable()?
+        .to_account::<Boost>(&ore_boost_api::ID)?
+        .check(|b| b.mint == *mint_info.key)?;
+    boost_tokens_info
+        .is_writable()?
+        .to_associated_token_account(boost_info.key, mint_info.key)?;
+    mint_info.to_mint()?;
     load_member(member_info, signer.key, pool_info.key, false)?;
     load_any_pool(pool_info, true)?;
-    load_associated_token_account(pool_tokens_info, pool_info.key, mint_info.key, true)?;
-    load_token_account(recipient_tokens_info, None, mint_info.key, true)?;
-    load_stake(stake_info, pool_info.key, boost_info.key, true)?;
+    pool_tokens_info
+        .is_writable()?
+        .to_associated_token_account(pool_info.key, mint_info.key)?;
+    recipient_tokens_info.is_writable()?.to_token_account()?;
+    stake_info
+        .is_writable()?
+        .to_account::<Stake>(&ore_boost_api::ID)?
+        .check(|s| s.authority == *pool_info.key)?
+        .check(|s| s.boost == *boost_info.key)?;
     load_share(share_info, signer.key, pool_info.key, mint_info.key, true)?;
-    load_program(token_program, spl_token::id())?;
-    load_program(ore_boost_program, ore_boost_api::id())?;
+    token_program.is_program(&spl_token::ID)?;
+    ore_boost_program.is_program(&ore_boost_api::ID)?;
 
     // Update the share balance.
     let mut share_data = share_info.data.borrow_mut();
@@ -95,8 +99,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         balance: share.balance,
     };
     let event = event.to_bytes();
-    let event = BASE64_STANDARD.encode(event);
-    sol_log(event.as_str());
+    sol_log_data(&[event]);
 
     Ok(())
 }

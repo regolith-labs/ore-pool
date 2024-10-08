@@ -1,14 +1,8 @@
 use drillx::Solution;
-use ore_api::{
-    loaders::{load_any_bus, load_config, load_proof},
-    state::Proof,
-};
+use ore_api::loaders::OreAccountInfoValidation;
+use ore_api::state::{Bus, Proof};
 use ore_pool_api::{instruction::*, loaders::*, state::Pool};
-use ore_utils::{load_program, load_signer, load_sysvar, AccountDeserialize};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program, sysvar,
-};
+use steel::*;
 
 /// Submit sends the pool's best hash to the ORE mining contract.
 pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -22,15 +16,18 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_any_bus(bus_info, true)?;
-    load_config(config_info, false)?;
+    signer.is_signer()?;
+    bus_info.is_writable()?.to_account::<Bus>(&ore_api::ID)?;
+    config_info.is_config()?;
     load_pool(pool_info, signer.key, true)?;
-    load_proof(proof_info, pool_info.key, true)?;
-    load_program(ore_program, ore_api::id())?;
-    load_program(system_program, system_program::id())?;
-    load_sysvar(instructions_sysvar, sysvar::instructions::id())?;
-    load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
+    proof_info
+        .is_writable()?
+        .to_account::<Proof>(&ore_api::ID)?
+        .check(|p| p.authority == *pool_info.key)?;
+    ore_program.is_program(&ore_api::ID)?;
+    system_program.is_program(&system_program::ID)?;
+    instructions_sysvar.is_sysvar(&sysvar::instructions::ID)?;
+    slot_hashes_sysvar.is_sysvar(&sysvar::slot_hashes::ID)?;
 
     // Update pool submissions count
     let mut pool_data = pool_info.data.borrow_mut();

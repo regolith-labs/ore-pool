@@ -1,19 +1,10 @@
-use std::mem::size_of;
-
 use ore_pool_api::{
     consts::*,
     instruction::*,
     loaders::*,
     state::{Member, Pool},
 };
-use ore_utils::{
-    create_pda, load_program, load_signer, load_system_account, load_uninitialized_pda,
-    AccountDeserialize, Discriminator,
-};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program,
-};
+use steel::*;
 
 /// Join creates a new account for a pool participant.
 pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -24,26 +15,23 @@ pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     let [signer, member_authority_info, member_info, pool_info, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_system_account(member_authority_info, false)?;
-    load_uninitialized_pda(
-        member_info,
+    signer.is_signer()?;
+    member_authority_info.is_empty()?.is_writable()?.has_seeds(
         &[
             MEMBER,
             member_authority_info.key.as_ref(),
             pool_info.key.as_ref(),
         ],
         args.member_bump,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
     )?;
     load_any_pool(pool_info, true)?;
-    load_program(system_program, system_program::id())?;
+    system_program.is_program(&system_program::ID)?;
 
     // Initialize member account
-    create_pda(
+    create_account::<Member>(
         member_info,
-        &ore_pool_api::id(),
-        8 + size_of::<Member>(),
+        &ore_pool_api::ID,
         &[
             MEMBER,
             member_authority_info.key.as_ref(),

@@ -1,12 +1,6 @@
-use std::mem::size_of;
-
-use ore_boost_api::loaders::{load_boost, load_stake};
+use ore_boost_api::state::{Boost, Stake};
 use ore_pool_api::{consts::*, instruction::OpenShare, loaders::load_any_pool, state::Share};
-use ore_utils::*;
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program,
-};
+use steel::*;
 
 /// Opens a new share account for pool member to deposit stake.
 pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -19,12 +13,14 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_boost(boost_info, mint_info.key, false)?;
-    load_any_mint(mint_info, false)?;
+    signer.is_signer()?;
+    boost_info
+        .is_writable()?
+        .to_account::<Boost>(&ore_boost_api::ID)?
+        .check(|b| b.mint == *mint_info.key)?;
+    mint_info.to_mint()?;
     load_any_pool(pool_info, false)?;
-    load_uninitialized_pda(
-        share_info,
+    share_info.is_empty()?.is_writable()?.has_seeds(
         &[
             SHARE,
             signer.key.as_ref(),
@@ -32,16 +28,18 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
             mint_info.key.as_ref(),
         ],
         args.share_bump,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
     )?;
-    load_stake(stake_info, pool_info.key, boost_info.key, false)?;
-    load_program(system_program, system_program::id())?;
+    stake_info
+        .to_account::<Stake>(&ore_boost_api::ID)?
+        .check(|s| s.authority == *pool_info.key)?
+        .check(|s| s.boost == *boost_info.key)?;
+    system_program.is_program(&system_program::ID)?;
 
     // Create the share pda.
-    create_pda(
+    create_account::<Share>(
         share_info,
         &ore_pool_api::id(),
-        8 + size_of::<Share>(),
         &[
             SHARE,
             signer.key.as_ref(),

@@ -1,9 +1,6 @@
 use ore_api::instruction::Stake;
 use ore_pool_api::{loaders::*, state::Share};
-use ore_utils::*;
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-};
+use steel::*;
 
 /// Deposit tokens into a pool's pending stake account.
 pub fn process_stake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -17,14 +14,18 @@ pub fn process_stake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_any_mint(mint_info, false)?;
+    signer.is_signer()?;
+    mint_info.to_mint()?;
     load_member(member_info, signer.key, pool_info.key, false)?;
     load_any_pool(pool_info, false)?;
-    load_associated_token_account(pool_tokens_info, pool_info.key, mint_info.key, true)?;
-    load_associated_token_account(sender_tokens_info, signer.key, mint_info.key, true)?;
+    pool_tokens_info
+        .is_writable()?
+        .to_associated_token_account(pool_info.key, mint_info.key)?;
+    sender_tokens_info
+        .is_writable()?
+        .to_associated_token_account(signer.key, mint_info.key)?;
     load_share(share_info, signer.key, pool_info.key, mint_info.key, true)?;
-    load_program(token_program, spl_token::id())?;
+    token_program.is_program(&spl_token::ID)?;
 
     // Update the share balance.
     let mut share_data = share_info.data.borrow_mut();

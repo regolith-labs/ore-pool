@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use ore_utils::event;
 use solana_program::pubkey::Pubkey;
+use steel::event;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]

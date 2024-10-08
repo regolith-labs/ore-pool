@@ -1,15 +1,6 @@
-use std::mem::size_of;
-
 use ore_api::{consts::*, state::Proof};
 use ore_pool_api::{consts::*, instruction::Launch, state::Pool};
-use ore_utils::{
-    create_pda, load_any, load_program, load_signer, load_sysvar, load_uninitialized_pda,
-    AccountDeserialize, Discriminator,
-};
-use solana_program::{
-    self, account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    system_program, sysvar,
-};
+use steel::*;
 
 /// Launch creates a new pool.
 pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
@@ -22,31 +13,27 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    load_signer(signer)?;
-    load_any(miner_info, false)?;
-    load_uninitialized_pda(
-        pool_info,
+    signer.is_signer()?;
+    pool_info.is_empty()?.is_writable()?.has_seeds(
         &[POOL, signer.key.as_ref()],
         args.pool_bump,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
     )?;
-    load_uninitialized_pda(
-        proof_info,
+    proof_info.is_empty()?.is_writable()?.has_seeds(
         &[PROOF, pool_info.key.as_ref()],
         args.proof_bump,
         &ore_api::id(),
     )?;
-    load_program(ore_program, ore_api::id())?;
-    load_program(token_program, spl_token::id())?;
-    load_program(associated_token_program, spl_associated_token_account::id())?;
-    load_program(system_program, system_program::id())?;
-    load_sysvar(slot_hashes_sysvar, sysvar::slot_hashes::id())?;
+    ore_program.is_program(&ore_api::ID)?;
+    token_program.is_program(&spl_token::ID)?;
+    associated_token_program.is_program(&spl_associated_token_account::ID)?;
+    system_program.is_program(&system_program::ID)?;
+    slot_hashes_sysvar.is_program(&sysvar::slot_hashes::ID)?;
 
     // Initialize pool account.
-    create_pda(
+    create_account::<Pool>(
         pool_info,
-        &ore_pool_api::id(),
-        8 + size_of::<Pool>(),
+        &ore_pool_api::ID,
         &[POOL, signer.key.as_ref(), &[args.pool_bump]],
         system_program,
         signer,

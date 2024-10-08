@@ -1,6 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use ore_utils::{account, Discriminator};
-use solana_program::pubkey::Pubkey;
+use steel::*;
 
 use super::AccountDiscriminator;
 
