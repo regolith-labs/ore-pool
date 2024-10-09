@@ -1,4 +1,4 @@
-use ore_boost_api::prelude::*;
+use ore_boost_api::state::Boost;
 use ore_pool_api::prelude::*;
 use steel::*;
 

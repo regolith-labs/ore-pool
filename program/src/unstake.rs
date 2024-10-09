@@ -1,4 +1,4 @@
-use ore_boost_api::prelude::*;
+use ore_boost_api::state::Boost;
 use ore_pool_api::prelude::*;
 use solana_program::log::sol_log_data;
 use steel::*;
@@ -22,7 +22,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         .check(|b| b.mint == *mint_info.key)?;
     boost_tokens_info
         .is_writable()?
-        .to_associated_token_account(&boost_info.key, &mint_info.key)?;
+        .to_associated_token_account(boost_info.key, mint_info.key)?;
     mint_info.to_mint()?;
     member_info
         .to_account::<Member>(&ore_pool_api::ID)?
@@ -31,7 +31,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     let pool = pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
     let pool_tokens = pool_tokens_info
         .is_writable()?
-        .to_associated_token_account(&pool_info.key, &mint_info.key)?;
+        .to_associated_token_account(pool_info.key, mint_info.key)?;
     recipient_tokens_info
         .is_writable()?
         .to_token_account()?
