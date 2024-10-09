@@ -15,8 +15,8 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     };
     signer_info.is_signer()?;
     boost_info
-        .to_account_mut::<Boost>(&ore_boost_api::ID)?
-        .check_mut(|b| b.mint == *mint_info.key)?;
+        .to_account::<Boost>(&ore_boost_api::ID)?
+        .check(|b| b.mint == *mint_info.key)?;
     mint_info.to_mint()?;
     pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
     share_info.is_empty()?.is_writable()?.has_seeds(
@@ -51,7 +51,7 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramR
     )?;
 
     // Initialize share account data.
-    let share = share_info.to_account_mut::<Share>(&ore_boost_api::ID)?;
+    let share = share_info.to_account_mut::<Share>(&ore_pool_api::ID)?;
     share.authority = *signer_info.key;
     share.balance = 0;
     share.pool = *pool_info.key;
