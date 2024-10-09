@@ -4,7 +4,22 @@
 
 ## Admin
 - Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
-This creates the pool account on-chain which the server expects to exist upon starting.
+
+1) Create the pool account on-chain which the server expects to exist upon starting.
+```sh
+COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="" cargo run --release
+```
+2) Create the stake account for each boost you want to support. Users can open share accounts that represent proportional shares in the total stake of the pool (per boost account).
+```sh
+COMMAND="open-stake" MINT="" RPC_URL="" KEYPAIR_PATH="" cargo run --release
+```
+
+## Server
+There are many parameters that the server supports via [env vars](./server/.env.example). 
+Including which boost accounts to support. How often to attribute members. And the webhook configuration.
+```sh
+RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="" RUST_LOG=info cargo run --release
+```
 
 ## Considerations
 - This implementation is still in active development and is subject to breaking changes.
