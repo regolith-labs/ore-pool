@@ -18,7 +18,6 @@ futures-util = { workspace = true }
 log = { workspace = true }
 ore-api = { workspace = true }
 ore-boost-api = { workspace = true }
-ore-utils = { workspace = true }
 ore-pool-api = { workspace = true }
 postgres-types = { workspace = true }
 reqwest = { workspace = true }
@@ -28,6 +27,7 @@ sha3 = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
+steel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }

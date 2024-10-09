@@ -3,7 +3,6 @@ use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, vec};
 use futures::{Future, StreamExt, TryFutureExt, TryStreamExt};
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool, Share};
-use ore_utils::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     account::Account,
@@ -14,6 +13,7 @@ use solana_sdk::{
     signer::{EncodableKey, Signer},
     sysvar,
 };
+use steel::AccountDeserialize;
 use types::Staker;
 
 use crate::{database, error::Error, tx};

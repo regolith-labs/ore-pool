@@ -29,14 +29,9 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-## ore-api = "2.1.9"
-## ore-boost-api = "0.1.0"
-## ore-pool-api = { path = "api", version = "0.1.0" }
-## ore-utils = { features = ["spl"], version = "2.1.9" }
 ore-api = { path = "../ore/api" }
 ore-boost-api = { path = "../ore-boost/api" }
 ore-pool-api = { path = "api", version = "0.1.0" }
-ore-utils = { features = ["spl"], path = "../ore/utils" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 reqwest = { version = "0.12", features = ["json"] }
 serde = { features = ["derive"], version = "1.0" }
@@ -51,9 +46,7 @@ spl-associated-token-account = { features = [
   "no-entrypoint",
 ], version = "^2.3" }
 static_assertions = "1.1.0"
+steel = { features = ["spl"], version = "1.2" }
 thiserror = "1.0.57"
 tokio = "1.39"
 tokio-postgres = "0.7"
-
-# [patch.crates-io]
-# drillx = { path = "../drillx/drillx" }
