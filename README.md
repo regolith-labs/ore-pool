@@ -25,7 +25,6 @@ RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE=
 - This implementation is still in active development and is subject to breaking changes.
 - The idea is for this to be a reference implementation for operators.
 - Feel free to fork this repo and add your custom logic.
-- We're trying to add parameters of interest as [environment variables](./server/.env.example), but you can always fork if we've missed something in the meantime.
 - Ofc we're accepting PRs / contributions. Please help us reach a solid v1.0.0.
 - This implementation is integrated with the official `ore-cli`.
 - So if you fork and change things, just make sure you serve the same HTTP paths that the `ore-cli` is interfacing with. If you do that, people should be able to participate in your pool with no additional installs or changes to their client.
