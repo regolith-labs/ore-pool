@@ -22,7 +22,7 @@ RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE=
 ```
 
 ## Webhook
-- The server depends on two [helius webhooks](https://docs.helius.dev/webhooks-and-websockets/what-are-webhooks).
+The server depends on two [helius webhooks](https://docs.helius.dev/webhooks-and-websockets/what-are-webhooks).
 1) One for tracking balance changes in the share/stake accounts. This is for proportionally attributing stakers in the pool.
 2) The other is for tracking state changes to the proof account. This is for parsing the rewards (also for attribution).
 - You'll need to create both webhooks manually in the helius dashboard. They should be of type `raw`.
