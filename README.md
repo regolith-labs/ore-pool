@@ -28,8 +28,7 @@ The server depends on two [helius webhooks](https://docs.helius.dev/webhooks-and
 - You'll need to create both webhooks manually in the helius dashboard. They should be of type `raw`.
 - Also will need to generate an auth token that helius will include in their POST requests to your server. Pass this as an env var to the server.
 - Creating new webhooks requires at least one address to listen for initially. For the share accounts webhook you can put any pubkey there initially,
-the server will idempotently PUT to that list as new stakers join the pool (deleting the initial account you put there). For the proof account webhook, you want to put the proof account pubkey that belongs to the pool.
-you can find this pubkey by running the `proof-account` command in the [admin server](./admin/src/main.rs).
+the server will idempotently PUT to that list as new stakers join the pool (deleting the initial account you put there). For the proof account webhook, you want to put the proof account pubkey that belongs to the pool. You can find this pubkey by running the `proof-account` command in the [admin server](./admin/src/main.rs).
 - Pass the webhook id for the share accounts to the server as an env var.
 - One last detail is that testing on devnet the [webhook client](./server/src/webhook.rs) will set the RPC environment to mainnet. This isn't a problem in production. But if you happen to be testing in devnet, you'll need to manually keep an eye on that. We could fix this by including the RPC env in the PUT body. But we haven't seen that as a supported field, yet.
 
