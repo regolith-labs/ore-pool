@@ -181,7 +181,7 @@ impl Handle {
         let stake_event = log_messages
             .get(index)
             .ok_or(Error::Internal("missing webhook event message".to_string()))?;
-        let stake_event = stake_event.trim_start_matches("Program log: ");
+        let stake_event = stake_event.trim_start_matches("Program data: ");
         let stake_event = BASE64_STANDARD
             .decode(stake_event)
             .map_err(|_| Error::ShareAccountReceived)?;
@@ -250,7 +250,7 @@ impl Handle {
         let boost_event = log_messages
             .get(index)
             .ok_or(Error::Internal("missing webhook event message".to_string()))?;
-        let boost_event = boost_event.trim_start_matches("Program log: Boost event: ");
+        let boost_event = boost_event.trim_start_matches("Program data: ");
         let boost_event = BASE64_STANDARD.decode(boost_event)?;
         let boost_event: &ore_api::event::BoostEvent =
             bytemuck::try_from_bytes(boost_event.as_slice())
