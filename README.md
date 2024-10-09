@@ -4,13 +4,27 @@
 
 ## Admin
 - Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
-This creates the pool account on-chain which the server expects to exist upon starting.
+
+1) Create the pool account on-chain which the server expects to exist upon starting.
+```sh
+COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="" cargo run --release
+```
+2) Create the stake account for each boost you want to support. Users can open share accounts that represent proportional shares in the total stake of the pool (per boost account).
+```sh
+COMMAND="open-stake" MINT="" RPC_URL="" KEYPAIR_PATH="" cargo run --release
+```
+
+## Server
+There are many parameters that the server supports via [env vars](./server/.env.example). 
+Including which boost accounts to support. How often to attribute members. And the webhook configuration.
+```sh
+RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="http://your-server.com/webhook/share-account" RUST_LOG=info cargo run --release
+```
 
 ## Considerations
 - This implementation is still in active development and is subject to breaking changes.
 - The idea is for this to be a reference implementation for operators.
 - Feel free to fork this repo and add your custom logic.
-- We're trying to add parameters of interest as [environment variables](./server/.env.example), but you can always fork if we've missed something in the meantime.
 - Ofc we're accepting PRs / contributions. Please help us reach a solid v1.0.0.
 - This implementation is integrated with the official `ore-cli`.
 - So if you fork and change things, just make sure you serve the same HTTP paths that the `ore-cli` is interfacing with. If you do that, people should be able to participate in your pool with no additional installs or changes to their client.

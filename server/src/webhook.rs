@@ -17,7 +17,7 @@ pub struct Client {
     helius_api_key: String,
     /// the helius webhook id created in the console
     /// for tracking share accounts
-    helius_webhook_id_stake: String,
+    helius_webhook_id: String,
     /// the /webhook path that your server exposes to helius
     helius_webhook_url: String,
     /// the auth token expected to be included in webhook events
@@ -278,13 +278,13 @@ impl Client {
     /// create new client for listening to share account state changes
     pub fn new_stake() -> Result<Self, Error> {
         let helius_api_key = helius_api_key()?;
-        let helius_webhook_id_stake = helius_webhook_id_stake()?;
+        let helius_webhook_id = helius_webhook_id()?;
         let helius_webhook_url = helius_webhook_url()?;
         let helius_auth_token = helius_auth_token()?;
         let s = Self {
             http_client: reqwest::Client::new(),
             helius_api_key,
-            helius_webhook_id_stake,
+            helius_webhook_id,
             helius_webhook_url,
             helius_auth_token,
         };
@@ -323,7 +323,7 @@ impl Client {
     async fn edit(&self, account_addresses: Vec<String>) -> Result<ClientEditSuccess, Error> {
         let edit_url = format!(
             "{}/{}/{}?api-key={}",
-            HELIUS_URL, HELIUS_WEBHOOK_API_PATH, self.helius_webhook_id_stake, self.helius_api_key
+            HELIUS_URL, HELIUS_WEBHOOK_API_PATH, self.helius_webhook_id, self.helius_api_key
         );
         let webhook_url = self.helius_webhook_url.clone();
         let auth_header = self.helius_auth_token.clone();
@@ -359,6 +359,6 @@ fn helius_auth_token() -> Result<String, Error> {
     std::env::var("HELIUS_AUTH_TOKEN").map_err(From::from)
 }
 
-fn helius_webhook_id_stake() -> Result<String, Error> {
-    std::env::var("HELIUS_WEBHOOK_ID_STAKE").map_err(From::from)
+fn helius_webhook_id() -> Result<String, Error> {
+    std::env::var("HELIUS_WEBHOOK_ID").map_err(From::from)
 }

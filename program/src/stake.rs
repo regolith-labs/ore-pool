@@ -30,7 +30,7 @@ pub fn process_stake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         .check(|t| t.mint == *mint_info.key)?;
     let share = share_info
         .to_account_mut::<Share>(&ore_pool_api::ID)?
-        .check_mut(|s| s.authority == *pool_info.key)?
+        .check_mut(|s| s.authority == *signer_info.key)?
         .check_mut(|s| s.mint == *mint_info.key)?;
     token_program.is_program(&spl_token::ID)?;
 
