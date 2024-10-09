@@ -18,7 +18,7 @@ COMMAND="open-stake" MINT="" RPC_URL="" KEYPAIR_PATH="" cargo run --release
 There are many parameters that the server supports via [env vars](./server/.env.example). 
 Including which boost accounts to support. How often to attribute members. And the webhook configuration.
 ```sh
-RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="" RUST_LOG=info cargo run --release
+RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="http://your-server.com/webhook/share-account" RUST_LOG=info cargo run --release
 ```
 
 ## Considerations
