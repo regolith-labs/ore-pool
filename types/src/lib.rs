@@ -136,3 +136,13 @@ pub struct MemberChallenge {
     /// The number of total members to divide the nonce space by.
     pub num_total_members: u64,
 }
+
+/// The response from the update-balance request.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BalanceUpdate {
+    /// The balance updated on-chain.
+    pub balance: u64,
+
+    /// The transaction signature.
+    pub signature: Signature,
+}
