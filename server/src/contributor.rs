@@ -1,8 +1,8 @@
 use actix_web::{web, HttpResponse, Responder};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use types::{
-    ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress, RegisterPayload,
-    RegisterStakerPayload, Staker, UpdateBalancePayload,
+    BalanceUpdate, ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress,
+    RegisterPayload, RegisterStakerPayload, Staker, UpdateBalancePayload,
 };
 
 use crate::{
@@ -69,7 +69,7 @@ pub async fn update_balance(
     payload: web::Json<UpdateBalancePayload>,
 ) -> impl Responder {
     match update_balance_onchain(operator.as_ref(), payload.into_inner()).await {
-        Ok(()) => HttpResponse::Ok().finish(),
+        Ok(balance_update) => HttpResponse::Ok().json(balance_update),
         Err(err) => {
             log::error!("{:?}", err);
             HttpResponse::InternalServerError().body(err.to_string())
@@ -169,7 +169,7 @@ pub async fn contribute(
 async fn update_balance_onchain(
     operator: &Operator,
     payload: UpdateBalancePayload,
-) -> Result<(), Error> {
+) -> Result<BalanceUpdate, Error> {
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let hash = payload.hash;
@@ -201,7 +201,10 @@ async fn update_balance_onchain(
     let (pool_address, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
     let (member_address, _) = ore_pool_api::state::member_pda(member_authority, pool_address);
     database::write_synced_members(&db_client, &[member_address.to_string()]).await?;
-    Ok(())
+    Ok(BalanceUpdate {
+        balance: member.total_balance as u64,
+        signature: sig,
+    })
 }
 
 async fn register_new_staker(
