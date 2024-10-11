@@ -33,6 +33,14 @@ pub struct Operator {
 
     /// The boost accounts for mining multipliers.
     pub boost_accounts: Vec<BoostAccount>,
+
+    /// The operator commission in % percentage.
+    /// Applied to the miner and staker rewards.
+    pub operator_commission: u64,
+
+    /// The staker commission in % percentage.
+    /// The rest is given to miners to incentize participation.
+    pub staker_commission: u64,
 }
 
 pub struct BoostAccount {
@@ -70,11 +78,17 @@ impl Operator {
         let boosts = Self::load_boosts()?;
         log::info!("boosts: {:?}", boosts);
         let boost_accounts = BoostAccount::new_from_vec(boosts, keypair.pubkey());
+        let operator_commission = Self::operator_commission()?;
+        log::info!("operator commision: {}", operator_commission);
+        let staker_commission = Self::staker_commission()?;
+        log::info!("staker commission: {}", staker_commission);
         Ok(Operator {
             keypair,
             rpc_client,
             db_client,
             boost_accounts,
+            operator_commission,
+            staker_commission,
         })
     }
 
@@ -325,6 +339,18 @@ impl Operator {
 
     fn boost_three() -> Result<Option<Pubkey>, Error> {
         Self::load_boost("BOOST_THREE".to_string())
+    }
+
+    fn operator_commission() -> Result<u64, Error> {
+        let str = std::env::var("OPERATOR_COMMISSION")?;
+        let commission: u64 = str.parse()?;
+        Ok(commission)
+    }
+
+    fn staker_commission() -> Result<u64, Error> {
+        let str = std::env::var("STAKER_COMMISSION")?;
+        let commission: u64 = str.parse()?;
+        Ok(commission)
     }
 }
 
