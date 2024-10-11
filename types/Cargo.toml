@@ -1,5 +1,5 @@
 [package]
-name = "types"
+name = "ore-pool-types"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
