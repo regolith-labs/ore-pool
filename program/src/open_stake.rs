@@ -18,8 +18,8 @@ pub fn process_open_stake(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Program
     let pool = pool_info
         .to_account_mut::<Pool>(&ore_pool_api::ID)?
         .check_mut(|p| p.authority == *signer_info.key)?;
-    // load_any(pool_tokens_info, true)?;
-    // load_any(stake_info, true)?;
+    pool_tokens_info.is_writable()?;
+    stake_info.is_empty()?.is_writable()?;
     system_program.is_program(&system_program::ID)?;
     token_program.is_program(&spl_token::ID)?;
     associated_token_program.is_program(&spl_associated_token_account::ID)?;
