@@ -5,7 +5,8 @@
 ## Admin
 Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
 
-1) Create the pool account on-chain which the server expects to exist upon starting.
+1) Create the pool and member accounts on-chain which the server expects to exist upon starting. A member account is created because we need an account to write the pool commissions to.
+You can manage this member account (stake, claim, etc.) from the `ore-cli`.
 ```sh
 COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="" cargo run --release
 ```
@@ -18,7 +19,7 @@ COMMAND="open-stake" MINT="" RPC_URL="" KEYPAIR_PATH="" cargo run --release
 There are many parameters that the server supports via [env vars](./server/.env.example). 
 Including which boost accounts to support. How often to attribute members. And the webhook configuration.
 ```sh
-RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="http://your-server.com/webhook/share-account" RUST_LOG=info cargo run --release
+RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" BOOST_ONE="" HELIUS_API_KEY="" HELIUS_AUTH_TOKEN="" HELIUS_WEBHOOK_ID="" HELIUS_WEBHOOK_URL="http://your-server.com/webhook/share-account" OPERATOR_COMMISSION="" STAKER_COMMISSION="" RUST_LOG=info cargo run --release
 ```
 
 ## Webhook

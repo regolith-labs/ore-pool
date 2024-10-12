@@ -3,6 +3,7 @@ use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, vec};
 use futures::{Future, StreamExt, TryFutureExt, TryStreamExt};
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool, Share};
+use ore_pool_types::Staker;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     account::Account,
@@ -14,7 +15,6 @@ use solana_sdk::{
     sysvar,
 };
 use steel::AccountDeserialize;
-use types::Staker;
 
 use crate::{database, error::Error, tx};
 
@@ -33,6 +33,14 @@ pub struct Operator {
 
     /// The boost accounts for mining multipliers.
     pub boost_accounts: Vec<BoostAccount>,
+
+    /// The operator commission in % percentage.
+    /// Applied to the miner and staker rewards.
+    pub operator_commission: u64,
+
+    /// The staker commission in % percentage.
+    /// The rest is given to miners to incentize participation.
+    pub staker_commission: u64,
 }
 
 pub struct BoostAccount {
@@ -70,11 +78,17 @@ impl Operator {
         let boosts = Self::load_boosts()?;
         log::info!("boosts: {:?}", boosts);
         let boost_accounts = BoostAccount::new_from_vec(boosts, keypair.pubkey());
+        let operator_commission = Self::operator_commission()?;
+        log::info!("operator commision: {}", operator_commission);
+        let staker_commission = Self::staker_commission()?;
+        log::info!("staker commission: {}", staker_commission);
         Ok(Operator {
             keypair,
             rpc_client,
             db_client,
             boost_accounts,
+            operator_commission,
+            staker_commission,
         })
     }
 
@@ -169,7 +183,10 @@ impl Operator {
         Ok(*member)
     }
 
-    pub async fn get_member_db(&self, member_authority: &str) -> Result<types::Member, Error> {
+    pub async fn get_member_db(
+        &self,
+        member_authority: &str,
+    ) -> Result<ore_pool_types::Member, Error> {
         let db_client = self.db_client.get().await?;
         let member_authority = Pubkey::from_str(member_authority)?;
         let pool_authority = self.keypair.pubkey();
@@ -325,6 +342,18 @@ impl Operator {
 
     fn boost_three() -> Result<Option<Pubkey>, Error> {
         Self::load_boost("BOOST_THREE".to_string())
+    }
+
+    fn operator_commission() -> Result<u64, Error> {
+        let str = std::env::var("OPERATOR_COMMISSION")?;
+        let commission: u64 = str.parse()?;
+        Ok(commission)
+    }
+
+    fn staker_commission() -> Result<u64, Error> {
+        let str = std::env::var("STAKER_COMMISSION")?;
+        let commission: u64 = str.parse()?;
+        Ok(commission)
     }
 }
 

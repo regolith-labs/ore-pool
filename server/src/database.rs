@@ -5,9 +5,9 @@ use deadpool_postgres::{GenericClient, Object, Pool};
 use futures::{Stream, StreamExt, TryStreamExt};
 use futures_util::pin_mut;
 use ore_pool_api::state::{member_pda, share_pda};
+use ore_pool_types::Staker;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use tokio_postgres::{NoTls, Row};
-use types::Staker;
 
 pub fn create_pool() -> Pool {
     let mut cfg = deadpool_postgres::Config::new();
@@ -181,8 +181,8 @@ pub async fn write_new_member(
     conn: &Object,
     member: &ore_pool_api::state::Member,
     approved: bool,
-) -> Result<types::Member, Error> {
-    let member = types::Member {
+) -> Result<ore_pool_types::Member, Error> {
+    let member = ore_pool_types::Member {
         address: member_pda(member.authority, member.pool).0.to_string(),
         id: (member.id as i64),
         authority: member.authority.to_string(),
@@ -243,7 +243,7 @@ fn decode_staker(row: &Row) -> Result<Staker, Error> {
     Ok(staker)
 }
 
-pub async fn read_member(conn: &Object, address: &String) -> Result<types::Member, Error> {
+pub async fn read_member(conn: &Object, address: &String) -> Result<ore_pool_types::Member, Error> {
     let row = conn
         .query_one(
             &format!(
@@ -255,7 +255,7 @@ pub async fn read_member(conn: &Object, address: &String) -> Result<types::Membe
             &[],
         )
         .await?;
-    Ok(types::Member {
+    Ok(ore_pool_types::Member {
         address: row.try_get(0)?,
         id: row.try_get(1)?,
         authority: row.try_get(2)?,
