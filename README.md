@@ -45,7 +45,6 @@ the server will idempotently PUT to that list as new stakers join the pool (dele
 
 ## For now
 - For now this server only supports one "operator keypair" and thus one pool. So all of your members will participate in the same pool. This could be abstracted to support an arbitrary number of pools per operator server.
-- For now this server does not collect commissions. We want to parameterize this as an env var.
 
 ## Local database
 To spin up the database locally:
