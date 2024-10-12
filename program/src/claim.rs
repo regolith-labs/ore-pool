@@ -2,7 +2,7 @@ use ore_api::prelude::*;
 use ore_pool_api::prelude::*;
 use steel::*;
 
-/// Claim allows a member to claim their ORE from the pool.
+/// Claim allows a member to claim their ORE rewards from the pool.
 pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = ore_pool_api::instruction::Claim::try_from_bytes(data)?;

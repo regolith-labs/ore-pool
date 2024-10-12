@@ -12,7 +12,6 @@ pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
-    member_authority_info.is_empty()?.is_writable()?;
     member_info.is_empty()?.is_writable()?.has_seeds(
         &[
             MEMBER,
@@ -28,7 +27,7 @@ pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
     // Initialize member account
     create_account::<Member>(
         member_info,
-        &ore_pool_api::id(),
+        &ore_pool_api::ID,
         &[
             MEMBER,
             member_authority_info.key.as_ref(),

@@ -1,5 +1,6 @@
 [package]
-name = "types"
+name = "ore-pool-types"
+description = "Types for interacting with the API of a pool server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
