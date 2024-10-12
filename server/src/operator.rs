@@ -3,6 +3,7 @@ use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, vec};
 use futures::{Future, StreamExt, TryFutureExt, TryStreamExt};
 use ore_api::state::{Config, Proof};
 use ore_pool_api::state::{Member, Pool, Share};
+use ore_pool_types::Staker;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     account::Account,
@@ -14,7 +15,6 @@ use solana_sdk::{
     sysvar,
 };
 use steel::AccountDeserialize;
-use types::Staker;
 
 use crate::{database, error::Error, tx};
 
@@ -183,7 +183,10 @@ impl Operator {
         Ok(*member)
     }
 
-    pub async fn get_member_db(&self, member_authority: &str) -> Result<types::Member, Error> {
+    pub async fn get_member_db(
+        &self,
+        member_authority: &str,
+    ) -> Result<ore_pool_types::Member, Error> {
         let db_client = self.db_client.get().await?;
         let member_authority = Pubkey::from_str(member_authority)?;
         let pool_authority = self.keypair.pubkey();

@@ -31,5 +31,5 @@ steel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
-types = { path = "../types" }
+ore-pool-types = { path = "../types" }
 rand = "0.8.5"

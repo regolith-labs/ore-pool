@@ -1,9 +1,9 @@
 use actix_web::{web, HttpResponse, Responder};
-use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use types::{
+use ore_pool_types::{
     BalanceUpdate, ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress,
     RegisterPayload, RegisterStakerPayload, Staker, UpdateBalancePayload,
 };
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use crate::{
     aggregator::{Aggregator, BUFFER_CLIENT},
@@ -268,7 +268,7 @@ async fn register_new_staker(
 async fn register_new_member(
     operator: &Operator,
     payload: RegisterPayload,
-) -> Result<types::Member, Error> {
+) -> Result<ore_pool_types::Member, Error> {
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
