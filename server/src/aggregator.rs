@@ -384,6 +384,7 @@ impl Aggregator {
         match boost_event {
             None => Ok(vec![]),
             Some(boost_event) => {
+                log::info!("{:?}", boost_event);
                 let total_reward = boost_event.reward as u128;
                 let staker_commission: u128 = staker_commission as u128;
                 log::info!("staker commission: {}", staker_commission);
