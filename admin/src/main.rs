@@ -9,6 +9,7 @@ mod error;
 mod init;
 mod member_account;
 mod open_stake;
+mod pool_account;
 mod proof_account;
 
 #[tokio::main]
@@ -23,6 +24,7 @@ async fn main() -> Result<(), error::Error> {
     match command.as_str() {
         "init" => init::init(&rpc_client, &keypair, pool_url).await,
         "open-stake" => open_stake::open_stake(&rpc_client, &keypair, boost_mint).await,
+        "pool-account" => pool_account::pool_account(&rpc_client, &keypair).await,
         "proof-account" => proof_account::proof_account(&rpc_client, &keypair).await,
         "member-account" => member_account::member_account(&rpc_client, &keypair).await,
         _ => Err(error::Error::InvalidCommand),
