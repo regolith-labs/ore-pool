@@ -18,7 +18,8 @@ use crate::{
     database,
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
-    tx, webhook,
+    tx,
+    webhook::{self, Rewards},
 };
 
 /// The client submits slightly earlier
@@ -46,8 +47,12 @@ pub struct Aggregator {
     pub num_members: u64,
 
     /// The map of stake contributors for attribution.
-    pub stake: HashMap<Pubkey, u64>,
+    pub stake: Stakers,
 }
+
+pub type BoostMint = Pubkey;
+pub type StakerBalances = HashMap<Pubkey, u64>;
+pub type Stakers = HashMap<BoostMint, StakerBalances>;
 
 // Best hash to be submitted for the current challenge.
 #[derive(Clone, Copy, Debug)]
@@ -164,13 +169,13 @@ impl Aggregator {
             min_difficulty,
             cutoff_time,
         };
-        // fetch boosts
-        let boost_mint_1 = operator
-            .boost_accounts
-            .first()
-            .ok_or(Error::Internal("missing boost account".to_string()))?;
         // fetch staker balances
-        let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
+        let mut stake: Stakers = HashMap::new();
+        let boost_acounts = operator.boost_accounts.iter();
+        for ba in boost_acounts {
+            let stakers = operator.get_stakers_onchain(&ba.mint).await?;
+            stake.insert(ba.mint, stakers);
+        }
         // build self
         let aggregator = Aggregator {
             challenge,
@@ -179,7 +184,7 @@ impl Aggregator {
             total_score: 0,
             winner: None,
             num_members: pool.last_total_members,
-            stake: stakers,
+            stake,
         };
         Ok(aggregator)
     }
@@ -252,27 +257,29 @@ impl Aggregator {
             .recv()
             .await
             .ok_or(Error::Internal("rewards channel closed".to_string()))?;
-        // compute attributions for base reward
+        // compute attributions for miners
         log::info!("reward: {:?}", rewards);
         log::info!("// miner ////////////////////////");
         let rewards_distribution = self.rewards_distribution(
             pool_pda,
-            rewards.base,
-            rewards.boost_1,
+            &rewards,
             operator.operator_commission,
             operator.staker_commission,
         );
         log::info!("// staker ////////////////////////");
-        // compute attributions for boost one
+        // compute attributions for stakers
         let rewards_distribution_boost_1 =
-            self.rewards_distribution_boost(pool_pda, rewards.boost_1, operator.staker_commission);
+            self.rewards_distribution_boost(pool_pda, rewards.boost_1, operator.staker_commission)?;
+        let rewards_distribution_boost_2 =
+            self.rewards_distribution_boost(pool_pda, rewards.boost_2, operator.staker_commission)?;
+        let rewards_distribution_boost_3 =
+            self.rewards_distribution_boost(pool_pda, rewards.boost_3, operator.staker_commission)?;
         log::info!("// operator ////////////////////////");
         // compute attribution for operator
         let rewards_distribution_operator = self.rewards_distribution_operator(
             pool_pda,
             operator.keypair.pubkey(),
-            rewards.base,
-            rewards.boost_1,
+            &rewards,
             operator.operator_commission,
         );
         // write rewards to db
@@ -280,6 +287,10 @@ impl Aggregator {
         tokio::spawn(async move {
             database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
             database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1)
+                .await?;
+            database::write_member_total_balances(&mut db_client, rewards_distribution_boost_2)
+                .await?;
+            database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3)
                 .await?;
             database::write_member_total_balances(
                 &mut db_client,
@@ -295,8 +306,7 @@ impl Aggregator {
     fn rewards_distribution(
         &self,
         pool: Pubkey,
-        reward: u64,
-        boost_event: Option<ore_api::event::BoostEvent>,
+        rewards: &Rewards,
         operator_commission: u64,
         staker_commission: u64,
     ) -> Vec<(String, u64)> {
@@ -306,24 +316,28 @@ impl Aggregator {
         // compute miner split
         let miner_commission = 100 - operator_commission;
         log::info!("miner commission: {}", miner_commission);
-        let miner_rewards = (reward * miner_commission / 100) as u128;
+        let miner_rewards = (rewards.base * miner_commission / 100) as u128;
         log::info!("miner rewards as commission for miners: {}", miner_rewards);
         // compute miner split from stake rewards
-        let miner_rewards_from_stake: u128 = match boost_event {
-            Some(boost_event) => {
-                let miner_commission_for_stake: u128 =
-                    (100 - operator_commission - staker_commission) as u128;
-                log::info!("miner commission for stake: {}", miner_commission_for_stake);
-                let stake_rewards = boost_event.reward as u128;
-                stake_rewards * miner_commission_for_stake / 100
-            }
-            None => 0,
-        };
-        log::info!(
-            "stake rewards as commission for miners: {}",
-            miner_rewards_from_stake
+        let miner_rewards_from_stake_1 = Self::split_stake_rewards_for_miners(
+            rewards.boost_1,
+            operator_commission,
+            staker_commission,
         );
-        let total_rewards = miner_rewards + miner_rewards_from_stake;
+        let miner_rewards_from_stake_2 = Self::split_stake_rewards_for_miners(
+            rewards.boost_2,
+            operator_commission,
+            staker_commission,
+        );
+        let miner_rewards_from_stake_3 = Self::split_stake_rewards_for_miners(
+            rewards.boost_3,
+            operator_commission,
+            staker_commission,
+        );
+        let total_rewards = miner_rewards
+            + miner_rewards_from_stake_1
+            + miner_rewards_from_stake_2
+            + miner_rewards_from_stake_3;
         log::info!("total rewards as commission for miners: {}", total_rewards);
         let contributions = self.contributions.iter();
         contributions
@@ -338,15 +352,39 @@ impl Aggregator {
             .collect()
     }
 
+    fn split_stake_rewards_for_miners(
+        boost_event: Option<ore_api::event::BoostEvent>,
+        operator_commission: u64,
+        staker_commission: u64,
+    ) -> u128 {
+        let miner_rewards_from_stake: u128 = match boost_event {
+            Some(boost_event) => {
+                log::info!("{:?}", boost_event);
+                let miner_commission_for_stake: u128 =
+                    (100 - operator_commission - staker_commission) as u128;
+                log::info!("miner commission for stake: {}", miner_commission_for_stake);
+                let stake_rewards = boost_event.reward as u128;
+                stake_rewards * miner_commission_for_stake / 100
+            }
+            None => 0,
+        };
+        log::info!(
+            "stake rewards as commission for miners: {}",
+            miner_rewards_from_stake
+        );
+        miner_rewards_from_stake
+    }
+
     fn rewards_distribution_boost(
         &self,
         pool: Pubkey,
         boost_event: Option<ore_api::event::BoostEvent>,
         staker_commission: u64,
-    ) -> Vec<(String, u64)> {
+    ) -> Result<Vec<(String, u64)>, Error> {
         match boost_event {
-            None => vec![],
+            None => Ok(vec![]),
             Some(boost_event) => {
+                log::info!("{:?}", boost_event);
                 let total_reward = boost_event.reward as u128;
                 let staker_commission: u128 = staker_commission as u128;
                 log::info!("staker commission: {}", staker_commission);
@@ -356,12 +394,19 @@ impl Aggregator {
                     "total rewards as commission for stakers: {}",
                     staker_rewards
                 );
-                let denominator_iter = self.stake.iter();
-                let distribution_iter = self.stake.iter();
+                let stakers = self
+                    .stake
+                    .get(&boost_event.mint)
+                    .ok_or(Error::Internal(format!(
+                        "missing staker balances: {:?}",
+                        boost_event.mint,
+                    )))?;
+                let denominator_iter = stakers.iter();
+                let distribution_iter = stakers.iter();
                 let denominator: u64 = denominator_iter.map(|(_, balance)| balance).sum();
                 let denominator = denominator as u128;
                 log::info!("staked reward denominator: {}", denominator);
-                distribution_iter
+                let res = distribution_iter
                     .map(|(stake_authority, balance)| {
                         log::info!("staked balance: {:?}", (stake_authority, balance));
                         let balance = *balance as u128;
@@ -373,7 +418,8 @@ impl Aggregator {
                             ore_pool_api::state::member_pda(*stake_authority, pool);
                         (member_pda.to_string(), score as u64)
                     })
-                    .collect()
+                    .collect();
+                Ok(res)
             }
         }
     }
@@ -382,17 +428,40 @@ impl Aggregator {
         &self,
         pool: Pubkey,
         pool_authority: Pubkey,
-        rewards: u64,
-        boost_event: Option<ore_api::event::BoostEvent>,
+        rewards: &Rewards,
         operator_commission: u64,
     ) -> (String, u64) {
         // compute split from mine rewards
-        let mine_rewards = rewards * operator_commission / 100;
+        let mine_rewards = rewards.base * operator_commission / 100;
         // compute split from stake rewads
-        let stake_rewards = match boost_event {
-            Some(boost_event) => boost_event.reward * operator_commission / 100,
-            None => 0,
-        };
+        let mut stake_rewards = 0;
+        if let Some(boost_event) = rewards.boost_1 {
+            let r = boost_event.reward * operator_commission / 100;
+            log::info!(
+                "staker rewards for operator: {} from {:?}",
+                r,
+                boost_event.mint
+            );
+            stake_rewards += r;
+        }
+        if let Some(boost_event) = rewards.boost_2 {
+            let r = boost_event.reward * operator_commission / 100;
+            log::info!(
+                "staker rewards for operator: {} from {:?}",
+                r,
+                boost_event.mint
+            );
+            stake_rewards += r;
+        }
+        if let Some(boost_event) = rewards.boost_3 {
+            let r = boost_event.reward * operator_commission / 100;
+            log::info!(
+                "staker rewards for operator: {} from {:?}",
+                r,
+                boost_event.mint
+            );
+            stake_rewards += r;
+        }
         log::info!("operator commission: {}", operator_commission);
         log::info!("mine rewards for operator: {}", mine_rewards);
         log::info!("stake rewards for operator: {}", stake_rewards);

@@ -74,6 +74,8 @@ pub struct EventMeta {
 pub struct Rewards {
     pub base: u64,
     pub boost_1: Option<ore_api::event::BoostEvent>,
+    pub boost_2: Option<ore_api::event::BoostEvent>,
+    pub boost_3: Option<ore_api::event::BoostEvent>,
 }
 
 impl Handle {
@@ -142,7 +144,11 @@ impl Handle {
         event: &mut UnstakeEvent,
     ) -> Result<(), Error> {
         let mut write = aggregator.write().await;
-        let stakers = &mut write.stake;
+        let stake = &mut write.stake;
+        let stakers = stake.get_mut(&event.mint).ok_or(Error::Internal(format!(
+            "missing staker balances: {}",
+            event.mint
+        )))?;
         if let std::collections::hash_map::Entry::Occupied(ref mut occupied) =
             stakers.entry(event.authority)
         {
@@ -219,9 +225,13 @@ impl Handle {
         let log_messages = event.meta.log_messages.as_slice();
         let base_reward = Self::decode_base_reward(log_messages)?;
         let boost_reward_1 = Self::decode_boost_reward(log_messages, 8).ok();
+        let boost_reward_2 = Self::decode_boost_reward(log_messages, 9).ok();
+        let boost_reward_3 = Self::decode_boost_reward(log_messages, 10).ok();
         Ok(Rewards {
             base: base_reward,
             boost_1: boost_reward_1,
+            boost_2: boost_reward_2,
+            boost_3: boost_reward_3,
         })
     }
 
@@ -302,7 +312,11 @@ impl Client {
         // lock
         let mut write = aggregator.write().await;
         // fetch db stakers
-        let db_stakers = operator.get_stakers_db_as_string(&entry.mint).await?;
+        let mut db_stakers: Vec<String> = vec![];
+        for ba in operator.boost_accounts.iter() {
+            let vec = operator.get_stakers_db_as_string(&ba.mint).await?;
+            db_stakers.extend(vec);
+        }
         // edit webhook
         let edit = self.edit(db_stakers).await?;
         log::info!("edit: {:?}", edit.webhook_id);
@@ -311,7 +325,11 @@ impl Client {
         let conn = db_client.get().await?;
         database::write_webhook_staker(&conn, &entry.share).await?;
         // insert into staker balancers
-        let stakers = &mut write.stake;
+        let stake = &mut write.stake;
+        let stakers = stake.get_mut(&entry.mint).ok_or(Error::Internal(format!(
+            "missing staker balances: {}",
+            entry.mint
+        )))?;
         if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
             // insert as zero regardless of balance. increments are handled on submit loops.
             vacant.insert(0);
