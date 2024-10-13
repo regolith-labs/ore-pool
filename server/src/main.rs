@@ -8,10 +8,10 @@ mod utils;
 mod webhook;
 
 use core::panic;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
-use aggregator::{Aggregator, Contribution};
+use aggregator::{Aggregator, Contribution, Stakers};
 use operator::Operator;
 use utils::create_cors;
 
@@ -129,16 +129,17 @@ async fn commit_stake(
 ) -> Result<(), error::Error> {
     // commit stake
     operator.commit_stake().await?;
-    // fetch boosts
-    let boost_mint_1 = operator
-        .boost_accounts
-        .first()
-        .ok_or(error::Error::Internal("missing boost account".to_string()))?;
-    // fetch staker balances
-    let stakers = operator.get_stakers_onchain(&boost_mint_1.mint).await?;
-    // set stakers
+    // lock aggregator
     let aggregator = &mut aggregator.write().await;
-    aggregator.stake = stakers;
+    // update staker balances
+    let mut stake: Stakers = HashMap::new();
+    let boost_accounts = operator.boost_accounts.iter();
+    for ba in boost_accounts {
+        let stakers = operator.get_stakers_onchain(&ba.mint).await?;
+        stake.insert(ba.mint, stakers);
+    }
+    // set stakers
+    aggregator.stake = stake;
     Ok(())
 }
 
