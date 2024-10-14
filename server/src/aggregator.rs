@@ -310,13 +310,17 @@ impl Aggregator {
         operator_commission: u64,
         staker_commission: u64,
     ) -> Vec<(String, u64)> {
+        let mine_rewards = rewards.base
+            - rewards.boost_1.map(|b| b.reward).unwrap_or(0)
+            - rewards.boost_2.map(|b| b.reward).unwrap_or(0)
+            - rewards.boost_3.map(|b| b.reward).unwrap_or(0);
         // compute denominator
         let denominator = self.total_score as u128;
         log::info!("base reward denominator: {}", denominator);
         // compute miner split
         let miner_commission = 100 - operator_commission;
         log::info!("miner commission: {}", miner_commission);
-        let miner_rewards = (rewards.base * miner_commission / 100) as u128;
+        let miner_rewards = (mine_rewards * miner_commission / 100) as u128;
         log::info!("miner rewards as commission for miners: {}", miner_rewards);
         // compute miner split from stake rewards
         let miner_rewards_from_stake_1 = Self::split_stake_rewards_for_miners(
@@ -432,7 +436,11 @@ impl Aggregator {
         operator_commission: u64,
     ) -> (String, u64) {
         // compute split from mine rewards
-        let mine_rewards = rewards.base * operator_commission / 100;
+        let mine_rewards = rewards.base
+            - rewards.boost_1.map(|b| b.reward).unwrap_or(0)
+            - rewards.boost_2.map(|b| b.reward).unwrap_or(0)
+            - rewards.boost_3.map(|b| b.reward).unwrap_or(0);
+        let mine_rewards = mine_rewards * operator_commission / 100;
         // compute split from stake rewads
         let mut stake_rewards = 0;
         if let Some(boost_event) = rewards.boost_1 {
