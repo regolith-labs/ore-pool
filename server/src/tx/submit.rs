@@ -66,12 +66,20 @@ pub async fn submit_and_confirm_transaction(
     let max_retries = 5;
     let mut retries = 0;
     while retries < max_retries {
-        let sig = rpc_client.send_transaction(tx).await?;
-        match confirm_transaction(rpc_client, &sig).await {
-            Ok(()) => return Ok(sig),
+        let sig = rpc_client.send_transaction(tx).await;
+        match sig {
+            Ok(sig) => match confirm_transaction(rpc_client, &sig).await {
+                Ok(()) => return Ok(sig),
+                Err(err) => {
+                    log::info!("{:?}", err);
+                    retries += 1;
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                }
+            },
             Err(err) => {
                 log::info!("{:?}", err);
                 retries += 1;
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             }
         }
     }
