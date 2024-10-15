@@ -19,7 +19,7 @@ use crate::{
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
     tx,
-    webhook::{self, Rewards},
+    webhook::Rewards,
 };
 
 /// The client submits slightly earlier
@@ -30,9 +30,6 @@ pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 pub struct Aggregator {
     /// The current challenge.
     pub challenge: Challenge,
-
-    /// The rewards channel receiver.
-    pub rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
 
     /// The set of contributions aggregated for the current challenge.
     pub contributions: HashSet<Contribution>,
@@ -100,8 +97,8 @@ pub async fn process_contributions(
     loop {
         let timer = tokio::time::Instant::now();
         let cutoff_time = {
-            let read = aggregator.read().await;
-            read.challenge.cutoff_time
+            let proof = operator.get_proof().await?;
+            operator.get_cutoff(&proof).await?
         };
         let mut remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
         // inner loop to process contributions until cutoff time
@@ -153,10 +150,7 @@ pub async fn process_contributions(
 }
 
 impl Aggregator {
-    pub async fn new(
-        operator: &Operator,
-        rewards_rx: tokio::sync::mpsc::Receiver<webhook::Rewards>,
-    ) -> Result<Self, Error> {
+    pub async fn new(operator: &Operator) -> Result<Self, Error> {
         // fetch accounts
         let pool = operator.get_pool().await?;
         let proof = operator.get_proof().await?;
@@ -165,7 +159,7 @@ impl Aggregator {
         let min_difficulty = operator.min_difficulty().await?;
         let challenge = Challenge {
             challenge: proof.challenge,
-            lash_hash_at: pool.last_hash_at,
+            lash_hash_at: proof.last_hash_at,
             min_difficulty,
             cutoff_time,
         };
@@ -179,7 +173,6 @@ impl Aggregator {
         // build self
         let aggregator = Aggregator {
             challenge,
-            rewards_rx,
             contributions: HashSet::new(),
             total_score: 0,
             winner: None,
@@ -219,8 +212,10 @@ impl Aggregator {
         // this may happen if a solution is landed on chain
         // but a subsequent application error is thrown before resetting
         if self.check_for_reset(operator).await? {
-            log::error!("irregular reset");
             self.reset(operator).await?;
+            // there was a reset
+            // so restart contribution loop against new challenge
+            return Ok(());
         };
         // prepare best solution and attestation of hash-power
         let winner = self.winner()?;
@@ -251,18 +246,23 @@ impl Aggregator {
         )
         .await?;
         log::info!("{:?}", sig);
-        // listen for rewards
-        let rewards_rx = &mut self.rewards_rx;
-        let rewards = rewards_rx
-            .recv()
-            .await
-            .ok_or(Error::Internal("rewards channel closed".to_string()))?;
+        // reset
+        self.reset(operator).await?;
+        Ok(())
+    }
+
+    pub async fn distribute_rewards(
+        &mut self,
+        operator: &Operator,
+        rewards: &Rewards,
+    ) -> Result<(), Error> {
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
         // compute attributions for miners
         log::info!("reward: {:?}", rewards);
         log::info!("// miner ////////////////////////");
         let rewards_distribution = self.rewards_distribution(
             pool_pda,
-            &rewards,
+            rewards,
             operator.operator_commission,
             operator.staker_commission,
         );
@@ -279,27 +279,17 @@ impl Aggregator {
         let rewards_distribution_operator = self.rewards_distribution_operator(
             pool_pda,
             operator.keypair.pubkey(),
-            &rewards,
+            rewards,
             operator.operator_commission,
         );
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;
-        tokio::spawn(async move {
-            database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
-            database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1)
-                .await?;
-            database::write_member_total_balances(&mut db_client, rewards_distribution_boost_2)
-                .await?;
-            database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3)
-                .await?;
-            database::write_member_total_balances(
-                &mut db_client,
-                vec![rewards_distribution_operator],
-            )
-            .await
-        });
-        // reset
-        self.reset(operator).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_2).await?;
+        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3).await?;
+        database::write_member_total_balances(&mut db_client, vec![rewards_distribution_operator])
+            .await?;
         Ok(())
     }
 
@@ -542,8 +532,8 @@ impl Aggregator {
 
     async fn check_for_reset(&self, operator: &Operator) -> Result<bool, Error> {
         let last_hash_at = self.challenge.lash_hash_at;
-        let pool = operator.get_pool().await?;
-        let needs_reset = pool.last_hash_at != last_hash_at;
+        let proof = operator.get_proof().await?;
+        let needs_reset = proof.last_hash_at != last_hash_at;
         Ok(needs_reset)
     }
 
@@ -553,12 +543,11 @@ impl Aggregator {
         let last_hash_at = self.challenge.lash_hash_at;
         loop {
             let proof = operator.get_proof().await?;
-            let pool = operator.get_pool().await?;
-            if pool.last_hash_at != last_hash_at {
+            if proof.last_hash_at != last_hash_at {
                 let cutoff_time = operator.get_cutoff(&proof).await?;
                 let min_difficulty = operator.min_difficulty().await?;
                 self.challenge.challenge = proof.challenge;
-                self.challenge.lash_hash_at = pool.last_hash_at;
+                self.challenge.lash_hash_at = proof.last_hash_at;
                 self.challenge.min_difficulty = min_difficulty;
                 self.challenge.cutoff_time = cutoff_time;
                 return Ok(());
