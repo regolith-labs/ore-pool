@@ -97,8 +97,8 @@ pub async fn process_contributions(
     loop {
         let timer = tokio::time::Instant::now();
         let cutoff_time = {
-            let read = aggregator.read().await;
-            read.challenge.cutoff_time
+            let proof = operator.get_proof().await?;
+            operator.get_cutoff(&proof).await?
         };
         let mut remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
         // inner loop to process contributions until cutoff time
@@ -212,7 +212,6 @@ impl Aggregator {
         // this may happen if a solution is landed on chain
         // but a subsequent application error is thrown before resetting
         if self.check_for_reset(operator).await? {
-            log::error!("irregular reset");
             self.reset(operator).await?;
             // there was a reset
             // so restart contribution loop against new challenge
