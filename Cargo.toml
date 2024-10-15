@@ -29,10 +29,8 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-## ore-api = "2.2"
-## ore-boost-api = "0.2"
-ore-api = { path = "../ore/api" }
-ore-boost-api = { path = "../ore-boost/api" }
+ore-api = "2.2"
+ore-boost-api = "0.2"
 ore-pool-api = { path = "api", version = "0.1.0" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 reqwest = { version = "0.12", features = ["json"] }
