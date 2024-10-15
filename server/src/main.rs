@@ -21,14 +21,14 @@ use utils::create_cors;
 async fn main() -> Result<(), error::Error> {
     env_logger::init();
     // rewards channel
-    let (rewards_tx, rewards_rx) = tokio::sync::mpsc::channel::<webhook::Rewards>(1);
+    let (rewards_tx, mut rewards_rx) = tokio::sync::mpsc::channel::<webhook::Rewards>(1);
     let rewards_tx = web::Data::new(rewards_tx);
     // contributions channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
-    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator, rewards_rx).await?);
+    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
     let webhook_handler = web::Data::new(webhook::Handle::new()?);
     let webhook_client = web::Data::new(webhook::Client::new_stake()?);
@@ -46,6 +46,30 @@ async fn main() -> Result<(), error::Error> {
                     .await
             {
                 log::error!("{:?}", err);
+            }
+        }
+    });
+
+    // distribute rewards
+    tokio::task::spawn({
+        let operator = operator.clone();
+        let aggregator = aggregator.clone();
+        async move {
+            loop {
+                match rewards_rx.recv().await {
+                    Some(rewards) => {
+                        let mut aggregator = aggregator.write().await;
+                        if let Err(err) = aggregator
+                            .distribute_rewards(operator.as_ref(), &rewards)
+                            .await
+                        {
+                            log::error!("{:?}", err);
+                        }
+                    }
+                    None => {
+                        panic!("rewards channel closed")
+                    }
+                };
             }
         }
     });
@@ -76,7 +100,7 @@ async fn main() -> Result<(), error::Error> {
                 let aggregator = aggregator.clone().into_inner();
                 // commit stake
                 if let Err(err) = commit_stake(operator, aggregator).await {
-                    panic!("{:?}", err)
+                    log::error!("{:?}", err);
                 }
                 // sleep until next epoch
                 tokio::time::sleep(tokio::time::Duration::from_secs(60 * stake_commit_epoch)).await;
