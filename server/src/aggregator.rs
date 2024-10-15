@@ -25,6 +25,8 @@ use crate::{
 /// The client submits slightly earlier
 /// than the operator's cutoff time to create a "submission window".
 pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
+const MAX_DIFFICULTY: u32 = 22;
+const MAX_SCORE: u64 = 2u64.pow(MAX_DIFFICULTY);
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -107,10 +109,10 @@ pub async fn process_contributions(
             match tokio::time::timeout(tokio::time::Duration::from_secs(remaining_time), rx.recv())
                 .await
             {
-                Ok(Some(contribution)) => {
+                Ok(Some(mut contribution)) => {
                     {
                         let mut aggregator = aggregator.write().await;
-                        aggregator.insert(&contribution);
+                        aggregator.insert(&mut contribution);
                     }
                     // recalculate the remaining time after processing the contribution
                     remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
@@ -138,9 +140,9 @@ pub async fn process_contributions(
             }
         } else {
             // no contributions yet, wait for the first one to submit
-            if let Some(contribution) = rx.recv().await {
+            if let Some(mut contribution) = rx.recv().await {
                 let mut aggregator = aggregator.write().await;
-                aggregator.insert(&contribution);
+                aggregator.insert(&mut contribution);
                 if let Err(err) = aggregator.submit_and_reset(operator).await {
                     log::error!("{:?}", err);
                 }
@@ -182,7 +184,9 @@ impl Aggregator {
         Ok(aggregator)
     }
 
-    fn insert(&mut self, contribution: &Contribution) {
+    fn insert(&mut self, contribution: &mut Contribution) {
+        let normalized_score = contribution.score.min(MAX_SCORE);
+        contribution.score = normalized_score;
         match self.contributions.insert(*contribution) {
             true => {
                 let difficulty = contribution.solution.to_hash().difficulty();
