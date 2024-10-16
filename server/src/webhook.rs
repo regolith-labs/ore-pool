@@ -76,6 +76,7 @@ pub struct Rewards {
     pub boost_1: Option<ore_api::event::BoostEvent>,
     pub boost_2: Option<ore_api::event::BoostEvent>,
     pub boost_3: Option<ore_api::event::BoostEvent>,
+    pub last_hash_at: u64,
 }
 
 impl Handle {
@@ -227,11 +228,13 @@ impl Handle {
         let boost_reward_1 = Self::decode_boost_reward(log_messages, 8).ok();
         let boost_reward_2 = Self::decode_boost_reward(log_messages, 9).ok();
         let boost_reward_3 = Self::decode_boost_reward(log_messages, 10).ok();
+        // TODO: last hash at
         Ok(Rewards {
             base: base_reward,
             boost_1: boost_reward_1,
             boost_2: boost_reward_2,
             boost_3: boost_reward_3,
+            last_hash_at: 0,
         })
     }
 

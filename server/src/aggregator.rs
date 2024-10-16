@@ -33,8 +33,8 @@ pub struct Aggregator {
     /// The current challenge.
     pub challenge: Challenge,
 
-    /// The set of contributions aggregated for the current challenge.
-    pub contributions: HashSet<Contribution>,
+    /// The set of contributions for attribution.
+    pub contributions: Miners,
 
     /// The total difficulty score of all the contributions aggregated so far.
     pub total_score: u64,
@@ -49,6 +49,12 @@ pub struct Aggregator {
     pub stake: Stakers,
 }
 
+/// Miners
+pub type LastHashAt = u64;
+pub type MinerContributions = HashSet<Contribution>;
+pub type Miners = HashMap<LastHashAt, MinerContributions>;
+
+/// Stakers
 pub type BoostMint = Pubkey;
 pub type StakerBalances = HashMap<Pubkey, u64>;
 pub type Stakers = HashMap<BoostMint, StakerBalances>;
@@ -99,8 +105,20 @@ pub async fn process_contributions(
     loop {
         let timer = tokio::time::Instant::now();
         let cutoff_time = {
-            let proof = operator.get_proof().await?;
-            operator.get_cutoff(&proof).await?
+            let proof = match operator.get_proof().await {
+                Ok(proof) => proof,
+                Err(err) => {
+                    log::error!("{:?}", err);
+                    continue;
+                }
+            };
+            match operator.get_cutoff(&proof).await {
+                Ok(cutoff_time) => cutoff_time,
+                Err(err) => {
+                    log::error!("{:?}", err);
+                    continue;
+                }
+            }
         };
         let mut remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
         // inner loop to process contributions until cutoff time
@@ -112,7 +130,7 @@ pub async fn process_contributions(
                 Ok(Some(mut contribution)) => {
                     {
                         let mut aggregator = aggregator.write().await;
-                        aggregator.insert(&mut contribution);
+                        let _ = aggregator.insert(&mut contribution);
                     }
                     // recalculate the remaining time after processing the contribution
                     remaining_time = cutoff_time.saturating_sub(timer.elapsed().as_secs());
@@ -142,7 +160,7 @@ pub async fn process_contributions(
             // no contributions yet, wait for the first one to submit
             if let Some(mut contribution) = rx.recv().await {
                 let mut aggregator = aggregator.write().await;
-                aggregator.insert(&mut contribution);
+                let _ = aggregator.insert(&mut contribution);
                 if let Err(err) = aggregator.submit_and_reset(operator).await {
                     log::error!("{:?}", err);
                 }
@@ -173,9 +191,11 @@ impl Aggregator {
             stake.insert(ba.mint, stakers);
         }
         // build self
+        let mut contributions = HashMap::new();
+        contributions.insert(challenge.lash_hash_at as u64, HashSet::new());
         let aggregator = Aggregator {
             challenge,
-            contributions: HashSet::new(),
+            contributions,
             total_score: 0,
             winner: None,
             num_members: pool.last_total_members,
@@ -184,10 +204,15 @@ impl Aggregator {
         Ok(aggregator)
     }
 
-    fn insert(&mut self, contribution: &mut Contribution) {
+    fn insert(&mut self, contribution: &mut Contribution) -> Result<(), Error> {
+        // normalize contribution score
         let normalized_score = contribution.score.min(MAX_SCORE);
         contribution.score = normalized_score;
-        match self.contributions.insert(*contribution) {
+        // get current contributions
+        let contributions = self.get_current_contributions()?;
+        // insert
+        let insert = contributions.insert(*contribution);
+        match insert {
             true => {
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
@@ -203,9 +228,11 @@ impl Aggregator {
                     }
                     None => self.winner = Some(contender),
                 }
+                Ok(())
             }
             false => {
                 log::error!("already received contribution: {:?}", contribution.member);
+                Ok(())
             }
         }
     }
@@ -225,7 +252,7 @@ impl Aggregator {
         let winner = self.winner()?;
         log::info!("winner: {:?}", winner);
         let best_solution = winner.solution;
-        let attestation = self.attestation();
+        let attestation = self.attestation()?;
         // derive accounts for instructions
         let authority = &operator.keypair.pubkey();
         let (pool_pda, _) = ore_pool_api::state::pool_pda(*authority);
@@ -269,7 +296,7 @@ impl Aggregator {
             rewards,
             operator.operator_commission,
             operator.staker_commission,
-        );
+        )?;
         log::info!("// staker ////////////////////////");
         // compute attributions for stakers
         let rewards_distribution_boost_1 =
@@ -303,7 +330,7 @@ impl Aggregator {
         rewards: &Rewards,
         operator_commission: u64,
         staker_commission: u64,
-    ) -> Vec<(String, u64)> {
+    ) -> Result<Vec<(String, u64)>, Error> {
         let mine_rewards = rewards.base
             - rewards.boost_1.map(|b| b.reward).unwrap_or(0)
             - rewards.boost_2.map(|b| b.reward).unwrap_or(0)
@@ -337,8 +364,14 @@ impl Aggregator {
             + miner_rewards_from_stake_2
             + miner_rewards_from_stake_3;
         log::info!("total rewards as commission for miners: {}", total_rewards);
-        let contributions = self.contributions.iter();
-        contributions
+        let contributions = &self.contributions;
+        let contributions = contributions
+            .get(&rewards.last_hash_at)
+            .ok_or(Error::Internal(
+                "missing contributions at reward hash".to_string(),
+            ))?;
+        let contributions = contributions.iter();
+        let distribution = contributions
             .map(|c| {
                 log::info!("raw base reward score: {}", c.score);
                 let score = (c.score as u128).saturating_mul(total_rewards);
@@ -347,7 +380,8 @@ impl Aggregator {
                 let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
                 (member_pda.to_string(), score as u64)
             })
-            .collect()
+            .collect();
+        Ok(distribution)
     }
 
     fn split_stake_rewards_for_miners(
@@ -491,9 +525,9 @@ impl Aggregator {
         Ok(top_bus)
     }
 
-    fn attestation(&self) -> [u8; 32] {
+    fn attestation(&mut self) -> Result<[u8; 32], Error> {
         let mut hasher = Sha3_256::new();
-        let contributions = &self.contributions;
+        let contributions = self.get_current_contributions()?;
         let num_contributions = contributions.len();
         log::info!("num contributions: {}", num_contributions);
         for contribution in contributions.iter() {
@@ -516,13 +550,29 @@ impl Aggregator {
         }
         let mut attestation: [u8; 32] = [0; 32];
         attestation.copy_from_slice(&hasher.finalize()[..]);
-        attestation
+        Ok(attestation)
+    }
+
+    fn get_current_contributions(&mut self) -> Result<&mut MinerContributions, Error> {
+        let last_hash_at = self.challenge.lash_hash_at as u64;
+        let contributions = &mut self.contributions;
+        let contributions = contributions.get_mut(&last_hash_at).ok_or(Error::Internal(
+            "missing contributions at current hash".to_string(),
+        ))?;
+        Ok(contributions)
     }
 
     async fn reset(&mut self, operator: &Operator) -> Result<(), Error> {
+        // update challenge
         self.update_challenge(operator).await?;
+        // allocate key for new contributions
+        let last_hash_at = self.challenge.lash_hash_at as u64;
+        let contributions = &mut self.contributions;
+        if let Some(_) = contributions.insert(last_hash_at, HashSet::new()) {
+            log::error!("contributions at last-hash-at already exist");
+        }
+        // reset accumulators
         let pool = operator.get_pool().await?;
-        self.contributions = HashSet::new();
         self.total_score = 0;
         self.winner = None;
         self.num_members = pool.last_total_members;
