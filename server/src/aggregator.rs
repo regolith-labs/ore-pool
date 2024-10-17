@@ -321,6 +321,9 @@ impl Aggregator {
         database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3).await?;
         database::write_member_total_balances(&mut db_client, vec![rewards_distribution_operator])
             .await?;
+        // clean up contributions
+        let contributions = &mut self.contributions;
+        let _ = contributions.remove(&rewards.last_hash_at);
         Ok(())
     }
 
@@ -331,12 +334,20 @@ impl Aggregator {
         operator_commission: u64,
         staker_commission: u64,
     ) -> Result<Vec<(String, u64)>, Error> {
+        let contributions = &self.contributions;
+        let contributions = contributions
+            .get(&rewards.last_hash_at)
+            .ok_or(Error::Internal(
+                "missing contributions at reward hash".to_string(),
+            ))?;
+        // compute denominator
+        let denominator: u64 = contributions.iter().map(|c| c.score).sum();
+        let denominator: u128 = denominator as u128;
+        // compute base mine rewards
         let mine_rewards = rewards.base
             - rewards.boost_1.map(|b| b.reward).unwrap_or(0)
             - rewards.boost_2.map(|b| b.reward).unwrap_or(0)
             - rewards.boost_3.map(|b| b.reward).unwrap_or(0);
-        // compute denominator
-        let denominator = self.total_score as u128;
         log::info!("base reward denominator: {}", denominator);
         // compute miner split
         let miner_commission = 100 - operator_commission;
@@ -364,12 +375,6 @@ impl Aggregator {
             + miner_rewards_from_stake_2
             + miner_rewards_from_stake_3;
         log::info!("total rewards as commission for miners: {}", total_rewards);
-        let contributions = &self.contributions;
-        let contributions = contributions
-            .get(&rewards.last_hash_at)
-            .ok_or(Error::Internal(
-                "missing contributions at reward hash".to_string(),
-            ))?;
         let contributions = contributions.iter();
         let distribution = contributions
             .map(|c| {
@@ -563,11 +568,17 @@ impl Aggregator {
     }
 
     async fn reset(&mut self, operator: &Operator) -> Result<(), Error> {
+        log::info!("//////////////////////////////////////////");
+        log::info!("resetting");
+        log::info!("//////////////////////////////////////////");
         // update challenge
         self.update_challenge(operator).await?;
         // allocate key for new contributions
         let last_hash_at = self.challenge.lash_hash_at as u64;
         let contributions = &mut self.contributions;
+        log::info!("//////////////////////////////////////////");
+        log::info!("new contributions key: {:?}", last_hash_at);
+        log::info!("//////////////////////////////////////////");
         if let Some(_) = contributions.insert(last_hash_at, HashSet::new()) {
             log::error!("contributions at last-hash-at already exist");
         }

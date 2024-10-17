@@ -225,16 +225,16 @@ impl Handle {
             .ok_or(Error::Internal("empty webhook event".to_string()))?;
         let log_messages = event.meta.log_messages.as_slice();
         let base_reward = Self::decode_base_reward(log_messages)?;
-        let boost_reward_1 = Self::decode_boost_reward(log_messages, 8).ok();
-        let boost_reward_2 = Self::decode_boost_reward(log_messages, 9).ok();
-        let boost_reward_3 = Self::decode_boost_reward(log_messages, 10).ok();
-        // TODO: last hash at
+        let last_hash_at = Self::decode_hash(log_messages)?;
+        let boost_reward_1 = Self::decode_boost_reward(log_messages, 9).ok();
+        let boost_reward_2 = Self::decode_boost_reward(log_messages, 10).ok();
+        let boost_reward_3 = Self::decode_boost_reward(log_messages, 11).ok();
         Ok(Rewards {
             base: base_reward,
             boost_1: boost_reward_1,
             boost_2: boost_reward_2,
             boost_3: boost_reward_3,
-            last_hash_at: 0,
+            last_hash_at,
         })
     }
 
@@ -244,10 +244,22 @@ impl Handle {
         ))?;
         let base_reward_event = log_messages
             .get(index)
-            .ok_or(Error::Internal("missing webhook event message".to_string()))?;
+            .ok_or(Error::Internal("missing webhook base reward".to_string()))?;
         let base_reward_event = base_reward_event.trim_start_matches("Program log: Base: ");
         let base_reward_event: u64 = base_reward_event.to_string().parse()?;
         Ok(base_reward_event)
+    }
+
+    fn decode_hash(log_messages: &[String]) -> Result<u64, Error> {
+        let index = log_messages.len().checked_sub(8).ok_or(Error::Internal(
+            "invalid webhook event message index".to_string(),
+        ))?;
+        let hash_event = log_messages
+            .get(index)
+            .ok_or(Error::Internal("missing webhook hash".to_string()))?;
+        let hash_event = hash_event.trim_start_matches("Program log: Hash: ");
+        let hash_event: u64 = hash_event.to_string().parse()?;
+        Ok(hash_event)
     }
 
     fn decode_boost_reward(
@@ -262,7 +274,7 @@ impl Handle {
             ))?;
         let boost_event = log_messages
             .get(index)
-            .ok_or(Error::Internal("missing webhook event message".to_string()))?;
+            .ok_or(Error::Internal("missing webhook boost reward".to_string()))?;
         let boost_event = boost_event.trim_start_matches("Program data: ");
         let boost_event = BASE64_STANDARD.decode(boost_event)?;
         let boost_event: &ore_api::event::BoostEvent =

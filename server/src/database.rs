@@ -19,26 +19,19 @@ pub fn create_pool() -> Pool {
 // also sets the is-synced field to false
 // so that in the attribution loop we know which accounts
 // have been incremented in the db but not yet on-chain
-const BATCH_SIZE: usize = 500;
 pub async fn write_member_total_balances(
     conn: &mut Object,
     increments: Vec<(String, u64)>,
 ) -> Result<(), Error> {
-    // process updates in batches
     let transaction = conn.transaction().await?;
-    for batch in increments.chunks(BATCH_SIZE) {
-        for (address, increment) in batch {
-            log::info!("address:increment {}:{}", address, increment);
-            // perform an individual update for each record in the batch
-            transaction
+    for (address, increment) in increments.iter() {
+        transaction
                 .execute(
                     "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE address = $2",
                     &[&(*increment as i64), address],
                 )
                 .await?;
-        }
     }
-    // commit the transaction to apply all updates
     transaction.commit().await?;
     Ok(())
 }
