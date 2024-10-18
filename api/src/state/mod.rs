@@ -1,9 +1,11 @@
 mod member;
 mod pool;
+mod rewards;
 mod share;
 
 pub use member::*;
 pub use pool::*;
+pub use rewards::*;
 pub use share::*;
 
 use steel::*;
@@ -16,8 +18,12 @@ pub enum AccountDiscriminator {
     Member = 100,
     Pool = 101,
     Share = 102,
+    TotalRewards = 103,
+    ShareRewards = 104,
 }
 
+/////////////////////////////////////////////////////////////////////////////////
+// pool accounts ////////////////////////////////////////////////////////////////
 pub fn pool_pda(authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[POOL, authority.as_ref()], &crate::id())
 }
@@ -35,6 +41,17 @@ pub fn pool_stake_pda(pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) {
     ore_boost_api::state::stake_pda(pool, boost_pda.0)
 }
 
+pub fn pool_total_rewards(pool: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[TOTAL_REWARDS, pool.as_ref()], &crate::id())
+}
+
+pub fn pool_share_rewards_pda(pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[SHARE_REWARDS, pool.as_ref(), mint.as_ref()], &crate::id())
+}
+/////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////
+// member accounts //////////////////////////////////////////////////////////////
 pub fn member_pda(authority: Pubkey, pool: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[MEMBER, authority.as_ref(), pool.as_ref()], &crate::id())
 }

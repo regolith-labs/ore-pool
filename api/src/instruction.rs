@@ -16,6 +16,8 @@ pub enum PoolInstruction {
     Launch = 102,
     OpenStake = 103,
     Submit = 104,
+    OpenTotalRewards = 105,
+    OpenShareRewards = 106,
 }
 
 #[repr(C)]
@@ -79,6 +81,18 @@ pub struct Unstake {
     pub amount: [u8; 8],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct OpenTotalRewards {
+    pub bump: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct OpenShareRewards {
+    pub bump: u8,
+}
+
 instruction!(PoolInstruction, Attribute);
 instruction!(PoolInstruction, Claim);
 instruction!(PoolInstruction, Commit);
@@ -89,3 +103,5 @@ instruction!(PoolInstruction, Join);
 instruction!(PoolInstruction, Stake);
 instruction!(PoolInstruction, Submit);
 instruction!(PoolInstruction, Unstake);
+instruction!(PoolInstruction, OpenTotalRewards);
+instruction!(PoolInstruction, OpenShareRewards);

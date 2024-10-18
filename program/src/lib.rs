@@ -4,7 +4,9 @@ mod commit;
 mod join;
 mod launch;
 mod open_share;
+mod open_share_rewards;
 mod open_stake;
+mod open_total_rewards;
 mod stake;
 mod submit;
 mod unstake;
@@ -15,7 +17,9 @@ use commit::*;
 use join::*;
 use launch::*;
 use open_share::*;
+use open_share_rewards::process_open_share_rewards;
 use open_stake::*;
+use open_total_rewards::process_open_total_rewards;
 use stake::*;
 use submit::*;
 use unstake::*;
@@ -44,6 +48,8 @@ pub fn process_instruction(
         PoolInstruction::Launch => process_launch(accounts, data)?,
         PoolInstruction::OpenStake => process_open_stake(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
+        PoolInstruction::OpenTotalRewards => process_open_total_rewards(accounts, data)?,
+        PoolInstruction::OpenShareRewards => process_open_share_rewards(accounts, data)?,
     }
 
     Ok(())
