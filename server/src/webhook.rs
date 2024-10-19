@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_mine_event() {
-        let event = "GwAAAAAAAAAAACgDAAAAAP3/////////";
+        let event = "JxveNQsJAAAIAAAAAAAAALbFEGcAAAAAaqcCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
         let event = BASE64_STANDARD.decode(event).unwrap();
         let event: &MineEvent = bytemuck::try_from_bytes(event.as_slice()).unwrap();
         println!("{:?}", event);
