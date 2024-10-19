@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use ore_pool_api::event::UnstakeEvent;
@@ -59,15 +61,45 @@ struct ClientEditSuccess {
     webhook_id: String,
 }
 
+#[derive(Debug)]
+pub struct BoostAccounts {
+    pub one: Option<Pubkey>,
+    pub two: Option<Pubkey>,
+    pub three: Option<Pubkey>,
+}
+
 #[derive(serde::Deserialize, Debug)]
 pub struct Event {
     pub meta: EventMeta,
+    pub transaction: EventTransaction,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct EventTransaction {
+    pub message: EventMessage,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct EventMessage {
+    pub account_keys: Vec<String>,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EventMeta {
     pub log_messages: Vec<String>,
+    pub inner_instructions: Vec<EventInnerInstructions>,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct EventInnerInstructions {
+    pub instructions: Vec<EventAccountIndices>,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct EventAccountIndices {
+    pub accounts: Vec<u8>,
 }
 
 impl Handle {
@@ -99,7 +131,7 @@ impl Handle {
 
     pub async fn rewards(
         handle: web::Data<Handle>,
-        tx: web::Data<tokio::sync::mpsc::Sender<ore_api::event::MineEvent>>,
+        tx: web::Data<tokio::sync::mpsc::Sender<(ore_api::event::MineEvent, BoostAccounts)>>,
         req: HttpRequest,
         bytes: web::Bytes,
     ) -> impl Responder {
@@ -193,44 +225,73 @@ impl Handle {
         &self,
         req: &HttpRequest,
         bytes: &web::Bytes,
-        tx: &tokio::sync::mpsc::Sender<ore_api::event::MineEvent>,
+        tx: &tokio::sync::mpsc::Sender<(ore_api::event::MineEvent, BoostAccounts)>,
     ) -> Result<(), Error> {
         let rewards = self.decode_rewards_event(req, bytes)?;
         tx.send(rewards).await?;
         Ok(())
     }
 
-    /// decodes event that is sent on mine instructions (by listening to the proof account).
-    /// parses logs for base and boost rewards.
     fn decode_rewards_event(
         &self,
         req: &HttpRequest,
         bytes: &web::Bytes,
-    ) -> Result<ore_api::event::MineEvent, Error> {
+    ) -> Result<(ore_api::event::MineEvent, BoostAccounts), Error> {
         self.auth(req)?;
         let bytes = bytes.to_vec();
         let json = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
         log::info!("{:?}", json);
         let event = serde_json::from_value::<Vec<Event>>(json)?;
         log::info!("proof account event: {:?}", event);
+        // parse the mine event
         let event = event
             .first()
             .ok_or(Error::Internal("empty webhook event".to_string()))?;
         let log_messages = event.meta.log_messages.as_slice();
         log::info!("logs: {:?}", log_messages);
-        let index = log_messages.len().checked_sub(7).ok_or(Error::Internal(
+        let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
             "invalid webhook event message index".to_string(),
         ))?;
         let mine_event = log_messages
             .get(index)
             .ok_or(Error::Internal("missing webhook base reward".to_string()))?;
-        let mine_event =
-            mine_event.trim_start_matches(format!("Program return: {} ", ore_api::ID).as_str());
+        log::info!("mine event: {:?}", mine_event);
+        let mine_event = mine_event
+            .trim_start_matches(format!("Program return: {} ", ore_pool_api::ID).as_str());
+        log::info!("mine event: {:?}", mine_event);
         let mine_event = BASE64_STANDARD.decode(mine_event)?;
         let mine_event: &ore_api::event::MineEvent =
             bytemuck::try_from_bytes(mine_event.as_slice())
                 .map_err(|e| Error::Internal(e.to_string()))?;
-        Ok(*mine_event)
+        // parse the optional boost accounts
+        let account_indices = event
+            .meta
+            .inner_instructions
+            .first()
+            .and_then(|f| f.instructions.first())
+            .map(|f| f.accounts.as_slice())
+            .ok_or(Error::Internal(
+                "missing webhook account indices".to_string(),
+            ))?;
+        let accounts = &event.transaction.message.account_keys;
+        let boost_account_1 = account_indices
+            .get(6)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_account_2 = account_indices
+            .get(8)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_account_3 = account_indices
+            .get(10)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_accounts = BoostAccounts {
+            one: boost_account_1,
+            two: boost_account_2,
+            three: boost_account_3,
+        };
+        Ok((*mine_event, boost_accounts))
     }
 
     /// parse and validate the auth header

@@ -21,7 +21,8 @@ use utils::create_cors;
 async fn main() -> Result<(), error::Error> {
     env_logger::init();
     // rewards channel
-    let (rewards_tx, mut rewards_rx) = tokio::sync::mpsc::channel::<ore_api::event::MineEvent>(1);
+    let (rewards_tx, mut rewards_rx) =
+        tokio::sync::mpsc::channel::<(ore_api::event::MineEvent, webhook::BoostAccounts)>(1);
     let rewards_tx = web::Data::new(rewards_tx);
     // contributions channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();

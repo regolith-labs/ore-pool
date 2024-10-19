@@ -19,7 +19,7 @@ use crate::{
     database,
     error::Error,
     operator::{Operator, BUFFER_OPERATOR},
-    tx,
+    tx, webhook,
 };
 
 /// The client submits slightly earlier
@@ -285,8 +285,9 @@ impl Aggregator {
     pub async fn distribute_rewards(
         &mut self,
         operator: &Operator,
-        rewards: &ore_api::event::MineEvent,
+        rewards: &(ore_api::event::MineEvent, webhook::BoostAccounts),
     ) -> Result<(), Error> {
+        let (rewards, boost_acounts) = rewards;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
         // compute attributions for miners
         log::info!("reward: {:?}", rewards);
@@ -299,12 +300,30 @@ impl Aggregator {
         )?;
         log::info!("// staker ////////////////////////");
         // compute attributions for stakers
-        let rewards_distribution_boost_1 =
-            self.rewards_distribution_boost(pool_pda, None, operator.staker_commission)?;
-        let rewards_distribution_boost_2 =
-            self.rewards_distribution_boost(pool_pda, None, operator.staker_commission)?;
-        let rewards_distribution_boost_3 =
-            self.rewards_distribution_boost(pool_pda, None, operator.staker_commission)?;
+        let rewards_distribution_boost_1 = self
+            .rewards_distribution_boost(
+                operator,
+                pool_pda,
+                boost_acounts.one.map(|p| (rewards.boost_1, p)),
+                operator.staker_commission,
+            )
+            .await?;
+        let rewards_distribution_boost_2 = self
+            .rewards_distribution_boost(
+                operator,
+                pool_pda,
+                boost_acounts.two.map(|p| (rewards.boost_2, p)),
+                operator.staker_commission,
+            )
+            .await?;
+        let rewards_distribution_boost_3 = self
+            .rewards_distribution_boost(
+                operator,
+                pool_pda,
+                boost_acounts.three.map(|p| (rewards.boost_3, p)),
+                operator.staker_commission,
+            )
+            .await?;
         log::info!("// operator ////////////////////////");
         // compute attribution for operator
         let rewards_distribution_operator = self.rewards_distribution_operator(
@@ -396,15 +415,19 @@ impl Aggregator {
         miner_rewards_from_stake
     }
 
-    fn rewards_distribution_boost(
+    async fn rewards_distribution_boost(
         &self,
+        operator: &Operator,
         pool: Pubkey,
         boost_event: Option<(u64, Pubkey)>,
         staker_commission: u64,
     ) -> Result<Vec<(String, u64)>, Error> {
         match boost_event {
             None => Ok(vec![]),
-            Some((boost_reward, boost_mint)) => {
+            Some((boost_reward, boost_account)) => {
+                let boost_data = operator.rpc_client.get_account_data(&boost_account).await?;
+                let boost = ore_boost_api::state::Boost::try_from_bytes(boost_data.as_slice())?;
+                let boost_mint = boost.mint;
                 log::info!("{:?}", (boost_reward, boost_mint));
                 let total_reward = boost_reward as u128;
                 let staker_commission: u128 = staker_commission as u128;
