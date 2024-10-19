@@ -1,7 +1,5 @@
 use actix_web::{http::header::ToStrError, HttpResponse};
 
-use crate::webhook;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("bincode")]
@@ -11,7 +9,7 @@ pub enum Error {
     #[error("try from slice")]
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("rewards channel send")]
-    RewardsChannelSend(#[from] tokio::sync::mpsc::error::SendError<webhook::Rewards>),
+    RewardsChannelSend(#[from] tokio::sync::mpsc::error::SendError<ore_api::event::MineEvent>),
     #[error("tokio postgres")]
     TokioPostgres(#[from] tokio_postgres::Error),
     #[error("deadpool postgress")]
