@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use ore_pool_api::event::UnstakeEvent;
@@ -59,24 +61,45 @@ struct ClientEditSuccess {
     webhook_id: String,
 }
 
+#[derive(Debug)]
+pub struct BoostAccounts {
+    pub one: Option<Pubkey>,
+    pub two: Option<Pubkey>,
+    pub three: Option<Pubkey>,
+}
+
 #[derive(serde::Deserialize, Debug)]
 pub struct Event {
     pub meta: EventMeta,
+    pub transaction: EventTransaction,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct EventTransaction {
+    pub message: EventMessage,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct EventMessage {
+    pub account_keys: Vec<String>,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EventMeta {
     pub log_messages: Vec<String>,
+    pub inner_instructions: Vec<EventInnerInstructions>,
 }
 
-#[derive(Debug)]
-pub struct Rewards {
-    pub base: u64,
-    pub boost_1: Option<ore_api::event::BoostEvent>,
-    pub boost_2: Option<ore_api::event::BoostEvent>,
-    pub boost_3: Option<ore_api::event::BoostEvent>,
-    pub last_hash_at: u64,
+#[derive(serde::Deserialize, Debug)]
+pub struct EventInnerInstructions {
+    pub instructions: Vec<EventAccountIndices>,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct EventAccountIndices {
+    pub accounts: Vec<u8>,
 }
 
 impl Handle {
@@ -108,7 +131,7 @@ impl Handle {
 
     pub async fn rewards(
         handle: web::Data<Handle>,
-        tx: web::Data<tokio::sync::mpsc::Sender<Rewards>>,
+        tx: web::Data<tokio::sync::mpsc::Sender<(ore_api::event::MineEvent, BoostAccounts)>>,
         req: HttpRequest,
         bytes: web::Bytes,
     ) -> impl Responder {
@@ -202,86 +225,68 @@ impl Handle {
         &self,
         req: &HttpRequest,
         bytes: &web::Bytes,
-        tx: &tokio::sync::mpsc::Sender<Rewards>,
+        tx: &tokio::sync::mpsc::Sender<(ore_api::event::MineEvent, BoostAccounts)>,
     ) -> Result<(), Error> {
         let rewards = self.decode_rewards_event(req, bytes)?;
         tx.send(rewards).await?;
         Ok(())
     }
 
-    /// decodes event that is sent on mine instructions (by listening to the proof account).
-    /// parses logs for base and boost rewards.
     fn decode_rewards_event(
         &self,
         req: &HttpRequest,
         bytes: &web::Bytes,
-    ) -> Result<Rewards, Error> {
+    ) -> Result<(ore_api::event::MineEvent, BoostAccounts), Error> {
         self.auth(req)?;
         let bytes = bytes.to_vec();
-        let event = serde_json::from_slice::<Vec<Event>>(bytes.as_slice())?;
-        log::info!("proof account event: {:?}", event);
+        let json = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
+        let event = serde_json::from_value::<Vec<Event>>(json)?;
+        // parse the mine event
         let event = event
             .first()
             .ok_or(Error::Internal("empty webhook event".to_string()))?;
         let log_messages = event.meta.log_messages.as_slice();
-        let base_reward = Self::decode_base_reward(log_messages)?;
-        let last_hash_at = Self::decode_hash(log_messages)?;
-        let boost_reward_1 = Self::decode_boost_reward(log_messages, 9).ok();
-        let boost_reward_2 = Self::decode_boost_reward(log_messages, 10).ok();
-        let boost_reward_3 = Self::decode_boost_reward(log_messages, 11).ok();
-        Ok(Rewards {
-            base: base_reward,
-            boost_1: boost_reward_1,
-            boost_2: boost_reward_2,
-            boost_3: boost_reward_3,
-            last_hash_at,
-        })
-    }
-
-    fn decode_base_reward(log_messages: &[String]) -> Result<u64, Error> {
-        let index = log_messages.len().checked_sub(7).ok_or(Error::Internal(
+        let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
             "invalid webhook event message index".to_string(),
         ))?;
-        let base_reward_event = log_messages
+        let mine_event = log_messages
             .get(index)
             .ok_or(Error::Internal("missing webhook base reward".to_string()))?;
-        let base_reward_event = base_reward_event.trim_start_matches("Program log: Base: ");
-        let base_reward_event: u64 = base_reward_event.to_string().parse()?;
-        Ok(base_reward_event)
-    }
-
-    fn decode_hash(log_messages: &[String]) -> Result<u64, Error> {
-        let index = log_messages.len().checked_sub(8).ok_or(Error::Internal(
-            "invalid webhook event message index".to_string(),
-        ))?;
-        let hash_event = log_messages
-            .get(index)
-            .ok_or(Error::Internal("missing webhook hash".to_string()))?;
-        let hash_event = hash_event.trim_start_matches("Program log: Hash: ");
-        let hash_event: u64 = hash_event.to_string().parse()?;
-        Ok(hash_event)
-    }
-
-    fn decode_boost_reward(
-        log_messages: &[String],
-        index: usize,
-    ) -> Result<ore_api::event::BoostEvent, Error> {
-        let index = log_messages
-            .len()
-            .checked_sub(index)
+        let mine_event = mine_event
+            .trim_start_matches(format!("Program return: {} ", ore_pool_api::ID).as_str());
+        let mine_event = BASE64_STANDARD.decode(mine_event)?;
+        let mine_event: &ore_api::event::MineEvent =
+            bytemuck::try_from_bytes(mine_event.as_slice())
+                .map_err(|e| Error::Internal(e.to_string()))?;
+        // parse the optional boost accounts
+        let account_indices = event
+            .meta
+            .inner_instructions
+            .first()
+            .and_then(|f| f.instructions.first())
+            .map(|f| f.accounts.as_slice())
             .ok_or(Error::Internal(
-                "invalid webhook event message index".to_string(),
+                "missing webhook account indices".to_string(),
             ))?;
-        let boost_event = log_messages
-            .get(index)
-            .ok_or(Error::Internal("missing webhook boost reward".to_string()))?;
-        let boost_event = boost_event.trim_start_matches("Program data: ");
-        let boost_event = BASE64_STANDARD.decode(boost_event)?;
-        let boost_event: &ore_api::event::BoostEvent =
-            bytemuck::try_from_bytes(boost_event.as_slice())
-                .map_err(|err| Error::Internal(err.to_string()))?;
-        log::info!("boost rewards webhook event: {:?}", boost_event);
-        Ok(*boost_event)
+        let accounts = &event.transaction.message.account_keys;
+        let boost_account_1 = account_indices
+            .get(6)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_account_2 = account_indices
+            .get(8)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_account_3 = account_indices
+            .get(10)
+            .and_then(|ix| accounts.get((*ix) as usize))
+            .and_then(|p| Pubkey::from_str(p).ok());
+        let boost_accounts = BoostAccounts {
+            one: boost_account_1,
+            two: boost_account_2,
+            three: boost_account_3,
+        };
+        Ok((*mine_event, boost_accounts))
     }
 
     /// parse and validate the auth header
@@ -394,4 +399,19 @@ fn helius_auth_token() -> Result<String, Error> {
 
 fn helius_webhook_id() -> Result<String, Error> {
     std::env::var("HELIUS_WEBHOOK_ID").map_err(From::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use ore_api::event::MineEvent;
+
+    use super::*;
+
+    #[test]
+    fn test_mine_event() {
+        let event = "JxveNQsJAAAIAAAAAAAAALbFEGcAAAAAaqcCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+        let event = BASE64_STANDARD.decode(event).unwrap();
+        let event: &MineEvent = bytemuck::try_from_bytes(event.as_slice()).unwrap();
+        println!("{:?}", event);
+    }
 }
