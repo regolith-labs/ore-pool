@@ -240,25 +240,20 @@ impl Handle {
         self.auth(req)?;
         let bytes = bytes.to_vec();
         let json = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
-        log::info!("{:?}", json);
         let event = serde_json::from_value::<Vec<Event>>(json)?;
-        log::info!("proof account event: {:?}", event);
         // parse the mine event
         let event = event
             .first()
             .ok_or(Error::Internal("empty webhook event".to_string()))?;
         let log_messages = event.meta.log_messages.as_slice();
-        log::info!("logs: {:?}", log_messages);
         let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
             "invalid webhook event message index".to_string(),
         ))?;
         let mine_event = log_messages
             .get(index)
             .ok_or(Error::Internal("missing webhook base reward".to_string()))?;
-        log::info!("mine event: {:?}", mine_event);
         let mine_event = mine_event
             .trim_start_matches(format!("Program return: {} ", ore_pool_api::ID).as_str());
-        log::info!("mine event: {:?}", mine_event);
         let mine_event = BASE64_STANDARD.decode(mine_event)?;
         let mine_event: &ore_api::event::MineEvent =
             bytemuck::try_from_bytes(mine_event.as_slice())
