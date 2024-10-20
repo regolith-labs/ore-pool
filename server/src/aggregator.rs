@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
-    u128,
 };
 
 use drillx::Solution;
@@ -36,12 +35,6 @@ pub struct Aggregator {
     /// The set of contributions for attribution.
     pub contributions: Miners,
 
-    /// The total difficulty score of all the contributions aggregated so far.
-    pub total_score: u64,
-
-    /// The best solution submitted.
-    pub winner: Option<Winner>,
-
     /// The number of workers that have been approved for the current challenge.
     pub num_members: u64,
 
@@ -51,7 +44,11 @@ pub struct Aggregator {
 
 /// Miners
 pub type LastHashAt = u64;
-pub type MinerContributions = HashSet<Contribution>;
+pub struct MinerContributions {
+    pub contributions: HashSet<Contribution>,
+    pub winner: Option<Winner>,
+    pub total_score: u64,
+}
 pub type Miners = HashMap<LastHashAt, MinerContributions>;
 
 /// Stakers
@@ -147,8 +144,15 @@ pub async fn process_contributions(
         }
         // at this point, the cutoff time has been reached
         let total_score = {
-            let read = aggregator.read().await;
-            read.total_score
+            let mut write = aggregator.write().await;
+            let contributions = write.get_current_contributions();
+            match contributions {
+                Ok(contributions) => contributions.total_score,
+                Err(err) => {
+                    log::error!("{:?}", err);
+                    0
+                }
+            }
         };
         if total_score > 0 {
             // submit if contributions exist
@@ -192,12 +196,15 @@ impl Aggregator {
         }
         // build self
         let mut contributions = HashMap::new();
-        contributions.insert(challenge.lash_hash_at as u64, HashSet::new());
+        let new_contributions = MinerContributions {
+            contributions: HashSet::new(),
+            winner: None,
+            total_score: 0,
+        };
+        contributions.insert(challenge.lash_hash_at as u64, new_contributions);
         let aggregator = Aggregator {
             challenge,
             contributions,
-            total_score: 0,
-            winner: None,
             num_members: pool.last_total_members,
             stake,
         };
@@ -211,7 +218,7 @@ impl Aggregator {
         // get current contributions
         let contributions = self.get_current_contributions()?;
         // insert
-        let insert = contributions.insert(*contribution);
+        let insert = contributions.contributions.insert(*contribution);
         match insert {
             true => {
                 let difficulty = contribution.solution.to_hash().difficulty();
@@ -219,14 +226,14 @@ impl Aggregator {
                     solution: contribution.solution,
                     difficulty,
                 };
-                self.total_score += contribution.score;
-                match self.winner {
+                contributions.total_score += contribution.score;
+                match contributions.winner {
                     Some(winner) => {
                         if difficulty > winner.difficulty {
-                            self.winner = Some(contender);
+                            contributions.winner = Some(contender);
                         }
                     }
-                    None => self.winner = Some(contender),
+                    None => contributions.winner = Some(contender),
                 }
                 Ok(())
             }
@@ -361,7 +368,7 @@ impl Aggregator {
                     "missing contributions at reward hash".to_string(),
                 ))?;
         // compute denominator
-        let denominator: u64 = contributions.iter().map(|c| c.score).sum();
+        let denominator: u64 = contributions.total_score;
         let denominator: u128 = denominator as u128;
         // compute base mine rewards
         let mine_rewards = rewards.reward - rewards.boost_1 - rewards.boost_2 - rewards.boost_3;
@@ -382,7 +389,7 @@ impl Aggregator {
         );
         let total_rewards = miner_rewards + miner_rewards_from_stake;
         log::info!("total rewards as commission for miners: {}", total_rewards);
-        let contributions = contributions.iter();
+        let contributions = contributions.contributions.iter();
         let distribution = contributions
             .map(|c| {
                 log::info!("raw base reward score: {}", c.score);
@@ -505,9 +512,9 @@ impl Aggregator {
     fn attestation(&mut self) -> Result<[u8; 32], Error> {
         let mut hasher = Sha3_256::new();
         let contributions = self.get_current_contributions()?;
-        let num_contributions = contributions.len();
+        let num_contributions = contributions.contributions.len();
         log::info!("num contributions: {}", num_contributions);
-        for contribution in contributions.iter() {
+        for contribution in contributions.contributions.iter() {
             let hex_string: String =
                 contribution
                     .solution
@@ -551,20 +558,24 @@ impl Aggregator {
         log::info!("//////////////////////////////////////////");
         log::info!("new contributions key: {:?}", last_hash_at);
         log::info!("//////////////////////////////////////////");
-        if let Some(_) = contributions.insert(last_hash_at, HashSet::new()) {
+        let new_contributions = MinerContributions {
+            contributions: HashSet::new(),
+            winner: None,
+            total_score: 0,
+        };
+        if let Some(_) = contributions.insert(last_hash_at, new_contributions) {
             log::error!("contributions at last-hash-at already exist");
         }
         // reset accumulators
         let pool = operator.get_pool().await?;
-        self.total_score = 0;
-        self.winner = None;
         self.num_members = pool.last_total_members;
         Ok(())
     }
 
-    fn winner(&self) -> Result<Winner, Error> {
-        self.winner
-            .ok_or(Error::Internal("no solutions were submitted".to_string()))
+    fn winner(&mut self) -> Result<Winner, Error> {
+        let contributions = self.get_current_contributions()?;
+        let winner = contributions.winner;
+        winner.ok_or(Error::Internal("no solutions were submitted".to_string()))
     }
 
     async fn check_for_reset(&self, operator: &Operator) -> Result<bool, Error> {
