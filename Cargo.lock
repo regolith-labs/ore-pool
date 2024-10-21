@@ -230,6 +230,7 @@ name = "admin"
 version = "0.1.0"
 dependencies = [
  "ore-api",
+ "ore-boost-api",
  "ore-pool-api",
  "solana-client",
  "solana-program",
@@ -799,7 +800,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.13.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1979,6 +1980,9 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+dependencies = [
+ "ahash 0.7.8",
+]
 
 [[package]]
 name = "hashbrown"
@@ -2926,8 +2930,6 @@ dependencies = [
 [[package]]
 name = "ore-api"
 version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1d87e900bb0b603d8b88a92639dae43eac4737acaef514af0de1c8598aed2eb"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -2946,8 +2948,6 @@ dependencies = [
 [[package]]
 name = "ore-boost-api"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c97f55b9d1a40a6b3044444c457acd70b983d31b7edd5c8459b8c616b080fecd"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",

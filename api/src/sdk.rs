@@ -5,7 +5,9 @@ use steel::*;
 use crate::{
     error::ApiError,
     instruction::*,
-    state::{member_pda, pool_pda, pool_proof_pda, share_pda},
+    state::{
+        member_pda, pool_pda, pool_proof_pda, pool_share_rewards_pda, pool_total_rewards, share_pda,
+    },
 };
 
 /// Builds a launch instruction.
@@ -229,6 +231,37 @@ pub fn stake(
             amount: amount.to_le_bytes(),
         }
         .to_bytes(),
+    }
+}
+
+/// Builds an open share rewards instruction.
+pub fn open_share_rewards(signer: Pubkey, pool: Pubkey, mint: Pubkey) -> Instruction {
+    let (share_rewards_pda, bump) = pool_share_rewards_pda(pool, mint);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(share_rewards_pda, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: OpenShareRewards { bump }.to_bytes(),
+    }
+}
+
+/// Builds an open total rewards instruction.
+pub fn open_total_rewards(signer: Pubkey, pool: Pubkey) -> Instruction {
+    let (total_rewards_pda, bump) = pool_total_rewards(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new(total_rewards_pda, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: OpenTotalRewards { bump }.to_bytes(),
     }
 }
 

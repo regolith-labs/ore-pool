@@ -1,7 +1,9 @@
+use ore_boost_api::state::Stake;
+use ore_pool_api::state::ShareRewards;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
-use crate::error::Error;
+use crate::{error::Error, get_or_create};
 
 pub async fn open_stake(
     rpc_client: &RpcClient,
@@ -10,11 +12,21 @@ pub async fn open_stake(
 ) -> Result<(), Error> {
     let mint = mint.ok_or(Error::MissingBoostMint)?;
     let pubkey = keypair.pubkey();
-    let ix = ore_pool_api::sdk::open_stake(pubkey, mint);
-    let mut tx = Transaction::new_with_payer(&[ix], Some(&pubkey));
-    let hash = rpc_client.get_latest_blockhash().await?;
-    tx.sign(&[keypair], hash);
-    let sig = rpc_client.send_transaction(&tx).await?;
-    println!("{:?}", sig);
+    // get or create stake account
+    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let (stake_pda, _) = ore_boost_api::state::stake_pda(pubkey, boost_pda);
+    let open_stake_ix = ore_pool_api::sdk::open_stake(pubkey, mint);
+    get_or_create::pda::<Stake>(rpc_client, keypair, &stake_pda, open_stake_ix).await?;
+    // get or create share rewards account
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(pubkey);
+    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(pool_pda, mint);
+    let open_share_rewards_ix = ore_pool_api::sdk::open_share_rewards(pubkey, pool_pda, mint);
+    get_or_create::pda::<ShareRewards>(
+        rpc_client,
+        keypair,
+        &share_rewards_pda,
+        open_share_rewards_ix,
+    )
+    .await?;
     Ok(())
 }

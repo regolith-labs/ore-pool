@@ -15,6 +15,7 @@ pub fn process_open_share_rewards(accounts: &[AccountInfo<'_>], data: &[u8]) -> 
     pool_info
         .to_account::<Pool>(&ore_pool_api::ID)?
         .check(|p| p.authority == *signer_info.key)?;
+    mint_info.to_mint()?;
     share_rewards_info.is_empty()?.is_writable()?.has_seeds(
         &[
             SHARE_REWARDS,
