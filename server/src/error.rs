@@ -11,7 +11,10 @@ pub enum Error {
     #[error("try from slice")]
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("rewards channel send")]
-    RewardsChannelSend(#[from] tokio::sync::mpsc::error::SendError<webhook::Rewards>),
+    RewardsChannelSend(
+        #[from]
+        tokio::sync::mpsc::error::SendError<(ore_api::event::MineEvent, webhook::BoostAccounts)>,
+    ),
     #[error("tokio postgres")]
     TokioPostgres(#[from] tokio_postgres::Error),
     #[error("deadpool postgress")]

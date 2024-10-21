@@ -137,11 +137,6 @@ pub async fn contribute(
         log::error!("solution below min difficulity: {:?}", payload.authority);
         return HttpResponse::BadRequest().finish();
     }
-    // error if digest is invalid
-    if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
-        log::error!("invalid solution");
-        return HttpResponse::BadRequest().finish();
-    }
     // validate nonce
     let member_authority = &payload.authority;
     let nonce = solution.n;
