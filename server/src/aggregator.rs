@@ -282,7 +282,7 @@ impl Aggregator {
             operator.get_boost_mine_accounts(),
         );
         let rpc_client = &operator.rpc_client;
-        let sig = tx::submit::submit_and_confirm_instructions(
+        let sig = tx::submit::submit_instructions(
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix],
