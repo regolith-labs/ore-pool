@@ -212,11 +212,18 @@ impl Aggregator {
     }
 
     fn insert(&mut self, contribution: &mut Contribution) -> Result<(), Error> {
+        let challenge = &self.challenge.clone();
+        let solution = &contribution.solution;
         // normalize contribution score
         let normalized_score = contribution.score.min(MAX_SCORE);
         contribution.score = normalized_score;
         // get current contributions
         let contributions = self.get_current_contributions()?;
+        // validate solution against current challenge
+        if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
+            log::error!("invalid solution");
+            return Err(Error::Internal("invalid solution".to_string()));
+        }
         // insert
         let insert = contributions.contributions.insert(*contribution);
         match insert {
