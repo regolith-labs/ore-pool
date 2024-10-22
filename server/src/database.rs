@@ -21,7 +21,7 @@ pub fn create_pool() -> Pool {
 // have been incremented in the db but not yet on-chain
 pub async fn write_member_total_balances(
     conn: &mut Object,
-    increments: Vec<(String, u64)>,
+    increments: &[(String, u64)],
 ) -> Result<(), Error> {
     let transaction = conn.transaction().await?;
     for (address, increment) in increments.iter() {
@@ -260,7 +260,7 @@ pub async fn read_member(conn: &Object, address: &String) -> Result<ore_pool_typ
     })
 }
 
-async fn _write_total_rewards(
+pub async fn write_total_rewards(
     conn: &Object,
     pool: &Pubkey,
     miner_rewards_increment: u64,
@@ -272,7 +272,8 @@ async fn _write_total_rewards(
         "UPDATE total_rewards
         SET miner_rewards = miner_rewards + $1,
             staker_rewards = staker_rewards + $2,
-            operator_rewards = operator_rewards + $3
+            operator_rewards = operator_rewards + $3,
+            is_synced = false
         WHERE address = $4",
         &[
             &(miner_rewards_increment as i64),
@@ -285,7 +286,7 @@ async fn _write_total_rewards(
     Ok(())
 }
 
-async fn _write_share_rewards(
+pub async fn write_share_rewards(
     conn: &Object,
     pool: &Pubkey,
     mint: &Pubkey,
@@ -294,7 +295,8 @@ async fn _write_share_rewards(
     let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
     conn.execute(
         "UPDATE share_rewards
-        SET rewards = rewards + $1
+        SET rewards = rewards + $1,
+            is_synced = false
         WHERE address = $2",
         &[&(rewards_increment as i64), &share_rewards_pda.to_string()],
     )

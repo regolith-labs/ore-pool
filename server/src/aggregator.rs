@@ -348,12 +348,52 @@ impl Aggregator {
         );
         // write rewards to db
         let mut db_client = operator.db_client.get().await?;
-        database::write_member_total_balances(&mut db_client, rewards_distribution).await?;
-        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_1).await?;
-        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_2).await?;
-        database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3).await?;
-        database::write_member_total_balances(&mut db_client, vec![rewards_distribution_operator])
+        database::write_member_total_balances(&mut db_client, rewards_distribution.as_slice())
             .await?;
+        database::write_member_total_balances(
+            &mut db_client,
+            rewards_distribution_boost_1.as_slice(),
+        )
+        .await?;
+        database::write_member_total_balances(
+            &mut db_client,
+            rewards_distribution_boost_2.as_slice(),
+        )
+        .await?;
+        database::write_member_total_balances(
+            &mut db_client,
+            rewards_distribution_boost_3.as_slice(),
+        )
+        .await?;
+        database::write_member_total_balances(
+            &mut db_client,
+            &[rewards_distribution_operator.clone()],
+        )
+        .await?;
+        // write total rewards stats to db
+        let share_rewards_1: u64 = rewards_distribution_boost_1.iter().map(|(_, r)| r).sum();
+        let share_rewards_2: u64 = rewards_distribution_boost_2.iter().map(|(_, r)| r).sum();
+        let share_rewards_3: u64 = rewards_distribution_boost_3.iter().map(|(_, r)| r).sum();
+        let staker_rewards = share_rewards_1 + share_rewards_2 + share_rewards_3;
+        let miner_rewards: u64 = rewards_distribution.iter().map(|(_, r)| r).sum();
+        let (_, operator_rewards) = rewards_distribution_operator;
+        if let Some(mint) = boost_acounts.one {
+            database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_1).await?;
+        }
+        if let Some(mint) = boost_acounts.two {
+            database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_2).await?;
+        }
+        if let Some(mint) = boost_acounts.three {
+            database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_3).await?;
+        }
+        database::write_total_rewards(
+            &db_client,
+            &pool_pda,
+            miner_rewards,
+            staker_rewards,
+            operator_rewards,
+        )
+        .await?;
         // clean up contributions
         let contributions = &mut self.contributions;
         let _ = contributions.remove(&(rewards.last_hash_at as u64));
