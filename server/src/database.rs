@@ -259,3 +259,88 @@ pub async fn read_member(conn: &Object, address: &String) -> Result<ore_pool_typ
         is_synced: row.try_get(7)?,
     })
 }
+
+async fn _write_total_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+    miner_rewards_increment: u64,
+    staker_rewards_increment: u64,
+    operator_rewards_increment: u64,
+) -> Result<(), Error> {
+    let (total_rewards_pda, _) = ore_pool_api::state::pool_total_rewards(*pool);
+    conn.execute(
+        "UPDATE total_rewards
+        SET miner_rewards = miner_rewards + $1,
+            staker_rewards = staker_rewards + $2,
+            operator_rewards = operator_rewards + $3
+        WHERE address = $4",
+        &[
+            &(miner_rewards_increment as i64),
+            &(staker_rewards_increment as i64),
+            &(operator_rewards_increment as i64),
+            &total_rewards_pda.to_string(),
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
+async fn _write_share_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+    mint: &Pubkey,
+    rewards_increment: u64,
+) -> Result<(), Error> {
+    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
+    conn.execute(
+        "UPDATE share_rewards
+        SET rewards = rewards + $1
+        WHERE address = $2",
+        &[&(rewards_increment as i64), &share_rewards_pda.to_string()],
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn write_new_share_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+    mint: &Pubkey,
+) -> Result<(), Error> {
+    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
+    conn.execute(
+        "INSERT INTO share_rewards
+        (address, pool, mint, rewards, is_synced)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (address) DO NOTHING",
+        &[
+            &share_rewards_pda.to_string(),
+            &pool.to_string(),
+            &mint.to_string(),
+            &0i64,
+            &false,
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn write_new_total_rewards(conn: &Object, pool: &Pubkey) -> Result<(), Error> {
+    let (total_rewards_pda, _) = ore_pool_api::state::pool_total_rewards(*pool);
+    conn.execute(
+        "INSERT INTO total_rewards
+        (address, pool, miner_rewards, staker_rewards, operator_rewards, is_synced)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (address) DO NOTHING",
+        &[
+            &total_rewards_pda.to_string(),
+            &pool.to_string(),
+            &0i64,
+            &0i64,
+            &0i64,
+            &false,
+        ],
+    )
+    .await?;
+    Ok(())
+}

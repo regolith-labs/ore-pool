@@ -268,6 +268,22 @@ impl Operator {
         vec
     }
 
+    pub async fn init_total_rewards(&self) -> Result<(), Error> {
+        let db_client = &self.db_client;
+        let db_client = db_client.get().await?;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(self.keypair.pubkey());
+        database::write_new_total_rewards(&db_client, &pool_pda).await?;
+        Ok(())
+    }
+
+    pub async fn init_share_rewards(&self, mint: &Pubkey) -> Result<(), Error> {
+        let db_client = &self.db_client;
+        let db_client = db_client.get().await?;
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(self.keypair.pubkey());
+        database::write_new_share_rewards(&db_client, &pool_pda, mint).await?;
+        Ok(())
+    }
+
     fn get_boosts(&self) -> Vec<Pubkey> {
         let boost_accounts = &self.boost_accounts;
         boost_accounts.iter().map(|ba| ba.mint).collect()

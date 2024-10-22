@@ -37,6 +37,19 @@ async fn main() -> Result<(), error::Error> {
     let attribution_epoch = attribution_epoch()?;
     let stake_commit_epoch = stake_commit_epoch()?;
 
+    // init total rewards db records
+    tokio::task::spawn({
+        let operator = operator.clone();
+        async move {
+            // share rewards
+            for boost in operator.boost_accounts.iter() {
+                operator.init_share_rewards(&boost.mint).await?;
+            }
+            // total rewards
+            operator.init_total_rewards().await
+        }
+    });
+
     // aggregate contributions
     tokio::task::spawn({
         let operator = operator.clone();
@@ -51,7 +64,7 @@ async fn main() -> Result<(), error::Error> {
         }
     });
 
-    // distribute rewards
+    // increment off-chain rewards
     tokio::task::spawn({
         let operator = operator.clone();
         let aggregator = aggregator.clone();
@@ -75,7 +88,7 @@ async fn main() -> Result<(), error::Error> {
         }
     });
 
-    // kick off attribution loop
+    // increment on-chain rewards
     tokio::task::spawn({
         let operator = operator.clone();
         async move {
@@ -91,7 +104,7 @@ async fn main() -> Result<(), error::Error> {
         }
     });
 
-    // kick off commit-stake loop
+    // commit stake
     tokio::task::spawn({
         let operator = operator.clone();
         let aggregator = aggregator.clone();
