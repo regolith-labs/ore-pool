@@ -314,7 +314,7 @@ impl Aggregator {
         )?;
         log::info!("// staker ////////////////////////");
         // compute attributions for stakers
-        let rewards_distribution_boost_1 = self
+        let (rewards_distribution_boost_1, mint_1) = self
             .rewards_distribution_boost(
                 operator,
                 pool_pda,
@@ -322,7 +322,7 @@ impl Aggregator {
                 operator.staker_commission,
             )
             .await?;
-        let rewards_distribution_boost_2 = self
+        let (rewards_distribution_boost_2, mint_2) = self
             .rewards_distribution_boost(
                 operator,
                 pool_pda,
@@ -330,7 +330,7 @@ impl Aggregator {
                 operator.staker_commission,
             )
             .await?;
-        let rewards_distribution_boost_3 = self
+        let (rewards_distribution_boost_3, mint_3) = self
             .rewards_distribution_boost(
                 operator,
                 pool_pda,
@@ -377,13 +377,13 @@ impl Aggregator {
         let staker_rewards = share_rewards_1 + share_rewards_2 + share_rewards_3;
         let miner_rewards: u64 = rewards_distribution.iter().map(|(_, r)| r).sum();
         let (_, operator_rewards) = rewards_distribution_operator;
-        if let Some(mint) = boost_acounts.one {
+        if let Some(mint) = mint_1 {
             database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_1).await?;
         }
-        if let Some(mint) = boost_acounts.two {
+        if let Some(mint) = mint_2 {
             database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_2).await?;
         }
-        if let Some(mint) = boost_acounts.three {
+        if let Some(mint) = mint_3 {
             database::write_share_rewards(&db_client, &pool_pda, &mint, share_rewards_3).await?;
         }
         database::write_total_rewards(
@@ -475,9 +475,9 @@ impl Aggregator {
         pool: Pubkey,
         boost_event: Option<(u64, Pubkey)>,
         staker_commission: u64,
-    ) -> Result<Vec<(String, u64)>, Error> {
+    ) -> Result<(Vec<(String, u64)>, Option<Pubkey>), Error> {
         match boost_event {
-            None => Ok(vec![]),
+            None => Ok((vec![], None)),
             Some((boost_reward, boost_account)) => {
                 let boost_data = operator.rpc_client.get_account_data(&boost_account).await?;
                 let boost = ore_boost_api::state::Boost::try_from_bytes(boost_data.as_slice())?;
@@ -516,7 +516,7 @@ impl Aggregator {
                         (member_pda.to_string(), score as u64)
                     })
                     .collect();
-                Ok(res)
+                Ok((res, Some(boost_mint)))
             }
         }
     }
