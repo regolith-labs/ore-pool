@@ -6,7 +6,8 @@ use crate::{
     error::ApiError,
     instruction::*,
     state::{
-        member_pda, pool_pda, pool_proof_pda, pool_share_rewards_pda, pool_total_rewards, share_pda,
+        member_pda, pool_pda, pool_proof_pda, pool_share_rewards_pda, pool_stake_pda,
+        pool_total_rewards, share_pda,
     },
 };
 
@@ -338,7 +339,7 @@ pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let (pool_pda, _) = pool_pda(signer);
     let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool_pda, boost_pda);
+    let (stake_pda, _) = pool_stake_pda(pool_pda, mint);
     Instruction {
         program_id: crate::ID,
         accounts: vec![

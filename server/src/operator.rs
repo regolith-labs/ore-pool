@@ -239,6 +239,7 @@ impl Operator {
         let rpc_client = &self.rpc_client;
         let db_client = &self.db_client;
         let db_client = db_client.get().await?;
+        let mut ixs = vec![];
         // incremet total rewards
         let total_rewards = database::read_total_rewards(&db_client, &pool_pda).await?;
         let increment_total_rewards_ix = ore_pool_api::sdk::increment_total_rewards(
@@ -248,16 +249,7 @@ impl Operator {
             total_rewards.staker_rewards,
             total_rewards.operator_rewards,
         );
-        let sig = tx::submit::submit_and_confirm_instructions(
-            &self.keypair,
-            rpc_client,
-            &[increment_total_rewards_ix],
-            10_000,
-            5_000,
-        )
-        .await?;
-        log::info!("increment total rewards: {:?}", sig);
-        database::write_synced_total_rewards(&db_client, &pool_pda).await?;
+        ixs.push(increment_total_rewards_ix);
         // increment share rewards
         let boost_accounts = self.boost_accounts.as_slice();
         for ba in boost_accounts.iter() {
@@ -269,17 +261,18 @@ impl Operator {
                 mint,
                 share_rewards.rewards,
             );
-            let sig = tx::submit::submit_and_confirm_instructions(
-                &self.keypair,
-                rpc_client,
-                &[ix],
-                10_000,
-                5_000,
-            )
-            .await?;
-            log::info!("increment share rewards: {:?}", sig);
-            database::write_synced_share_rewards(&db_client, &pool_pda, &mint).await?;
+            ixs.push(ix);
         }
+        // submit transaction
+        let sig = tx::submit::submit_and_confirm_instructions(
+            &self.keypair,
+            rpc_client,
+            ixs.as_slice(),
+            10_000,
+            5_000,
+        )
+        .await?;
+        log::info!("total rewards increment sig: {:?}", sig);
         Ok(())
     }
 

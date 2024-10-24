@@ -18,26 +18,6 @@ pub fn create_pool() -> Pool {
 /////////////////////////////////////////////////////////////////////////////////////////////
 /// write ///////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-pub async fn write_synced_total_rewards(conn: &Object, pool: &Pubkey) -> Result<(), Error> {
-    let (total_rewards_pda, _) = ore_pool_api::state::pool_total_rewards(*pool);
-    let query = "UPDATE total_rewards SET is_synced = true WHERE address = ANY($1)";
-    conn.execute(query, &[&total_rewards_pda.to_string()])
-        .await?;
-    Ok(())
-}
-
-pub async fn write_synced_share_rewards(
-    conn: &Object,
-    pool: &Pubkey,
-    mint: &Pubkey,
-) -> Result<(), Error> {
-    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
-    let query = "UPDATE share_rewards SET is_synced = true WHERE address = ANY($1)";
-    conn.execute(query, &[&share_rewards_pda.to_string()])
-        .await?;
-    Ok(())
-}
-
 pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
     let query = "UPDATE members SET is_synced = true WHERE address = ANY($1)";
     conn.execute(query, &[&address_buffer]).await?;

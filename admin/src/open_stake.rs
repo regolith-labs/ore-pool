@@ -13,9 +13,10 @@ pub async fn open_stake(
     let mint = mint.ok_or(Error::MissingBoostMint)?;
     let pubkey = keypair.pubkey();
     // get or create stake account
-    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pubkey, boost_pda);
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(pubkey);
+    let (stake_pda, _) = ore_pool_api::state::pool_stake_pda(pool_pda, mint);
     let open_stake_ix = ore_pool_api::sdk::open_stake(pubkey, mint);
+    println!("stake pda: {:?}", stake_pda);
     get_or_create::pda::<Stake>(rpc_client, keypair, &stake_pda, open_stake_ix).await?;
     // get or create share rewards account
     let (pool_pda, _) = ore_pool_api::state::pool_pda(pubkey);
