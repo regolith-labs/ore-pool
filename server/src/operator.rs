@@ -234,6 +234,55 @@ impl Operator {
         Ok(())
     }
 
+    pub async fn increment_rewards(self: Arc<Self>) -> Result<(), Error> {
+        let (pool_pda, _) = ore_pool_api::state::pool_pda(self.keypair.pubkey());
+        let rpc_client = &self.rpc_client;
+        let db_client = &self.db_client;
+        let db_client = db_client.get().await?;
+        // incremet total rewards
+        let total_rewards = database::read_total_rewards(&db_client, &pool_pda).await?;
+        let increment_total_rewards_ix = ore_pool_api::sdk::increment_total_rewards(
+            self.keypair.pubkey(),
+            pool_pda,
+            total_rewards.miner_rewards,
+            total_rewards.staker_rewards,
+            total_rewards.operator_rewards,
+        );
+        let sig = tx::submit::submit_and_confirm_instructions(
+            &self.keypair,
+            rpc_client,
+            &[increment_total_rewards_ix],
+            10_000,
+            5_000,
+        )
+        .await?;
+        log::info!("increment total rewards: {:?}", sig);
+        database::write_synced_total_rewards(&db_client, &pool_pda).await?;
+        // increment share rewards
+        let boost_accounts = self.boost_accounts.as_slice();
+        for ba in boost_accounts.iter() {
+            let mint = ba.mint;
+            let share_rewards = database::read_share_rewards(&db_client, &pool_pda, &mint).await?;
+            let ix = ore_pool_api::sdk::increment_share_rewards(
+                self.keypair.pubkey(),
+                pool_pda,
+                mint,
+                share_rewards.rewards,
+            );
+            let sig = tx::submit::submit_and_confirm_instructions(
+                &self.keypair,
+                rpc_client,
+                &[ix],
+                10_000,
+                5_000,
+            )
+            .await?;
+            log::info!("increment share rewards: {:?}", sig);
+            database::write_synced_share_rewards(&db_client, &pool_pda, &mint).await?;
+        }
+        Ok(())
+    }
+
     pub async fn commit_stake(&self) -> Result<(), Error> {
         let authority = &self.keypair;
         let rpc_client = &self.rpc_client;

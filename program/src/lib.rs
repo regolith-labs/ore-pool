@@ -1,6 +1,8 @@
 mod attribute;
 mod claim;
 mod commit;
+mod increment_share_rewards;
+mod increment_total_rewards;
 mod join;
 mod launch;
 mod open_share;
@@ -14,12 +16,14 @@ mod unstake;
 use attribute::*;
 use claim::*;
 use commit::*;
+use increment_share_rewards::*;
+use increment_total_rewards::*;
 use join::*;
 use launch::*;
 use open_share::*;
-use open_share_rewards::process_open_share_rewards;
+use open_share_rewards::*;
 use open_stake::*;
-use open_total_rewards::process_open_total_rewards;
+use open_total_rewards::*;
 use stake::*;
 use submit::*;
 use unstake::*;
@@ -50,6 +54,8 @@ pub fn process_instruction(
         PoolInstruction::Submit => process_submit(accounts, data)?,
         PoolInstruction::OpenTotalRewards => process_open_total_rewards(accounts, data)?,
         PoolInstruction::OpenShareRewards => process_open_share_rewards(accounts, data)?,
+        PoolInstruction::IncrementTotalRewards => process_increment_total_rewards(accounts, data)?,
+        PoolInstruction::IncrementShareRewards => process_increment_share_rewards(accounts, data)?,
     }
 
     Ok(())

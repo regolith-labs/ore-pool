@@ -4,7 +4,7 @@ use crate::{error::Error, operator::Operator, tx};
 use deadpool_postgres::{GenericClient, Object, Pool};
 use futures::{Stream, StreamExt, TryStreamExt};
 use futures_util::pin_mut;
-use ore_pool_api::state::{member_pda, share_pda};
+use ore_pool_api::state::{member_pda, share_pda, ShareRewards};
 use ore_pool_types::Staker;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use tokio_postgres::{NoTls, Row};
@@ -15,6 +15,42 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).unwrap()
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////
+/// write ///////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+pub async fn write_synced_total_rewards(conn: &Object, pool: &Pubkey) -> Result<(), Error> {
+    let (total_rewards_pda, _) = ore_pool_api::state::pool_total_rewards(*pool);
+    let query = "UPDATE total_rewards SET is_synced = true WHERE address = ANY($1)";
+    conn.execute(query, &[&total_rewards_pda.to_string()])
+        .await?;
+    Ok(())
+}
+
+pub async fn write_synced_share_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+    mint: &Pubkey,
+) -> Result<(), Error> {
+    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
+    let query = "UPDATE share_rewards SET is_synced = true WHERE address = ANY($1)";
+    conn.execute(query, &[&share_rewards_pda.to_string()])
+        .await?;
+    Ok(())
+}
+
+pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
+    let query = "UPDATE members SET is_synced = true WHERE address = ANY($1)";
+    conn.execute(query, &[&address_buffer]).await?;
+    Ok(())
+}
+
+pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), Error> {
+    let share = share.to_string();
+    let address_buffer: &[String] = &[share];
+    let query = "UPDATE stakers SET webhook = true WHERE address = ANY($1)";
+    conn.execute(query, &[&address_buffer]).await?;
+    Ok(())
+}
 // when writing new balances
 // also sets the is-synced field to false
 // so that in the attribution loop we know which accounts
@@ -115,31 +151,6 @@ pub async fn stream_members_attribution(
     Ok(())
 }
 
-pub async fn write_synced_members(conn: &Object, address_buffer: &[String]) -> Result<(), Error> {
-    let query = "UPDATE members SET is_synced = true WHERE address = ANY($1)";
-    conn.execute(query, &[&address_buffer]).await?;
-    Ok(())
-}
-
-pub async fn write_webhook_staker(conn: &Object, share: &Pubkey) -> Result<(), Error> {
-    let share = share.to_string();
-    let address_buffer: &[String] = &[share];
-    let query = "UPDATE stakers SET webhook = true WHERE address = ANY($1)";
-    conn.execute(query, &[&address_buffer]).await?;
-    Ok(())
-}
-
-pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>> + Send>>;
-pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
-    let stmt = "SELECT address, member_id, mint, webhook FROM stakers WHERE mint = ANY($1)";
-    let params: &[String] = &[mint.to_string()];
-    let stream = conn.query_raw(stmt, &[&params]).await?;
-    let stream = stream
-        .map_err(Into::<Error>::into)
-        .map(|row| row.and_then(|r| decode_staker(&r)));
-    Ok(Box::pin(stream))
-}
-
 pub async fn write_new_staker(
     conn: &Object,
     member_authority: &Pubkey,
@@ -202,62 +213,6 @@ pub async fn write_new_member(
     )
     .await?;
     Ok(member)
-}
-
-pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Error> {
-    let row = conn
-        .query_one(
-            &format!(
-                "SELECT address, member_id, mint, webhook
-                FROM stakers
-                WHERE address = '{}'",
-                address
-            ),
-            &[],
-        )
-        .await?;
-    decode_staker(&row)
-}
-
-fn decode_staker(row: &Row) -> Result<Staker, Error> {
-    let address: String = row.try_get(0)?;
-    let address = Pubkey::from_str(address.as_str())?;
-    let member_id: i64 = row.try_get(1)?;
-    let member_id = member_id as u64;
-    let mint: String = row.try_get(2)?;
-    let mint = Pubkey::from_str(mint.as_str())?;
-    let webhook: bool = row.try_get(3)?;
-    let staker = Staker {
-        address,
-        member_id,
-        mint,
-        webhook,
-    };
-    Ok(staker)
-}
-
-pub async fn read_member(conn: &Object, address: &String) -> Result<ore_pool_types::Member, Error> {
-    let row = conn
-        .query_one(
-            &format!(
-                "SELECT address, id, authority, pool_address, total_balance, is_approved, is_kyc, is_synced
-                FROM members
-                WHERE address = '{}'",
-                address
-            ),
-            &[],
-        )
-        .await?;
-    Ok(ore_pool_types::Member {
-        address: row.try_get(0)?,
-        id: row.try_get(1)?,
-        authority: row.try_get(2)?,
-        pool_address: row.try_get(3)?,
-        total_balance: row.try_get(4)?,
-        is_approved: row.try_get(5)?,
-        is_kyc: row.try_get(6)?,
-        is_synced: row.try_get(7)?,
-    })
 }
 
 pub async fn write_total_rewards(
@@ -345,4 +300,127 @@ pub async fn write_new_total_rewards(conn: &Object, pool: &Pubkey) -> Result<(),
     )
     .await?;
     Ok(())
+}
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+/// read ////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+pub type StakersStream = Pin<Box<dyn Stream<Item = Result<Staker, Error>> + Send>>;
+pub async fn stream_stakers(conn: &Object, mint: &Pubkey) -> Result<StakersStream, Error> {
+    let stmt = "SELECT address, member_id, mint, webhook FROM stakers WHERE mint = ANY($1)";
+    let params: &[String] = &[mint.to_string()];
+    let stream = conn.query_raw(stmt, &[&params]).await?;
+    let stream = stream
+        .map_err(Into::<Error>::into)
+        .map(|row| row.and_then(|r| decode_staker(&r)));
+    Ok(Box::pin(stream))
+}
+
+pub async fn read_staker(conn: &Object, address: &String) -> Result<Staker, Error> {
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT address, member_id, mint, webhook
+                FROM stakers
+                WHERE address = '{}'",
+                address
+            ),
+            &[],
+        )
+        .await?;
+    decode_staker(&row)
+}
+
+fn decode_staker(row: &Row) -> Result<Staker, Error> {
+    let address: String = row.try_get(0)?;
+    let address = Pubkey::from_str(address.as_str())?;
+    let member_id: i64 = row.try_get(1)?;
+    let member_id = member_id as u64;
+    let mint: String = row.try_get(2)?;
+    let mint = Pubkey::from_str(mint.as_str())?;
+    let webhook: bool = row.try_get(3)?;
+    let staker = Staker {
+        address,
+        member_id,
+        mint,
+        webhook,
+    };
+    Ok(staker)
+}
+
+pub async fn read_total_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+) -> Result<ore_pool_api::state::TotalRewards, Error> {
+    let (total_rewards_pda, _) = ore_pool_api::state::pool_total_rewards(*pool);
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT miner_rewards, staker_rewards, operator_rewards
+                FROM total_rewards
+                WHERE address = '{}'",
+                total_rewards_pda
+            ),
+            &[],
+        )
+        .await?;
+    let miner_rewards: i64 = row.try_get(0)?;
+    let staker_rewards: i64 = row.try_get(1)?;
+    let operator_rewards: i64 = row.try_get(2)?;
+    Ok(ore_pool_api::state::TotalRewards {
+        pool: *pool,
+        miner_rewards: miner_rewards as u64,
+        staker_rewards: staker_rewards as u64,
+        operator_rewards: operator_rewards as u64,
+    })
+}
+
+pub async fn read_share_rewards(
+    conn: &Object,
+    pool: &Pubkey,
+    mint: &Pubkey,
+) -> Result<ore_pool_api::state::ShareRewards, Error> {
+    let (share_rewards_pda, _) = ore_pool_api::state::pool_share_rewards_pda(*pool, *mint);
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT rewards
+                FROM share_rewards
+                WHERE address = '{}'",
+                share_rewards_pda
+            ),
+            &[],
+        )
+        .await?;
+    let rewards: i64 = row.try_get(0)?;
+    Ok(ShareRewards {
+        pool: *pool,
+        mint: *mint,
+        rewards: rewards as u64,
+    })
+}
+
+pub async fn read_member(conn: &Object, address: &String) -> Result<ore_pool_types::Member, Error> {
+    let row = conn
+        .query_one(
+            &format!(
+                "SELECT address, id, authority, pool_address, total_balance, is_approved, is_kyc, is_synced
+                FROM members
+                WHERE address = '{}'",
+                address
+            ),
+            &[],
+        )
+        .await?;
+    Ok(ore_pool_types::Member {
+        address: row.try_get(0)?,
+        id: row.try_get(1)?,
+        authority: row.try_get(2)?,
+        pool_address: row.try_get(3)?,
+        total_balance: row.try_get(4)?,
+        is_approved: row.try_get(5)?,
+        is_kyc: row.try_get(6)?,
+        is_synced: row.try_get(7)?,
+    })
 }

@@ -234,6 +234,54 @@ pub fn stake(
     }
 }
 
+/// Builds an increment share rewards instruction.
+pub fn increment_share_rewards(
+    signer: Pubkey,
+    pool: Pubkey,
+    mint: Pubkey,
+    rewards: u64,
+) -> Instruction {
+    let (share_rewards_pda, _) = pool_share_rewards_pda(pool, mint);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(share_rewards_pda, false),
+        ],
+        data: IncrementShareRewards {
+            rewards: rewards.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
+///  Builds an increment total rewards instruction.
+pub fn increment_total_rewards(
+    signer: Pubkey,
+    pool: Pubkey,
+    miner_rewards: u64,
+    staker_rewards: u64,
+    operator_rewards: u64,
+) -> Instruction {
+    let (total_rewards_pda, _) = pool_total_rewards(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(pool, false),
+            AccountMeta::new(total_rewards_pda, false),
+        ],
+        data: IncrementTotalRewards {
+            miner_rewards: miner_rewards.to_le_bytes(),
+            staker_rewards: staker_rewards.to_le_bytes(),
+            operator_rewards: operator_rewards.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
 /// Builds an open share rewards instruction.
 pub fn open_share_rewards(signer: Pubkey, pool: Pubkey, mint: Pubkey) -> Instruction {
     let (share_rewards_pda, bump) = pool_share_rewards_pda(pool, mint);

@@ -93,10 +93,19 @@ async fn main() -> Result<(), error::Error> {
         let operator = operator.clone();
         async move {
             loop {
-                // submit attributions
-                let operator = operator.clone().into_inner();
-                if let Err(err) = operator.attribute_members().await {
-                    panic!("{:?}", err)
+                {
+                    let operator = operator.clone();
+                    // submit attributions
+                    if let Err(err) = operator.into_inner().attribute_members().await {
+                        panic!("{:?}", err)
+                    }
+                }
+                {
+                    let operator = operator.clone();
+                    // submit reward increments
+                    if let Err(err) = operator.into_inner().increment_rewards().await {
+                        panic!("{:?}", err)
+                    }
                 }
                 // sleep until next epoch
                 tokio::time::sleep(tokio::time::Duration::from_secs(60 * attribution_epoch)).await;
