@@ -7,7 +7,6 @@ mod tx;
 mod utils;
 mod webhook;
 
-use core::panic;
 use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
@@ -81,7 +80,7 @@ async fn main() -> Result<(), error::Error> {
                         }
                     }
                     None => {
-                        panic!("rewards channel closed")
+                        log::error!("rewards channel closed")
                     }
                 };
             }
@@ -94,17 +93,17 @@ async fn main() -> Result<(), error::Error> {
         async move {
             loop {
                 {
-                    let operator = operator.clone();
                     // submit attributions
+                    let operator = operator.clone();
                     if let Err(err) = operator.into_inner().attribute_members().await {
-                        panic!("{:?}", err)
+                        log::error!("{:?}", err)
                     }
                 }
                 {
-                    let operator = operator.clone();
                     // submit reward increments
+                    let operator = operator.clone();
                     if let Err(err) = operator.into_inner().increment_rewards().await {
-                        panic!("{:?}", err)
+                        log::error!("{:?}", err)
                     }
                 }
                 // sleep until next epoch
