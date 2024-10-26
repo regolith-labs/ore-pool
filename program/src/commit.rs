@@ -13,18 +13,18 @@ pub fn process_commit(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResu
     signer_info.is_signer()?;
     boost_info
         .is_writable()?
-        .to_account::<Boost>(&ore_boost_api::ID)?
-        .check(|b| b.mint == *mint_info.key)?;
+        .as_account::<Boost>(&ore_boost_api::ID)?
+        .assert(|b| b.mint == *mint_info.key)?;
     boost_tokens_info
         .is_writable()?
-        .to_associated_token_account(boost_info.key, mint_info.key)?;
-    mint_info.to_mint()?;
+        .as_associated_token_account(boost_info.key, mint_info.key)?;
+    mint_info.as_mint()?;
     let pool = pool_info
-        .to_account_mut::<Pool>(&ore_pool_api::ID)?
-        .check_mut(|p| p.authority == *signer_info.key)?;
+        .as_account_mut::<Pool>(&ore_pool_api::ID)?
+        .assert_mut(|p| p.authority == *signer_info.key)?;
     let pool_tokens = pool_tokens_info
         .is_writable()?
-        .to_associated_token_account(pool_info.key, mint_info.key)?;
+        .as_associated_token_account(pool_info.key, mint_info.key)?;
     spl_token_program.is_program(&spl_token::ID)?;
     ore_boost_program.is_program(&ore_boost_api::ID)?;
 

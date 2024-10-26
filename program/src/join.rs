@@ -2,10 +2,7 @@ use ore_pool_api::prelude::*;
 use steel::*;
 
 /// Join creates a new account for a pool participant.
-pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
-    // Parse args.
-    let args = Join::try_from_bytes(data)?;
-
+pub fn process_join(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResult {
     // Load accounts.
     let [signer_info, member_authority_info, member_info, pool_info, system_program] = accounts
     else {
@@ -18,28 +15,26 @@ pub fn process_join(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult 
             member_authority_info.key.as_ref(),
             pool_info.key.as_ref(),
         ],
-        args.member_bump,
         &ore_pool_api::ID,
     )?;
-    let pool = pool_info.to_account_mut::<Pool>(&ore_pool_api::ID)?;
+    let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
     system_program.is_program(&system_program::ID)?;
 
     // Initialize member account
     create_account::<Member>(
         member_info,
+        system_program,
+        signer_info,
         &ore_pool_api::ID,
         &[
             MEMBER,
             member_authority_info.key.as_ref(),
             pool_info.key.as_ref(),
-            &[args.member_bump],
         ],
-        system_program,
-        signer_info,
     )?;
 
     // Init member
-    let member = member_info.to_account_mut::<Member>(&ore_pool_api::ID)?;
+    let member = member_info.as_account_mut::<Member>(&ore_pool_api::ID)?;
     member.authority = *member_authority_info.key;
     member.balance = 0;
     member.total_balance = 0;

@@ -17,12 +17,12 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     };
     signer_info.is_signer()?;
     let pool = pool_info
-        .to_account_mut::<Pool>(&ore_pool_api::ID)?
-        .check_mut(|p| p.authority == *signer_info.key)?;
+        .as_account_mut::<Pool>(&ore_pool_api::ID)?
+        .assert_mut(|p| p.authority == *signer_info.key)?;
     let proof = proof_info
         .is_writable()?
-        .to_account::<Proof>(&ore_api::ID)?
-        .check(|p| p.authority == *pool_info.key)?;
+        .as_account::<Proof>(&ore_api::ID)?
+        .assert(|p| p.authority == *pool_info.key)?;
     ore_program.is_program(&ore_api::ID)?;
     system_program.is_program(&system_program::ID)?;
     instructions_sysvar.is_sysvar(&sysvar::instructions::ID)?;
