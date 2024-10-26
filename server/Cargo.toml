@@ -19,6 +19,7 @@ log = { workspace = true }
 ore-api = { workspace = true }
 ore-boost-api = { workspace = true }
 ore-pool-api = { workspace = true }
+ore-pool-types = { workspace = true }
 postgres-types = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -31,5 +32,4 @@ steel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
-ore-pool-types = { path = "../types" }
 rand = "0.8.5"

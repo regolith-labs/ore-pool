@@ -17,13 +17,13 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     signer_info.is_signer()?;
     beneficiary_info
         .is_writable()?
-        .to_token_account()?
-        .check(|t| t.mint == MINT_ADDRESS)?;
+        .as_token_account()?
+        .assert(|t| t.mint == MINT_ADDRESS)?;
     let member = member_info
-        .to_account_mut::<Member>(&ore_pool_api::ID)?
-        .check_mut(|m| m.authority == *signer_info.key)?
-        .check_mut(|m| m.pool == *pool_info.key)?;
-    let pool = pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
+        .as_account_mut::<Member>(&ore_pool_api::ID)?
+        .assert_mut(|m| m.authority == *signer_info.key)?
+        .assert_mut(|m| m.pool == *pool_info.key)?;
+    let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
     ore_program.is_program(&ore_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
 

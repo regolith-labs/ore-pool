@@ -17,11 +17,11 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     };
     signer_info.is_signer()?;
     pool_info
-        .to_account::<Pool>(&ore_pool_api::ID)?
-        .check(|p| p.authority == *signer_info.key)?;
+        .as_account::<Pool>(&ore_pool_api::ID)?
+        .assert(|p| p.authority == *signer_info.key)?;
     let member = member_info
-        .to_account_mut::<Member>(&ore_pool_api::ID)?
-        .check_mut(|m| m.pool == *pool_info.key)?;
+        .as_account_mut::<Member>(&ore_pool_api::ID)?
+        .assert_mut(|m| m.pool == *pool_info.key)?;
 
     // Update balance idempotently
     let balance_change = total_balance.saturating_sub(member.total_balance);

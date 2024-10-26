@@ -14,16 +14,14 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
-    pool_info.is_empty()?.is_writable()?.has_seeds(
-        &[POOL, signer_info.key.as_ref()],
-        args.pool_bump,
-        &ore_pool_api::ID,
-    )?;
-    proof_info.is_empty()?.is_writable()?.has_seeds(
-        &[PROOF, pool_info.key.as_ref()],
-        args.proof_bump,
-        &ore_api::ID,
-    )?;
+    pool_info
+        .is_empty()?
+        .is_writable()?
+        .has_seeds(&[POOL, signer_info.key.as_ref()], &ore_pool_api::ID)?;
+    proof_info
+        .is_empty()?
+        .is_writable()?
+        .has_seeds(&[PROOF, pool_info.key.as_ref()], &ore_api::ID)?;
     ore_program.is_program(&ore_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
     associated_token_program.is_program(&spl_associated_token_account::ID)?;
@@ -45,17 +43,17 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     )?;
 
     // Parse proof.
-    let proof = proof_info.to_account::<Proof>(&ore_api::ID)?;
+    let proof = proof_info.as_account::<Proof>(&ore_api::ID)?;
 
     // Initialize pool account.
     create_account::<Pool>(
         pool_info,
-        &ore_pool_api::id(),
-        &[POOL, signer_info.key.as_ref(), &[args.pool_bump]],
         system_program,
         signer_info,
+        &ore_pool_api::id(),
+        &[POOL, signer_info.key.as_ref()],
     )?;
-    let pool = pool_info.to_account_mut::<Pool>(&ore_pool_api::ID)?;
+    let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
     pool.authority = *signer_info.key;
     pool.bump = args.pool_bump as u64;
     pool.url = args.url;
