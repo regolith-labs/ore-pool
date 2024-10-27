@@ -18,34 +18,34 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     signer_info.is_signer()?;
     boost_info
         .is_writable()?
-        .to_account::<Boost>(&ore_boost_api::ID)?
-        .check(|b| b.mint == *mint_info.key)?;
+        .as_account::<Boost>(&ore_boost_api::ID)?
+        .assert(|b| b.mint == *mint_info.key)?;
     boost_tokens_info
         .is_writable()?
-        .to_associated_token_account(boost_info.key, mint_info.key)?;
-    mint_info.to_mint()?;
+        .as_associated_token_account(boost_info.key, mint_info.key)?;
+    mint_info.as_mint()?;
     member_info
-        .to_account::<Member>(&ore_pool_api::ID)?
-        .check(|m| m.authority == *signer_info.key)?
-        .check(|m| m.pool == *pool_info.key)?;
-    let pool = pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
+        .as_account::<Member>(&ore_pool_api::ID)?
+        .assert(|m| m.authority == *signer_info.key)?
+        .assert(|m| m.pool == *pool_info.key)?;
+    let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
     let pool_tokens = pool_tokens_info
         .is_writable()?
-        .to_associated_token_account(pool_info.key, mint_info.key)?;
+        .as_associated_token_account(pool_info.key, mint_info.key)?;
     recipient_tokens_info
         .is_writable()?
-        .to_token_account()?
-        .check(|t| t.mint == *mint_info.key)?;
+        .as_token_account()?
+        .assert(|t| t.mint == *mint_info.key)?;
     stake_info
         .is_writable()?
-        .to_account::<ore_boost_api::state::Stake>(&ore_boost_api::ID)?
-        .check(|s| s.authority == *pool_info.key)?
-        .check(|s| s.boost == *boost_info.key)?;
+        .as_account::<ore_boost_api::state::Stake>(&ore_boost_api::ID)?
+        .assert(|s| s.authority == *pool_info.key)?
+        .assert(|s| s.boost == *boost_info.key)?;
     let share = share_info
-        .to_account_mut::<Share>(&ore_pool_api::ID)?
-        .check_mut(|s| s.authority == *signer_info.key)?
-        .check_mut(|s| s.pool == *pool_info.key)?
-        .check_mut(|s| s.mint == *mint_info.key)?;
+        .as_account_mut::<Share>(&ore_pool_api::ID)?
+        .assert_mut(|s| s.authority == *signer_info.key)?
+        .assert_mut(|s| s.pool == *pool_info.key)?
+        .assert_mut(|s| s.mint == *mint_info.key)?;
     token_program.is_program(&spl_token::ID)?;
     ore_boost_program.is_program(&ore_boost_api::ID)?;
 
@@ -80,7 +80,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         recipient_tokens_info,
         token_program,
         amount,
-        &[&[POOL, pool.authority.as_ref(), &[pool.bump as u8]]],
+        &[POOL, pool.authority.as_ref()],
     )?;
 
     // Log the balance for parsing.

@@ -17,12 +17,12 @@ pub fn process_increment_total_rewards(accounts: &[AccountInfo<'_>], data: &[u8]
     };
     signer_info.is_signer()?;
     pool_info
-        .to_account::<Pool>(&ore_pool_api::ID)?
-        .check(|p| p.authority == *signer_info.key)?;
+        .as_account::<Pool>(&ore_pool_api::ID)?
+        .assert(|p| p.authority == *signer_info.key)?;
     let total_rewards = total_rewards_info
         .is_writable()?
-        .to_account_mut::<TotalRewards>(&ore_pool_api::ID)?
-        .check_mut(|tr| tr.pool == *pool_info.key)?;
+        .as_account_mut::<TotalRewards>(&ore_pool_api::ID)?
+        .assert_mut(|tr| tr.pool == *pool_info.key)?;
 
     // Update rewards.
     total_rewards.miner_rewards = miner_rewards;

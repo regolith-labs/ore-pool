@@ -14,24 +14,24 @@ pub fn process_stake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
-    mint_info.to_mint()?;
+    mint_info.as_mint()?;
     member_info
-        .to_account::<Member>(&ore_pool_api::ID)?
-        .check(|m| m.authority == *signer_info.key)?
-        .check(|m| m.pool == *pool_info.key)?;
-    pool_info.to_account::<Pool>(&ore_pool_api::ID)?;
+        .as_account::<Member>(&ore_pool_api::ID)?
+        .assert(|m| m.authority == *signer_info.key)?
+        .assert(|m| m.pool == *pool_info.key)?;
+    pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
     pool_tokens_info
         .is_writable()?
-        .to_associated_token_account(pool_info.key, mint_info.key)?;
+        .as_associated_token_account(pool_info.key, mint_info.key)?;
     sender_tokens_info
         .is_writable()?
-        .to_token_account()?
-        .check(|t| t.owner == *signer_info.key)?
-        .check(|t| t.mint == *mint_info.key)?;
+        .as_token_account()?
+        .assert(|t| t.owner == *signer_info.key)?
+        .assert(|t| t.mint == *mint_info.key)?;
     let share = share_info
-        .to_account_mut::<Share>(&ore_pool_api::ID)?
-        .check_mut(|s| s.authority == *signer_info.key)?
-        .check_mut(|s| s.mint == *mint_info.key)?;
+        .as_account_mut::<Share>(&ore_pool_api::ID)?
+        .assert_mut(|s| s.authority == *signer_info.key)?
+        .assert_mut(|s| s.mint == *mint_info.key)?;
     token_program.is_program(&spl_token::ID)?;
 
     // Update the share balance.

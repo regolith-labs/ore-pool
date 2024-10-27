@@ -85,15 +85,11 @@ pub struct Unstake {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct OpenTotalRewards {
-    pub bump: u8,
-}
+pub struct OpenTotalRewards {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct OpenShareRewards {
-    pub bump: u8,
-}
+pub struct OpenShareRewards {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]

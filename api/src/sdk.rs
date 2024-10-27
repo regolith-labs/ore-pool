@@ -285,7 +285,7 @@ pub fn increment_total_rewards(
 
 /// Builds an open share rewards instruction.
 pub fn open_share_rewards(signer: Pubkey, pool: Pubkey, mint: Pubkey) -> Instruction {
-    let (share_rewards_pda, bump) = pool_share_rewards_pda(pool, mint);
+    let (share_rewards_pda, _) = pool_share_rewards_pda(pool, mint);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -295,13 +295,13 @@ pub fn open_share_rewards(signer: Pubkey, pool: Pubkey, mint: Pubkey) -> Instruc
             AccountMeta::new(share_rewards_pda, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
-        data: OpenShareRewards { bump }.to_bytes(),
+        data: OpenShareRewards {}.to_bytes(),
     }
 }
 
 /// Builds an open total rewards instruction.
 pub fn open_total_rewards(signer: Pubkey, pool: Pubkey) -> Instruction {
-    let (total_rewards_pda, bump) = pool_total_rewards(pool);
+    let (total_rewards_pda, _) = pool_total_rewards(pool);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -310,7 +310,7 @@ pub fn open_total_rewards(signer: Pubkey, pool: Pubkey) -> Instruction {
             AccountMeta::new(total_rewards_pda, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
-        data: OpenTotalRewards { bump }.to_bytes(),
+        data: OpenTotalRewards {}.to_bytes(),
     }
 }
 
