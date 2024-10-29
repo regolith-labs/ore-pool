@@ -11,6 +11,7 @@ keywords.workspace = true
 
 [dependencies]
 ore-api.workspace = true
+ore-boost-api.workspace = true
 ore-pool-api.workspace = true
 solana-sdk.workspace = true
 solana-client.workspace = true

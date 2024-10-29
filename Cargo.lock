@@ -230,6 +230,7 @@ name = "admin"
 version = "0.2.0"
 dependencies = [
  "ore-api",
+ "ore-boost-api",
  "ore-pool-api",
  "solana-client",
  "solana-program",
