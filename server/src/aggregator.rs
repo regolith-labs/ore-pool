@@ -24,8 +24,12 @@ use crate::{
 /// The client submits slightly earlier
 /// than the operator's cutoff time to create a "submission window".
 pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
+/// The max difficulty the client will be credited for.
 const MAX_DIFFICULTY: u32 = 22;
 const MAX_SCORE: u64 = 2u64.pow(MAX_DIFFICULTY);
+/// The minimum ORE stake the client needs to receive 100% of their mining rewards.
+const MIN_STAKE: u64 = 1_000_000_000; // 1 ORE (9 decimals).
+const MIN_STAKE_PENALTY: u128 = 90; // 90% slash on mining rewards.
 
 /// Aggregates contributions from the pool members.
 pub struct Aggregator {
@@ -214,9 +218,23 @@ impl Aggregator {
     fn insert(&mut self, contribution: &mut Contribution) -> Result<(), Error> {
         let challenge = &self.challenge.clone();
         let solution = &contribution.solution;
-        // normalize contribution score
+        // normalize contribution against max score
         let normalized_score = contribution.score.min(MAX_SCORE);
         contribution.score = normalized_score;
+        // normalize contribution against min stake
+        let stakers = self.stake.get(&ore_api::consts::MINT_ADDRESS);
+        if let Some(stakers) = stakers {
+            let penalize = match stakers.get(&contribution.member) {
+                Some(stake_balance) => stake_balance.lt(&MIN_STAKE),
+                None => true,
+            };
+            if penalize {
+                let normalized_score = (contribution.score as u128)
+                    .saturating_mul(100 - MIN_STAKE_PENALTY)
+                    .saturating_div(100);
+                contribution.score = normalized_score as u64;
+            }
+        }
         // get current contributions
         let contributions = self.get_current_contributions()?;
         // validate solution against current challenge
