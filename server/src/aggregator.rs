@@ -28,7 +28,7 @@ pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
 const MAX_DIFFICULTY: u32 = 22;
 const MAX_SCORE: u64 = 2u64.pow(MAX_DIFFICULTY);
 /// The minimum ORE stake the client needs to receive 100% of their mining rewards.
-const MIN_STAKE: u64 = 1_000_000_000; // 1 ORE (9 decimals).
+const MIN_STAKE: u64 = 100_000_000_000; // 1 ORE (11 decimals).
 const MIN_STAKE_PENALTY: u128 = 90; // 90% slash on mining rewards.
 
 /// Aggregates contributions from the pool members.
