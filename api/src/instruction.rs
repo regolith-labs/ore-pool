@@ -23,6 +23,7 @@ pub enum PoolInstruction {
 
     // Migration
     MigratePool = 200,
+    MigrateMemberBalance = 201,
 }
 
 #[repr(C)]
@@ -92,9 +93,11 @@ pub struct Unstake {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct MigratePool {
-    pub claimable_rewards: [u8; 8],
-}
+pub struct MigratePool {}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct MigrateMemberBalance {}
 
 instruction!(PoolInstruction, Attribute);
 instruction!(PoolInstruction, Claim);
@@ -107,3 +110,4 @@ instruction!(PoolInstruction, Stake);
 instruction!(PoolInstruction, Submit);
 instruction!(PoolInstruction, Unstake);
 instruction!(PoolInstruction, MigratePool);
+instruction!(PoolInstruction, MigrateMemberBalance);

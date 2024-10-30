@@ -1,20 +1,22 @@
-mod attribute;
-mod claim;
-mod commit;
-mod join;
-mod launch;
+// mod attribute;
+// mod claim;
+// mod commit;
+// mod join;
+// mod launch;
+// mod migrate_member_balance;
 mod migrate_pool;
-mod open_share;
-mod open_stake;
-mod stake;
-mod submit;
-mod unstake;
+// mod open_share;
+// mod open_stake;
+// mod stake;
+// mod submit;
+// mod unstake;
 
 // use attribute::*;
 // use claim::*;
 // use commit::*;
 // use join::*;
 // use launch::*;
+// use migrate_member_balance::*;
 use migrate_pool::*;
 // use open_share::*;
 // use open_stake::*;
@@ -49,7 +51,8 @@ pub fn process_instruction(
 
         // Migration
         PoolInstruction::MigratePool => process_migrate_pool(accounts, data)?,
-        PoolInstruction::MigratePool => process_migrate_pool(accounts, data)?,
+        PoolInstruction::MigrateMemberBalance => panic!("Not live yet"),
+        // PoolInstruction::MigrateMemberBalance => process_migrate_member_balance(accounts, data)?,
         _ => panic!("Temporarily disabled for migration."),
     }
     Ok(())
