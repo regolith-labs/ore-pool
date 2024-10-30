@@ -3,8 +3,8 @@
 // mod commit;
 // mod join;
 // mod launch;
-// mod migrate_member_balance;
-mod migrate_pool;
+mod migrate_member_balance;
+// mod migrate_pool;
 // mod open_share;
 // mod open_stake;
 // mod stake;
@@ -16,8 +16,8 @@ mod migrate_pool;
 // use commit::*;
 // use join::*;
 // use launch::*;
-// use migrate_member_balance::*;
-use migrate_pool::*;
+use migrate_member_balance::*;
+// use migrate_pool::*;
 // use open_share::*;
 // use open_stake::*;
 // use stake::*;
@@ -50,9 +50,8 @@ pub fn process_instruction(
         // PoolInstruction::Submit => process_submit(accounts, data)?,
 
         // Migration
-        PoolInstruction::MigratePool => process_migrate_pool(accounts, data)?,
-        PoolInstruction::MigrateMemberBalance => panic!("Not live yet"),
-        // PoolInstruction::MigrateMemberBalance => process_migrate_member_balance(accounts, data)?,
+        PoolInstruction::MigratePool => panic!("Not active"),
+        PoolInstruction::MigrateMemberBalance => process_migrate_member_balance(accounts, data)?,
         _ => panic!("Temporarily disabled for migration."),
     }
     Ok(())

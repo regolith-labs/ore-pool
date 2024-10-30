@@ -111,3 +111,4 @@ instruction!(PoolInstruction, Submit);
 instruction!(PoolInstruction, Unstake);
 instruction!(PoolInstruction, MigratePool);
 instruction!(PoolInstruction, MigrateMemberBalance);
+
