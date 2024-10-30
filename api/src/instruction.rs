@@ -16,10 +16,6 @@ pub enum PoolInstruction {
     Launch = 102,
     OpenStake = 103,
     Submit = 104,
-
-    // Migration
-    MigratePool = 200,
-    MigrateMemberBalance = 201,
 }
 
 #[repr(C)]
@@ -83,14 +79,6 @@ pub struct Unstake {
     pub amount: [u8; 8],
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct MigratePool {}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct MigrateMemberBalance {}
-
 instruction!(PoolInstruction, Attribute);
 instruction!(PoolInstruction, Claim);
 instruction!(PoolInstruction, Commit);
@@ -101,5 +89,3 @@ instruction!(PoolInstruction, Join);
 instruction!(PoolInstruction, Stake);
 instruction!(PoolInstruction, Submit);
 instruction!(PoolInstruction, Unstake);
-instruction!(PoolInstruction, MigratePool);
-instruction!(PoolInstruction, MigrateMemberBalance);
