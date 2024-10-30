@@ -23,16 +23,15 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.authority == *signer_info.key)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
-    let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
-    proof_info.as_account::<Proof>(&ore_api::ID)?
-        .assert(|p| p.authority == *pool_info.key)?;
-    treasury_info.has_address(&ore_api::consts::TREASURY_ADDRESS)?;
-    treasury_tokens_info.has_address(&ore_api::consts::TREASURY_TOKENS_ADDRESS)?;
+    let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
     ore_program.is_program(&ore_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
 
     // Update member balance
     member.balance = member.balance.checked_sub(amount).unwrap();
+
+    // Update pool balance
+    pool.total_rewards = pool.total_rewards.checked_sub(amount).unwrap();
 
     // Claim tokens to the beneficiary
     let pool_authority = pool.authority;

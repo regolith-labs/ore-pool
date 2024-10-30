@@ -1,3 +1,4 @@
+use ore_api::state::Proof;
 use ore_pool_api::prelude::*;
 use steel::*;
 
@@ -12,13 +13,17 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let total_balance = u64::from_le_bytes(args.total_balance);
 
     // Load accounts.
-    let [signer_info, pool_info, member_info] = accounts else {
+    let [signer_info, pool_info, proof_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
-    pool_info
-        .as_account::<Pool>(&ore_pool_api::ID)?
-        .assert(|p| p.authority == *signer_info.key)?;
+    let pool = pool_info
+        .as_account_mut::<Pool>(&ore_pool_api::ID)?
+        .assert_mut(|p| p.authority == *signer_info.key)?;
+    let proof = proof_info
+        .is_writable()?
+        .as_account::<Proof>(&ore_api::ID)?
+        .assert(|p| p.authority == *pool_info.key)?;
     let member = member_info
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
@@ -27,6 +32,14 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let balance_change = total_balance.saturating_sub(member.total_balance);
     member.balance = member.balance.checked_add(balance_change).unwrap();
     member.total_balance = total_balance;
+
+    // Update claimable balance
+    pool.total_rewards = pool.total_rewards.checked_add(balance_change).unwrap();
+
+    // Validate there are claimable rewards in the proof account for this attribution.
+    if pool.total_rewards > proof.balance {
+        return Err(PoolError::AttributionTooLarge.into());
+    }
 
     Ok(())
 }

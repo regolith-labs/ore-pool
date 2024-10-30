@@ -89,12 +89,14 @@ pub fn claim(
 /// Builds an attribute instruction.
 pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
+    let (proof_pda, _) = pool_proof_pda(pool_pda);
     let (member_pda, _) = member_pda(member_authority, pool_pda);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
-            AccountMeta::new_readonly(pool_pda, false),
+            AccountMeta::new(pool_pda, false),
+            AccountMeta::new_readonly(proof_pda, false),
             AccountMeta::new(member_pda, false),
         ],
         data: Attribute {
