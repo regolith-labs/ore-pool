@@ -20,6 +20,9 @@ pub enum PoolInstruction {
     #[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
     OpenStake = 103,
     Submit = 104,
+
+    // Migration
+    MigratePool = 200,
 }
 
 #[repr(C)]
@@ -87,6 +90,12 @@ pub struct Unstake {
     pub amount: [u8; 8],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct MigratePool {
+    pub claimable_rewards: [u8; 8],
+}
+
 instruction!(PoolInstruction, Attribute);
 instruction!(PoolInstruction, Claim);
 instruction!(PoolInstruction, Commit);
@@ -97,3 +106,4 @@ instruction!(PoolInstruction, Join);
 instruction!(PoolInstruction, Stake);
 instruction!(PoolInstruction, Submit);
 instruction!(PoolInstruction, Unstake);
+instruction!(PoolInstruction, MigratePool);
