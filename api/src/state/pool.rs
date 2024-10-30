@@ -32,6 +32,9 @@ pub struct Pool {
 
     // The total number of members in this pool at the last submission.
     pub last_total_members: u64,
+    // TODO enable in phase 2
+    // The total claimable rewards in the pool.
+    // pub claimable_rewards: u64,
 }
 
 account!(AccountDiscriminator, Pool);
