@@ -29,5 +29,17 @@ pub fn process_migrate_pool(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Progr
     migration.pool = *pool_info.key;
     migration.members_migrated = 0;
 
+    // Create migration account
+    create_account::<Migration>(
+        migration_info,
+        system_program,
+        signer_info,
+        &ore_pool_api::ID,
+        &[MIGRATION, pool_info.key.as_ref()],
+    )?;
+    let migration = migration_info.as_account_mut::<Migration>(&ore_pool_api::ID)?;
+    migration.pool = *pool_info.key;
+    migration.members_migrated = 0;
+
     Ok(())
 }
