@@ -71,7 +71,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     // to compute the diff which gives us the reward for attribution.
     let new_balance = proof.balance;
     let reward = new_balance.saturating_sub(previous_balance);
-    pool.reward = reward;
+    pool.total_rewards = reward;
     pool.last_hash_at = proof.last_hash_at;
 
     Ok(())
