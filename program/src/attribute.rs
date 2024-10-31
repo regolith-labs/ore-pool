@@ -29,7 +29,7 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
         .assert_mut(|m| m.pool == *pool_info.key)?;
 
     // Update balance idempotently
-    let balance_change = total_balance.saturating_sub(member.total_balance);
+    let balance_change = total_balance.checked_sub(member.total_balance).unwrap();
     member.balance = member.balance.checked_add(balance_change).unwrap();
     member.total_balance = total_balance;
 
