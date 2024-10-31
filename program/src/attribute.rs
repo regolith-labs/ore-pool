@@ -43,3 +43,53 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_attribute_saturated() {
+        let member_balance = 0;
+        let member_total_balance = 0;
+        // attribute as 10
+        let (member_balance, member_total_balance) =
+            attribute_saturated(member_balance, member_total_balance, 10);
+        // attribute as 0
+        let (_member_balance, _member_total_balance) =
+            attribute_saturated(member_balance, member_total_balance, 9);
+    }
+
+    #[test]
+    fn test_attribute_checked() {
+        let member_balance = 0;
+        let member_total_balance = 0;
+        // attribute as 10
+        let (member_balance, member_total_balance) =
+            attribute_checked(member_balance, member_total_balance, 10);
+        // attribute as 0, this throws
+        let (_member_balance, _member_total_balance) =
+            attribute_checked(member_balance, member_total_balance, 9);
+    }
+
+    fn attribute_saturated(
+        member_balance: u64,
+        member_total_balance: u64,
+        arg_total_balance: u64,
+    ) -> (u64, u64) {
+        let balance_change = arg_total_balance.saturating_sub(member_total_balance);
+        println!("balance change: {}", balance_change);
+        let member_balance = member_balance.checked_add(balance_change).unwrap();
+        (member_balance, arg_total_balance)
+    }
+
+    fn attribute_checked(
+        member_balance: u64,
+        member_total_balance: u64,
+        arg_total_balance: u64,
+    ) -> (u64, u64) {
+        let balance_change = arg_total_balance.checked_sub(member_total_balance).unwrap();
+        println!("balance change: {}", balance_change);
+        let member_balance = member_balance.checked_add(balance_change).unwrap();
+        (member_balance, arg_total_balance)
+    }
+}
