@@ -3,7 +3,7 @@ use steel::*;
 
 pub fn process_migrate_member_balance(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResult {
     // Load accounts.
-    let [signer_info, pool_info, member_info, migration_info] = accounts else {
+    let [signer_info, pool_info, member_info, migration_info, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?.has_address(&ADMIN_ADDRESS)?;
@@ -15,6 +15,7 @@ pub fn process_migrate_member_balance(accounts: &[AccountInfo<'_>], _data: &[u8]
         .as_account_mut::<Migration>(&ore_pool_api::ID)?
         .assert_mut(|m| m.pool == *pool_info.key)?
         .assert_mut(|m| m.members_migrated == member.id)?;
+    system_program.is_program(&system_program::ID)?;
 
     // Increment pool claimable balance
     pool.claimable_rewards += member.balance;
