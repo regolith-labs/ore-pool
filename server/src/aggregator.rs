@@ -145,7 +145,7 @@ pub async fn process_contributions(
         // at this point, the cutoff time has been reached
         let total_score = {
             let mut write = aggregator.write().await;
-            let contributions = write.get_current_contributions();
+            let contributions = write.get_current_contributions(0);
             match contributions {
                 Ok(contributions) => contributions.total_score,
                 Err(err) => {
@@ -218,7 +218,7 @@ impl Aggregator {
         let normalized_score = contribution.score.min(MAX_SCORE);
         contribution.score = normalized_score;
         // get current contributions
-        let contributions = self.get_current_contributions()?;
+        let contributions = self.get_current_contributions(1)?;
         // validate solution against current challenge
         if !drillx::is_valid_digest(&challenge.challenge, &solution.n, &solution.d) {
             log::error!("invalid solution");
@@ -518,7 +518,7 @@ impl Aggregator {
 
     fn attestation(&mut self) -> Result<[u8; 32], Error> {
         let mut hasher = Sha3_256::new();
-        let contributions = self.get_current_contributions()?;
+        let contributions = self.get_current_contributions(2)?;
         let num_contributions = contributions.contributions.len();
         log::info!("num contributions: {}", num_contributions);
         for contribution in contributions.contributions.iter() {
@@ -544,7 +544,8 @@ impl Aggregator {
         Ok(attestation)
     }
 
-    fn get_current_contributions(&mut self) -> Result<&mut MinerContributions, Error> {
+    fn get_current_contributions(&mut self, index: u8) -> Result<&mut MinerContributions, Error> {
+        log::info!("index: {}", index);
         let last_hash_at = self.challenge.lash_hash_at as u64;
         let contributions = &mut self.contributions;
         let contributions = contributions.get_mut(&last_hash_at).ok_or(Error::Internal(
@@ -580,7 +581,7 @@ impl Aggregator {
     }
 
     fn winner(&mut self) -> Result<Winner, Error> {
-        let contributions = self.get_current_contributions()?;
+        let contributions = self.get_current_contributions(3)?;
         let winner = contributions.winner;
         winner.ok_or(Error::Internal("no solutions were submitted".to_string()))
     }
