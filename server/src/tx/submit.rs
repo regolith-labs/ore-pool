@@ -17,9 +17,29 @@ pub async fn submit_and_confirm_instructions(
     cu_limit: u32,
     cu_price: u64,
 ) -> Result<Signature, Error> {
-    let sig = submit_instructions(signer, rpc_client, ixs, cu_limit, cu_price).await?;
-    confirm_transaction(rpc_client, &sig).await?;
-    Ok(sig)
+    let max_retries = 5;
+    let mut retries = 0;
+    while retries < max_retries {
+        let sig = submit_instructions(signer, rpc_client, ixs, cu_limit, cu_price).await;
+        match sig {
+            Ok(sig) => match confirm_transaction(rpc_client, &sig).await {
+                Ok(()) => return Ok(sig),
+                Err(err) => {
+                    log::info!("{:?}", err);
+                    retries += 1;
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                }
+            },
+            Err(err) => {
+                log::info!("{:?}", err);
+                retries += 1;
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            }
+        }
+    }
+    Err(Error::Internal(
+        "failed to land transaction with confirmation".to_string(),
+    ))
 }
 
 pub async fn submit_instructions(
