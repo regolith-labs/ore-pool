@@ -51,6 +51,7 @@ pub fn process_open_share(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Program
     share.balance = 0;
     share.pool = *pool_info.key;
     share.mint = *mint_info.key;
+    share.last_withdrawal = Clock::get()?.unix_timestamp as u64;
 
     Ok(())
 }

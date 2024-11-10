@@ -112,12 +112,13 @@ impl Handle {
     pub async fn share_account(
         handle: web::Data<Handle>,
         aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+        operator: web::Data<tokio::sync::RwLock<Operator>>,
         req: HttpRequest,
         bytes: web::Bytes,
     ) -> impl Responder {
         let handle = handle.into_inner();
         match handle
-            .handle_share_account_event(aggregator.as_ref(), &req, &bytes)
+            .handle_share_account_event(aggregator.as_ref(), operator.as_ref(), &req, &bytes)
             .await
         {
             Ok(_event) => HttpResponse::Ok().finish(),
@@ -149,11 +150,12 @@ impl Handle {
     async fn handle_share_account_event(
         &self,
         aggregator: &tokio::sync::RwLock<Aggregator>,
+        operator: &tokio::sync::RwLock<Operator>,
         req: &HttpRequest,
         bytes: &web::Bytes,
     ) -> Result<(), Error> {
-        let mut event = self.decode_share_account_event(req, bytes).await?;
-        self.process_share_account_event(aggregator, &mut event)
+        let mut event: UnstakeEvent = self.decode_share_account_event(req, bytes).await?;
+        self.process_share_account_event(aggregator, operator, &mut event)
             .await?;
         Ok(())
     }
@@ -165,6 +167,7 @@ impl Handle {
     async fn process_share_account_event(
         &self,
         aggregator: &tokio::sync::RwLock<Aggregator>,
+        operator: &tokio::sync::RwLock<Operator>,
         event: &mut UnstakeEvent,
     ) -> Result<(), Error> {
         let mut write = aggregator.write().await;
@@ -176,9 +179,15 @@ impl Handle {
         if let std::collections::hash_map::Entry::Occupied(ref mut occupied) =
             stakers.entry(event.authority)
         {
-            let balance = occupied.get_mut();
+            let (balance, latest_withdrawal) = occupied.get_mut();
+            // get on chain share account
+            let operator = operator.read().await;
+            let (share, _) = operator
+                .get_staker_onchain(&event.authority, &event.mint)
+                .await?;
             if balance > &mut event.balance {
                 *balance = event.balance;
+                *latest_withdrawal = share.last_withdrawal;
             }
         }
         Ok(())
@@ -352,7 +361,7 @@ impl Client {
         )))?;
         if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
             // insert as zero regardless of balance. increments are handled on submit loops.
-            vacant.insert(0);
+            vacant.insert((0, 0));
         }
         Ok(())
     }

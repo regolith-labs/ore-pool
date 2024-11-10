@@ -53,7 +53,7 @@ pub type Miners = HashMap<LastHashAt, MinerContributions>;
 
 /// Stakers
 pub type BoostMint = Pubkey;
-pub type StakerBalances = HashMap<Pubkey, u64>;
+pub type StakerBalances = HashMap<Pubkey, (u64, u64)>;
 pub type Stakers = HashMap<BoostMint, StakerBalances>;
 
 // Best hash to be submitted for the current challenge.
@@ -460,14 +460,21 @@ impl Aggregator {
                 )))?;
                 let denominator_iter = stakers.iter();
                 let distribution_iter = stakers.iter();
-                let denominator: u64 = denominator_iter.map(|(_, balance)| balance).sum();
+                let denominator: u64 = denominator_iter
+                    .map(|(_, (balance, _latest_withdrawal))| balance)
+                    .sum();
                 let denominator = denominator as u128;
+                // TODO: scale denominator by latest withdrawal "boost"
                 log::info!("staked reward denominator: {}", denominator);
                 let res = distribution_iter
-                    .map(|(stake_authority, balance)| {
-                        log::info!("staked balance: {:?}", (stake_authority, balance));
+                    .map(|(stake_authority, (balance, latest_withdrawal))| {
+                        log::info!(
+                            "staked balance: {:?}",
+                            (stake_authority, balance, latest_withdrawal)
+                        );
                         let balance = *balance as u128;
                         let score = balance.saturating_mul(staker_rewards);
+                        // TODO: scale score by latest withdrawal "boost"
                         log::info!("scaled score from stake: {}", score);
                         let score = score.checked_div(denominator).unwrap_or(0);
                         log::info!("attributed reward from stake: {}", score);

@@ -148,7 +148,10 @@ impl Operator {
         Ok(vec)
     }
 
-    pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
+    pub async fn get_stakers_onchain(
+        &self,
+        mint: &Pubkey,
+    ) -> Result<HashMap<Pubkey, (u64, u64)>, Error> {
         let rpc_client = &self.rpc_client;
         let vec = self.get_stakers_db(mint).await?;
         let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers> + Send>>> = vec![];
@@ -159,14 +162,14 @@ impl Operator {
             queries.push(Box::pin(query));
         }
         let results: Vec<Vec<Option<Account>>> = futures::future::try_join_all(queries).await?;
-        let results: HashMap<Pubkey, u64> = results
+        let results: HashMap<Pubkey, (u64, u64)> = results
             .into_iter()
             .flat_map(|v| v.into_iter())
             .filter_map(|option| {
                 option.and_then(|account| {
                     let data = account.data;
                     let share = Share::try_from_bytes(data.as_slice()).ok();
-                    share.map(|s| (s.authority, s.balance))
+                    share.map(|s| (s.authority, (s.balance, s.last_withdrawal)))
                 })
             })
             .collect();

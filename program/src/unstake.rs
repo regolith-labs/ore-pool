@@ -51,6 +51,8 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
 
     // Update the share balance.
     share.balance = share.balance.checked_sub(amount).unwrap();
+    // Update the last withdrawal time.
+    share.last_withdrawal = Clock::get()?.unix_timestamp as u64;
 
     // Check how many pending tokens can be distributed back to staker.
     let pending_amount = pool_tokens.amount.min(amount);
