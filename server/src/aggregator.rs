@@ -79,6 +79,11 @@ pub struct Contribution {
     pub solution: Solution,
 }
 
+struct LockMultiplier {
+    /// The schedule of multipliers for the boost mint.
+    pub schedule_multiplier: Vec<(u64, u64)>,
+}
+
 impl PartialEq for Contribution {
     fn eq(&self, other: &Self) -> bool {
         self.member == other.member
@@ -460,8 +465,17 @@ impl Aggregator {
                 )))?;
                 let denominator_iter = stakers.iter();
                 let distribution_iter = stakers.iter();
+                // TODO: define schedule multiplier for each boost, and probably make it configurable
+                let lock_multiplier = LockMultiplier::new(vec![
+                    (1000 * 60 * 60 * 24 * 15, 1000 * 60 * 60 * 24 * 30),
+                    (2, 6),
+                ]);
                 let denominator: u64 = denominator_iter
-                    .map(|(_, (balance, _latest_withdrawal))| balance)
+                    .map(|(_, (balance, latest_withdrawal))| {
+                        let multiplier =
+                            lock_multiplier.calculate_lock_multiplier(*latest_withdrawal);
+                        balance.saturating_mul(multiplier)
+                    })
                     .sum();
                 let denominator = denominator as u128;
                 // TODO: scale denominator by latest withdrawal "boost"
@@ -473,7 +487,9 @@ impl Aggregator {
                             (stake_authority, balance, latest_withdrawal)
                         );
                         let balance = *balance as u128;
-                        let score = balance.saturating_mul(staker_rewards);
+                        let score = balance.saturating_mul(staker_rewards).saturating_div(
+                            lock_multiplier.calculate_lock_multiplier(*latest_withdrawal) as _,
+                        );
                         // TODO: scale score by latest withdrawal "boost"
                         log::info!("scaled score from stake: {}", score);
                         let score = score.checked_div(denominator).unwrap_or(0);
@@ -622,5 +638,25 @@ impl Aggregator {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             }
         }
+    }
+}
+
+impl LockMultiplier {
+    fn new(schedule_multiplier: Vec<(u64, u64)>) -> Self {
+        Self {
+            schedule_multiplier,
+        }
+    }
+
+    fn calculate_lock_multiplier(&self, last_withdrawal: u64) -> u64 {
+        self.schedule_multiplier
+            .iter()
+            .fold(1, |acc, (time, multiplier)| {
+                if last_withdrawal >= *time {
+                    acc * multiplier
+                } else {
+                    acc
+                }
+            })
     }
 }
