@@ -40,7 +40,7 @@ pub async fn write_member_total_balances(
 // updates on-chain balances in batches and marks records in db as synced,
 // the on-chain attribution instruction is idempotent
 // so any failures here are recoverable
-const NUM_ATTRIBUTIONS_PER_TX: usize = 10;
+const NUM_ATTRIBUTIONS_PER_TX: usize = 20;
 pub async fn stream_members_attribution(
     conn: Arc<Object>,
     operator: Arc<Operator>,
@@ -84,7 +84,7 @@ pub async fn stream_members_attribution(
                         &operator.keypair,
                         &operator.rpc_client,
                         ix_buffer.as_slice(),
-                        1_500_000,
+                        30_000,
                         20_000,
                     )
                     .await
