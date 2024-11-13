@@ -17,7 +17,7 @@ use steel::AccountDeserialize;
 use crate::{
     database,
     error::Error,
-    operator::{Operator, BUFFER_OPERATOR},
+    operator::{LockedMultipliers, Operator, BUFFER_OPERATOR},
     tx, webhook,
 };
 
@@ -77,11 +77,6 @@ pub struct Contribution {
 
     /// The drillx solution submitted representing the member's best hash.
     pub solution: Solution,
-}
-
-struct LockMultiplier {
-    /// The schedule of multipliers for the boost mint.
-    pub schedule_multiplier: Vec<(u64, u64)>,
 }
 
 impl PartialEq for Contribution {
@@ -305,6 +300,7 @@ impl Aggregator {
         &mut self,
         operator: &Operator,
         rewards: &(ore_api::event::MineEvent, webhook::BoostAccounts),
+        locked_multipliers: Option<LockedMultipliers>,
     ) -> Result<(), Error> {
         let (rewards, boost_acounts) = rewards;
         let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
@@ -316,6 +312,7 @@ impl Aggregator {
             rewards,
             operator.operator_commission,
             operator.staker_commission,
+            &locked_multipliers,
         )?;
         log::info!("// staker ////////////////////////");
         // compute attributions for stakers
@@ -325,6 +322,7 @@ impl Aggregator {
                 pool_pda,
                 boost_acounts.one.map(|p| (rewards.boost_1, p)),
                 operator.staker_commission,
+                &locked_multipliers,
             )
             .await?;
         let rewards_distribution_boost_2 = self
@@ -333,6 +331,7 @@ impl Aggregator {
                 pool_pda,
                 boost_acounts.two.map(|p| (rewards.boost_2, p)),
                 operator.staker_commission,
+                &locked_multipliers,
             )
             .await?;
         let rewards_distribution_boost_3 = self
@@ -341,6 +340,7 @@ impl Aggregator {
                 pool_pda,
                 boost_acounts.three.map(|p| (rewards.boost_3, p)),
                 operator.staker_commission,
+                &locked_multipliers,
             )
             .await?;
         log::info!("// operator ////////////////////////");
@@ -371,6 +371,7 @@ impl Aggregator {
         rewards: &ore_api::event::MineEvent,
         operator_commission: u64,
         staker_commission: u64,
+        _locked_multipliers: &Option<LockedMultipliers>,
     ) -> Result<Vec<(String, u64)>, Error> {
         let contributions = &self.contributions;
         let contributions =
@@ -382,6 +383,7 @@ impl Aggregator {
         // compute denominator
         let denominator: u64 = contributions.total_score;
         let denominator: u128 = denominator as u128;
+
         // compute base mine rewards
         let mine_rewards = rewards.reward - rewards.boost_1 - rewards.boost_2 - rewards.boost_3;
         log::info!("base reward denominator: {}", denominator);
@@ -440,6 +442,7 @@ impl Aggregator {
         pool: Pubkey,
         boost_event: Option<(u64, Pubkey)>,
         staker_commission: u64,
+        locked_multipliers: &Option<LockedMultipliers>,
     ) -> Result<Vec<(String, u64)>, Error> {
         match boost_event {
             None => Ok(vec![]),
@@ -466,14 +469,13 @@ impl Aggregator {
                 let denominator_iter = stakers.iter();
                 let distribution_iter = stakers.iter();
                 // TODO: define schedule multiplier for each boost, and probably make it configurable
-                let lock_multiplier = LockMultiplier::new(vec![
-                    (1000 * 60 * 60 * 24 * 15, 1000 * 60 * 60 * 24 * 30),
-                    (2, 6),
-                ]);
+
                 let denominator: u64 = denominator_iter
                     .map(|(_, (balance, latest_withdrawal))| {
-                        let multiplier =
-                            lock_multiplier.calculate_lock_multiplier(*latest_withdrawal);
+                        let multiplier = locked_multipliers
+                            .as_ref()
+                            .map(|lm| lm.calculate_lock_multiplier(&boost_mint, *latest_withdrawal))
+                            .unwrap_or(1);
                         balance.saturating_mul(multiplier)
                     })
                     .sum();
@@ -488,7 +490,12 @@ impl Aggregator {
                         );
                         let balance = *balance as u128;
                         let score = balance.saturating_mul(staker_rewards).saturating_div(
-                            lock_multiplier.calculate_lock_multiplier(*latest_withdrawal) as _,
+                            locked_multipliers
+                                .as_ref()
+                                .map(|lm| {
+                                    lm.calculate_lock_multiplier(&boost_mint, *latest_withdrawal)
+                                })
+                                .unwrap_or(1) as u128,
                         );
                         // TODO: scale score by latest withdrawal "boost"
                         log::info!("scaled score from stake: {}", score);
@@ -638,25 +645,5 @@ impl Aggregator {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             }
         }
-    }
-}
-
-impl LockMultiplier {
-    fn new(schedule_multiplier: Vec<(u64, u64)>) -> Self {
-        Self {
-            schedule_multiplier,
-        }
-    }
-
-    fn calculate_lock_multiplier(&self, last_withdrawal: u64) -> u64 {
-        self.schedule_multiplier
-            .iter()
-            .fold(1, |acc, (time, multiplier)| {
-                if last_withdrawal >= *time {
-                    acc * multiplier
-                } else {
-                    acc
-                }
-            })
     }
 }

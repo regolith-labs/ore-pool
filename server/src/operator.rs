@@ -54,6 +54,42 @@ pub struct BoostAccount {
     pub stake: Pubkey,
 }
 
+/// Pool's structure to make locked multipliers.
+/// TODO: get a better name
+#[derive(Debug, Clone)]
+pub struct LockedMultipliers {
+    schedule_multiplier: HashMap<Pubkey, Vec<(u64, u64)>>,
+}
+
+impl LockedMultipliers {
+    pub fn from_map(schedule_multiplier: HashMap<Pubkey, Vec<(u64, u64)>>) -> Self {
+        Self {
+            schedule_multiplier,
+        }
+    }
+
+    pub fn from_path(locked_multiplier_file_path: &str) -> Result<Self, Error> {
+        let multipliers = crate::utils::load_locked_multipliers(locked_multiplier_file_path)?;
+        Ok(Self {
+            schedule_multiplier: multipliers.schedule_multiplier,
+        })
+    }
+
+    pub fn calculate_lock_multiplier(&self, boost: &Pubkey, last_withdrawal: u64) -> u64 {
+        self.schedule_multiplier
+            .get(&boost)
+            .unwrap_or(&vec![])
+            .iter()
+            .fold(1, |acc, (time, multiplier)| {
+                if last_withdrawal >= *time {
+                    acc * multiplier
+                } else {
+                    acc
+                }
+            })
+    }
+}
+
 impl BoostAccount {
     fn new(mint: Pubkey, operator_pubkey: Pubkey) -> Self {
         let (boost, _) = ore_boost_api::state::boost_pda(mint);

@@ -12,7 +12,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::{Aggregator, Contribution, Stakers};
-use operator::Operator;
+use operator::{LockedMultipliers, Operator};
 use utils::create_cors;
 
 // TODO: publish attestation to s3
@@ -33,6 +33,13 @@ async fn main() -> Result<(), error::Error> {
     let aggregator = web::Data::new(aggregator);
     let webhook_handler = web::Data::new(webhook::Handle::new()?);
     let webhook_client = web::Data::new(webhook::Client::new_stake()?);
+
+    let locked_multipliers_raw = match std::env::var("LOCKED_MULTIPLIERS_PATH") {
+        Ok(path) => Some(LockedMultipliers::from_path(&path)?),
+        Err(_e) => None,
+    };
+
+    let locked_multipliers = web::Data::new(locked_multipliers_raw.clone());
     // env vars
     let attribution_epoch = attribution_epoch()?;
     let stake_commit_epoch = stake_commit_epoch()?;
@@ -61,7 +68,11 @@ async fn main() -> Result<(), error::Error> {
                     Some(rewards) => {
                         let mut aggregator = aggregator.write().await;
                         if let Err(err) = aggregator
-                            .distribute_rewards(operator.as_ref(), &rewards)
+                            .distribute_rewards(
+                                operator.as_ref(),
+                                &rewards,
+                                locked_multipliers_raw.clone(),
+                            )
                             .await
                         {
                             log::error!("{:?}", err);
@@ -121,6 +132,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(webhook_handler.clone())
             .app_data(webhook_client.clone())
             .app_data(rewards_tx.clone())
+            .app_data(locked_multipliers.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
             .service(web::resource("/register").route(web::post().to(contributor::register)))
