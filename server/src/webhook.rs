@@ -152,7 +152,7 @@ impl Handle {
         req: &HttpRequest,
         bytes: &web::Bytes,
     ) -> Result<(), Error> {
-        let mut event = self.decode_share_account_event(req, bytes).await?;
+        let mut event: UnstakeEvent = self.decode_share_account_event(req, bytes).await?;
         self.process_share_account_event(aggregator, &mut event)
             .await?;
         Ok(())
@@ -176,9 +176,10 @@ impl Handle {
         if let std::collections::hash_map::Entry::Occupied(ref mut occupied) =
             stakers.entry(event.authority)
         {
-            let balance = occupied.get_mut();
+            let (balance, latest_withdrawal) = occupied.get_mut();
             if balance > &mut event.balance {
                 *balance = event.balance;
+                *latest_withdrawal = event.latest_withdrawal;
             }
         }
         Ok(())
@@ -352,7 +353,7 @@ impl Client {
         )))?;
         if let std::collections::hash_map::Entry::Vacant(vacant) = stakers.entry(entry.authority) {
             // insert as zero regardless of balance. increments are handled on submit loops.
-            vacant.insert(0);
+            vacant.insert((0, 0));
         }
         Ok(())
     }

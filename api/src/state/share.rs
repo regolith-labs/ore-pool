@@ -17,6 +17,9 @@ pub struct Share {
 
     /// The pool this share account is associated with.
     pub pool: Pubkey,
+
+    /// The last time the share withdrew ORE.
+    pub last_withdrawal: u64,
 }
 
 account!(AccountDiscriminator, Share);

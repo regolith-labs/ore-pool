@@ -54,6 +54,42 @@ pub struct BoostAccount {
     pub stake: Pubkey,
 }
 
+/// Pool's structure to make locked multipliers.
+/// TODO: get a better name
+#[derive(Debug, Clone)]
+pub struct LockedMultipliers {
+    schedule_multiplier: HashMap<Pubkey, Vec<(u64, u64)>>,
+}
+
+impl LockedMultipliers {
+    pub fn from_map(schedule_multiplier: HashMap<Pubkey, Vec<(u64, u64)>>) -> Self {
+        Self {
+            schedule_multiplier,
+        }
+    }
+
+    pub fn from_path(locked_multiplier_file_path: &str) -> Result<Self, Error> {
+        let multipliers = crate::utils::load_locked_multipliers(locked_multiplier_file_path)?;
+        Ok(Self {
+            schedule_multiplier: multipliers.schedule_multiplier,
+        })
+    }
+
+    pub fn calculate_lock_multiplier(&self, boost: &Pubkey, last_withdrawal: u64) -> u128 {
+        self.schedule_multiplier
+            .get(&boost)
+            .unwrap_or(&vec![])
+            .iter()
+            .fold(1, |acc, (time, multiplier)| {
+                if last_withdrawal >= *time {
+                    acc * multiplier
+                } else {
+                    acc
+                }
+            }) as _
+    }
+}
+
 impl BoostAccount {
     fn new(mint: Pubkey, operator_pubkey: Pubkey) -> Self {
         let (boost, _) = ore_boost_api::state::boost_pda(mint);
@@ -148,7 +184,10 @@ impl Operator {
         Ok(vec)
     }
 
-    pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
+    pub async fn get_stakers_onchain(
+        &self,
+        mint: &Pubkey,
+    ) -> Result<HashMap<Pubkey, (u64, u64)>, Error> {
         let rpc_client = &self.rpc_client;
         let vec = self.get_stakers_db(mint).await?;
         let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers> + Send>>> = vec![];
@@ -159,14 +198,14 @@ impl Operator {
             queries.push(Box::pin(query));
         }
         let results: Vec<Vec<Option<Account>>> = futures::future::try_join_all(queries).await?;
-        let results: HashMap<Pubkey, u64> = results
+        let results: HashMap<Pubkey, (u64, u64)> = results
             .into_iter()
             .flat_map(|v| v.into_iter())
             .filter_map(|option| {
                 option.and_then(|account| {
                     let data = account.data;
                     let share = Share::try_from_bytes(data.as_slice()).ok();
-                    share.map(|s| (s.authority, s.balance))
+                    share.map(|s| (s.authority, (s.balance, s.last_withdrawal)))
                 })
             })
             .collect();
