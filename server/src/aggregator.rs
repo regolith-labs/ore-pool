@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
+    str::FromStr,
 };
 
 use drillx::Solution;
@@ -371,7 +372,7 @@ impl Aggregator {
         rewards: &ore_api::event::MineEvent,
         operator_commission: u64,
         staker_commission: u64,
-        _locked_multipliers: &Option<LockedMultipliers>,
+        locked_multipliers: &Option<LockedMultipliers>,
     ) -> Result<Vec<(String, u64)>, Error> {
         let contributions = &self.contributions;
         let contributions =
@@ -380,9 +381,42 @@ impl Aggregator {
                 .ok_or(Error::Internal(
                     "missing contributions at reward hash".to_string(),
                 ))?;
+
+        let ore_boost_mint =
+            Pubkey::from_str("oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp").unwrap();
+
+        let stakers = self
+            .stake
+            .get(&ore_boost_mint)
+            .ok_or(Error::Internal(format!(
+                "missing staker balances: {:?}",
+                ore_boost_mint,
+            )))?;
+
         // compute denominator
-        let denominator: u64 = contributions.total_score;
-        let denominator: u128 = denominator as u128;
+        let denominator = contributions
+            .contributions
+            .iter()
+            .map(|c| {
+                c.score as u128
+                    * stakers
+                        .get(&c.member)
+                        .map(|(_balance, latest_withdrawal)| {
+                            locked_multipliers
+                                .as_ref()
+                                .map(|lm| {
+                                    lm.calculate_lock_multiplier(
+                                        &ore_boost_mint,
+                                        *latest_withdrawal,
+                                    )
+                                })
+                                .unwrap_or(1)
+                        })
+                        .unwrap_or(1)
+            })
+            .sum();
+        // let denominator: u64 = contributions.total_score;
+        // let denominator: u128 = denominator as u128;
 
         // compute base mine rewards
         let mine_rewards = rewards.reward - rewards.boost_1 - rewards.boost_2 - rewards.boost_3;
@@ -404,6 +438,7 @@ impl Aggregator {
         let total_rewards = miner_rewards + miner_rewards_from_stake;
         log::info!("total rewards as commission for miners: {}", total_rewards);
         let contributions = contributions.contributions.iter();
+
         let distribution = contributions
             .map(|c| {
                 log::info!("raw base reward score: {}", c.score);
@@ -476,7 +511,7 @@ impl Aggregator {
                             .as_ref()
                             .map(|lm| lm.calculate_lock_multiplier(&boost_mint, *latest_withdrawal))
                             .unwrap_or(1);
-                        balance.saturating_mul(multiplier)
+                        balance.saturating_mul(multiplier as _)
                     })
                     .sum();
                 let denominator = denominator as u128;

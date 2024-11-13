@@ -75,7 +75,7 @@ impl LockedMultipliers {
         })
     }
 
-    pub fn calculate_lock_multiplier(&self, boost: &Pubkey, last_withdrawal: u64) -> u64 {
+    pub fn calculate_lock_multiplier(&self, boost: &Pubkey, last_withdrawal: u64) -> u128 {
         self.schedule_multiplier
             .get(&boost)
             .unwrap_or(&vec![])
@@ -86,7 +86,7 @@ impl LockedMultipliers {
                 } else {
                     acc
                 }
-            })
+            }) as _
     }
 }
 
