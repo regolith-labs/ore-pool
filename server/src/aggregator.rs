@@ -515,7 +515,6 @@ impl Aggregator {
                     })
                     .sum();
                 let denominator = denominator as u128;
-                // TODO: scale denominator by latest withdrawal "boost"
                 log::info!("staked reward denominator: {}", denominator);
                 let res = distribution_iter
                     .map(|(stake_authority, (balance, latest_withdrawal))| {
