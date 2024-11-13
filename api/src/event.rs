@@ -11,6 +11,8 @@ pub struct UnstakeEvent {
     pub mint: Pubkey,
     /// latest balance
     pub balance: u64,
+    /// latest withdrawal
+    pub latest_withdrawal: u64,
 }
 
 event!(UnstakeEvent);

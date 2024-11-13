@@ -91,6 +91,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         share: *share_info.key,
         mint: *mint_info.key,
         balance: share.balance,
+        latest_withdrawal: share.last_withdrawal,
     };
     sol_log_data(&[event.to_bytes()]);
 
