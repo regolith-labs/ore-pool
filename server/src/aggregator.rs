@@ -1,9 +1,5 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::collections::HashMap;
 
-use drillx::Solution;
 use ore_api::{
     consts::{BUS_ADDRESSES, BUS_COUNT},
     state::Bus,
@@ -17,7 +13,9 @@ use steel::AccountDeserialize;
 use crate::{
     database,
     error::Error,
+    miner::{Contribution, MinerContributions, Miners, Winner},
     operator::{Operator, BUFFER_OPERATOR},
+    staker::Stakers,
     tx, webhook,
 };
 
@@ -40,57 +38,6 @@ pub struct Aggregator {
 
     /// The map of stake contributors for attribution.
     pub stake: Stakers,
-}
-
-/// Miners
-pub type LastHashAt = u64;
-pub struct MinerContributions {
-    pub contributions: HashSet<Contribution>,
-    pub winner: Option<Winner>,
-    pub total_score: u64,
-}
-pub type Miners = HashMap<LastHashAt, MinerContributions>;
-
-/// Stakers
-pub type BoostMint = Pubkey;
-pub type StakerBalances = HashMap<Pubkey, u64>;
-pub type Stakers = HashMap<BoostMint, StakerBalances>;
-
-// Best hash to be submitted for the current challenge.
-#[derive(Clone, Copy, Debug)]
-pub struct Winner {
-    // The winning solution.
-    pub solution: Solution,
-
-    // The current largest difficulty.
-    pub difficulty: u32,
-}
-
-/// A recorded contribution from a particular member of the pool.
-#[derive(Clone, Copy, Debug)]
-pub struct Contribution {
-    /// The member who submitted this solution.
-    pub member: Pubkey,
-
-    /// The difficulty score of the solution.
-    pub score: u64,
-
-    /// The drillx solution submitted representing the member's best hash.
-    pub solution: Solution,
-}
-
-impl PartialEq for Contribution {
-    fn eq(&self, other: &Self) -> bool {
-        self.member == other.member
-    }
-}
-
-impl Eq for Contribution {}
-
-impl Hash for Contribution {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.member.hash(state);
-    }
 }
 
 pub async fn process_contributions(
@@ -195,13 +142,8 @@ impl Aggregator {
             stake.insert(ba.mint, stakers);
         }
         // build self
-        let mut contributions = HashMap::new();
-        let new_contributions = MinerContributions {
-            contributions: HashSet::new(),
-            winner: None,
-            total_score: 0,
-        };
-        contributions.insert(challenge.lash_hash_at as u64, new_contributions);
+        let mut contributions = Miners::new(15);
+        contributions.insert(challenge.lash_hash_at as u64);
         let aggregator = Aggregator {
             challenge,
             contributions,
@@ -311,7 +253,7 @@ impl Aggregator {
             rewards,
             operator.operator_commission,
             operator.staker_commission,
-        )?;
+        );
         log::info!("// staker ////////////////////////");
         // compute attributions for stakers
         let rewards_distribution_boost_1 = self
@@ -354,28 +296,20 @@ impl Aggregator {
         database::write_member_total_balances(&mut db_client, rewards_distribution_boost_3).await?;
         database::write_member_total_balances(&mut db_client, vec![rewards_distribution_operator])
             .await?;
-        // clean up contributions
-        let contributions = &mut self.contributions;
-        let _ = contributions.remove(&(rewards.last_hash_at as u64));
         Ok(())
     }
 
     fn rewards_distribution(
-        &self,
+        &mut self,
         pool: Pubkey,
         rewards: &ore_api::event::MineEvent,
         operator_commission: u64,
         staker_commission: u64,
-    ) -> Result<Vec<(String, u64)>, Error> {
-        let contributions = &self.contributions;
-        let contributions =
-            contributions
-                .get(&(rewards.last_hash_at as u64))
-                .ok_or(Error::Internal(
-                    "missing contributions at reward hash".to_string(),
-                ))?;
+    ) -> Vec<(String, u64)> {
+        let contributions = &mut self.contributions;
+        let (total_score, scores) = contributions.scores();
         // compute denominator
-        let denominator: u64 = contributions.total_score;
+        let denominator: u64 = total_score;
         let denominator: u128 = denominator as u128;
         // compute base mine rewards
         let mine_rewards = rewards.reward - rewards.boost_1 - rewards.boost_2 - rewards.boost_3;
@@ -396,18 +330,18 @@ impl Aggregator {
         );
         let total_rewards = miner_rewards + miner_rewards_from_stake;
         log::info!("total rewards as commission for miners: {}", total_rewards);
-        let contributions = contributions.contributions.iter();
+        let contributions = scores.iter();
         let distribution = contributions
-            .map(|c| {
-                log::info!("raw base reward score: {}", c.score);
-                let score = (c.score as u128).saturating_mul(total_rewards);
+            .map(|(member, score)| {
+                log::info!("raw base reward score: {}", score);
+                let score = (*score as u128).saturating_mul(total_rewards);
                 let score = score.checked_div(denominator).unwrap_or(0);
                 log::info!("attributed base reward score: {}", score);
-                let (member_pda, _) = ore_pool_api::state::member_pda(c.member, pool);
+                let (member_pda, _) = ore_pool_api::state::member_pda(*member, pool);
                 (member_pda.to_string(), score as u64)
             })
             .collect();
-        Ok(distribution)
+        distribution
     }
 
     fn split_stake_rewards_for_miners(
@@ -498,8 +432,8 @@ impl Aggregator {
         (member_pda.to_string(), total_rewards)
     }
 
+    /// fetch the bus with the largest balance
     async fn find_bus(&self, operator: &Operator) -> Result<Pubkey, Error> {
-        // Fetch the bus with the largest balance
         let rpc_client = &operator.rpc_client;
         let accounts = rpc_client.get_multiple_accounts(&BUS_ADDRESSES).await?;
         let mut top_bus_balance: u64 = 0;
@@ -548,9 +482,12 @@ impl Aggregator {
         log::info!("index: {}", index);
         let last_hash_at = self.challenge.lash_hash_at as u64;
         let contributions = &mut self.contributions;
-        let contributions = contributions.get_mut(&last_hash_at).ok_or(Error::Internal(
-            "missing contributions at current hash".to_string(),
-        ))?;
+        let contributions = contributions
+            .miners
+            .get_mut(&last_hash_at)
+            .ok_or(Error::Internal(
+                "missing contributions at current hash".to_string(),
+            ))?;
         Ok(contributions)
     }
 
@@ -566,14 +503,7 @@ impl Aggregator {
         log::info!("//////////////////////////////////////////");
         log::info!("new contributions key: {:?}", last_hash_at);
         log::info!("//////////////////////////////////////////");
-        let new_contributions = MinerContributions {
-            contributions: HashSet::new(),
-            winner: None,
-            total_score: 0,
-        };
-        if let Some(_) = contributions.insert(last_hash_at, new_contributions) {
-            log::error!("contributions at last-hash-at already exist");
-        }
+        contributions.insert(last_hash_at);
         // reset accumulators
         let pool = operator.get_pool().await?;
         self.num_members = pool.last_total_members;
