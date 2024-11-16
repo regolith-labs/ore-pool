@@ -142,7 +142,7 @@ impl Aggregator {
             stake.insert(ba.mint, stakers);
         }
         // build self
-        let mut contributions = Miners::new(15);
+        let mut contributions = Miners::new(15 + 1);
         contributions.insert(challenge.lash_hash_at as u64);
         let aggregator = Aggregator {
             challenge,
