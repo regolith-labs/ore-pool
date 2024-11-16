@@ -2,7 +2,9 @@ mod aggregator;
 mod contributor;
 mod database;
 mod error;
+mod miner;
 mod operator;
+mod staker;
 mod tx;
 mod utils;
 mod webhook;
@@ -11,8 +13,10 @@ use core::panic;
 use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
-use aggregator::{Aggregator, Contribution, Stakers};
+use aggregator::Aggregator;
+use miner::Contribution;
 use operator::Operator;
+use staker::Stakers;
 use utils::create_cors;
 
 // TODO: publish attestation to s3
