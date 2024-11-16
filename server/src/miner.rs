@@ -86,6 +86,7 @@ impl AttributionFilter {
     }
     pub fn push(&mut self, ts: LastHashAt) {
         if self.len.lt(&self.size) {
+            self.len += 1;
             self.time_stamps.push_back(ts);
         } else {
             self.time_stamps.pop_front();
