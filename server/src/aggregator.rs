@@ -21,7 +21,7 @@ use crate::{
 
 /// The client submits slightly earlier
 /// than the operator's cutoff time to create a "submission window".
-pub const BUFFER_CLIENT: u64 = 2 + BUFFER_OPERATOR;
+pub const BUFFER_CLIENT: u64 = 0 + BUFFER_OPERATOR;
 const MAX_DIFFICULTY: u32 = 22;
 const MAX_SCORE: u64 = 2u64.pow(MAX_DIFFICULTY);
 
@@ -167,15 +167,20 @@ impl Aggregator {
             return Err(Error::Internal("invalid solution".to_string()));
         }
         // insert
-        let insert = contributions.contributions.insert(*contribution);
+        let insert = contributions.contributions.replace(*contribution);
         match insert {
-            true => {
+            Some(prev) => {
+                log::info!("updating contribution: {:?}", contribution.member);
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
                     difficulty,
                 };
+                // decrement previous score
+                contributions.total_score -= prev.score;
+                // increment new score
                 contributions.total_score += contribution.score;
+                // update winner
                 match contributions.winner {
                     Some(winner) => {
                         if difficulty > winner.difficulty {
@@ -186,8 +191,24 @@ impl Aggregator {
                 }
                 Ok(())
             }
-            false => {
-                log::error!("already received contribution: {:?}", contribution.member);
+            None => {
+                log::info!("new contribution: {:?}", contribution.member);
+                let difficulty = contribution.solution.to_hash().difficulty();
+                let contender = Winner {
+                    solution: contribution.solution,
+                    difficulty,
+                };
+                // increment score
+                contributions.total_score += contribution.score;
+                // update winner
+                match contributions.winner {
+                    Some(winner) => {
+                        if difficulty > winner.difficulty {
+                            contributions.winner = Some(contender);
+                        }
+                    }
+                    None => contributions.winner = Some(contender),
+                }
                 Ok(())
             }
         }
