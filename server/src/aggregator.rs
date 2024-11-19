@@ -170,7 +170,7 @@ impl Aggregator {
         let insert = contributions.contributions.replace(*contribution);
         match insert {
             Some(prev) => {
-                log::error!("updating contribution: {:?}", contribution.member);
+                log::info!("updating contribution: {:?}", contribution.member);
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
@@ -192,7 +192,7 @@ impl Aggregator {
                 Ok(())
             }
             None => {
-                log::error!("new contribution: {:?}", contribution.member);
+                log::info!("new contribution: {:?}", contribution.member);
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,

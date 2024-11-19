@@ -19,7 +19,7 @@ use steel::AccountDeserialize;
 use crate::{database, error::Error, tx};
 
 pub const BUFFER_OPERATOR: u64 = 5;
-const MIN_DIFFICULTY: Option<u64> = None;
+const MIN_DIFFICULTY: Option<u64> = Some(7);
 
 pub struct Operator {
     /// The pool authority keypair.
