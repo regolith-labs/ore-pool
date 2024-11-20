@@ -7,6 +7,8 @@ pub enum PoolError {
     MissingMiningReward = 0,
     #[error("Could not parse mining reward")]
     CouldNotParseMiningReward = 1,
+    #[error("Cannot attribute more rewards than are currently claimable")]
+    AttributionTooLarge = 2,
 }
 
 #[derive(Debug, Error)]
