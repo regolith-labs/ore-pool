@@ -36,6 +36,13 @@ pub async fn write_member_total_balances(
     Ok(())
 }
 
+pub async fn write_member_total_balances_as_staker(
+    conn: &mut Object,
+    increments: Vec<(String, u64)>,
+) -> Result<(), Error> {
+    Ok(())
+}
+
 // streams all records from db where is-synced is false
 // updates on-chain balances in batches and marks records in db as synced,
 // the on-chain attribution instruction is idempotent

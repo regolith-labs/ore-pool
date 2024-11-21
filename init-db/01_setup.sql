@@ -31,3 +31,21 @@ BEGIN
     END IF;
 END
 $$;
+
+-- add rewards field to stakers table
+DO $$
+BEGIN
+    -- Check if the `rewards` column exists in the `stakers` table
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'stakers'
+        AND column_name = 'rewards'
+    ) THEN
+        -- Add the `rewards` column to the `stakers` table
+        ALTER TABLE stakers
+        ADD COLUMN rewards BIGINT NOT NULL DEFAULT 0;
+    END IF;
+END
+$$;
+
