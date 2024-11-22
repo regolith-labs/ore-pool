@@ -6,3 +6,6 @@ pub const POOL: &[u8] = b"pool";
 
 /// The seed of the share account PDA.
 pub const SHARE: &[u8] = b"share";
+
+/// The seed of the pool nonce account.
+pub const NONCE: &str = "pool-nonce-account";

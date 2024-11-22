@@ -9,6 +9,7 @@ mod error;
 mod get_or_create;
 mod init;
 mod member_account;
+mod nonce_account;
 mod open_stake;
 mod pool_account;
 mod proof_account;
@@ -28,6 +29,7 @@ async fn main() -> Result<(), error::Error> {
         "pool-account" => pool_account::pool_account(&rpc_client, &keypair).await,
         "proof-account" => proof_account::proof_account(&rpc_client, &keypair).await,
         "member-account" => member_account::member_account(&rpc_client, &keypair).await,
+        "nonce-account" => nonce_account::nonce_account(&rpc_client, &keypair).await,
         _ => Err(error::Error::InvalidCommand),
     }
 }

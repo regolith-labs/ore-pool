@@ -11,9 +11,11 @@ pub enum Error {
     #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]
-    SolaanProgram(#[from] solana_program::program_error::ProgramError),
+    SolanaProgram(#[from] solana_program::program_error::ProgramError),
     #[error("solana parse pubkey")]
     SolanaParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
+    #[error("solana pubkey")]
+    SolanaPubkey(#[from] solana_program::pubkey::PubkeyError),
     #[error("missing boost mint")]
     MissingBoostMint,
     #[error("missing pool url")]

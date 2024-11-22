@@ -18,6 +18,12 @@ pub enum AccountDiscriminator {
     Share = 102,
 }
 
+pub fn pool_nonce_account(
+    authority: Pubkey,
+) -> Result<Pubkey, solana_program::pubkey::PubkeyError> {
+    Pubkey::create_with_seed(&authority, NONCE, &system_program::ID)
+}
+
 pub fn pool_pda(authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[POOL, authority.as_ref()], &crate::id())
 }
