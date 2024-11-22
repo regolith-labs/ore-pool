@@ -8,4 +8,4 @@ pub const POOL: &[u8] = b"pool";
 pub const SHARE: &[u8] = b"share";
 
 /// The seed of the pool nonce account.
-pub const NONCE: &str = "pool-nonce-account";
+pub const NONCE: &str = "ore-pool-nonce-account";

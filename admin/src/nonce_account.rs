@@ -31,12 +31,12 @@ pub async fn nonce_account(rpc_client: &RpcClient, keypair: &Keypair) -> Result<
                 .await?;
             let create_nonce_account_ixs =
                 solana_program::system_instruction::create_nonce_account_with_seed(
-                    &authority,                          // payer of the transaction
-                    &nonce_pubkey,                       // derived address
-                    &authority,                          // base pubkey
-                    NONCE,                               // seed
-                    &solana_program::system_program::ID, // owner program
-                    nonce_rent,                          // lamports to allocate
+                    &authority,    // payer of the transaction
+                    &nonce_pubkey, // derived address
+                    &authority,    // base pubkey
+                    NONCE,         // seed
+                    &authority,    // authority to advance the nonce
+                    nonce_rent,    // lamports to allocate
                 );
             // sign and submit transaction
             let mut tx =
