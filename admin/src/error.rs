@@ -8,6 +8,8 @@ pub enum Error {
     KeypairRead(String),
     #[error("pool api")]
     PoolApi(#[from] ore_pool_api::error::ApiError),
+    #[error("nonce")]
+    Nonce(#[from] solana_client::nonce_utils::Error),
     #[error("solana client")]
     SolanaClient(#[from] solana_client::client_error::ClientError),
     #[error("solana program")]
