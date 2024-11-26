@@ -51,6 +51,15 @@ pub struct RegisterStakerPayload {
     pub mint: Pubkey,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthorizeAutoCompoundPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+
+    /// The authorized transactions for auto-compounding future staking yield.
+    pub transactions: Vec<Transaction>,
+}
+
 ///////////////////////////////////////////////////////////////////////////
 /// Response //////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
