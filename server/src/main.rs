@@ -37,9 +37,6 @@ async fn main() -> Result<(), error::Error> {
     let aggregator = web::Data::new(aggregator);
     let webhook_handler = web::Data::new(webhook::Handle::new()?);
     let webhook_client = web::Data::new(webhook::Client::new_stake()?);
-    // rate limiter
-    let rate_limit_backend =
-        actix_extensible_rate_limit::backend::memory::InMemoryBackend::builder().build();
     // env vars
     let attribution_epoch = attribution_epoch()?;
     let stake_commit_epoch = stake_commit_epoch()?;
@@ -119,19 +116,6 @@ async fn main() -> Result<(), error::Error> {
     // launch server
     HttpServer::new(move || {
         log::info!("starting server");
-        let rate_limit_input =
-            actix_extensible_rate_limit::backend::SimpleInputFunctionBuilder::new(
-                std::time::Duration::from_secs(1),
-                5,
-            )
-            .real_ip_key()
-            .build();
-        let rate_limit_middleware = actix_extensible_rate_limit::RateLimiter::builder(
-            rate_limit_backend.clone(),
-            rate_limit_input,
-        )
-        .add_headers()
-        .build();
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(create_cors())
@@ -143,11 +127,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(rewards_tx.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
-            .service(
-                web::resource("/register")
-                    .wrap(rate_limit_middleware)
-                    .route(web::post().to(contributor::register)),
-            )
+            .service(web::resource("/register").route(web::post().to(contributor::register)))
             .service(
                 web::resource("/register-staker")
                     .route(web::post().to(contributor::register_staker)),
