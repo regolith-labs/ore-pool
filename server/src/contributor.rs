@@ -211,31 +211,31 @@ async fn register_new_staker(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let mint = payload.mint;
-    // check if on-chain account already exists
-    let staker = operator.get_staker_onchain(&member_authority, &mint).await;
-    match staker {
-        Ok(staker) => {
-            // staker already exists on-chain
-            // check if record is in db already
-            let db_staker = operator.get_staker_db(&member_authority, &mint).await;
-            match db_staker {
-                Ok(db_staker) => {
-                    // check if marked as added to webhook in db
-                    if !db_staker.webhook {
-                        // add to webhook
-                        let entry = webhook::ClientPutEntry {
-                            share: staker.1,
-                            authority: member_authority,
-                            mint,
-                        };
-                        webhook_client.put(operator, aggregator, &entry).await?;
-                    }
-                    Ok(db_staker)
-                }
-                Err(_err) => {
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+    let (share_pda, _) = ore_pool_api::state::share_pda(member_authority, pool_pda, mint);
+    // check if record is in db already
+    let db_staker = operator.get_staker_db(&member_authority, &mint).await;
+    match db_staker {
+        Ok(db_staker) => {
+            // check if marked as added to webhook in db
+            if !db_staker.webhook {
+                // add to webhook
+                let entry = webhook::ClientPutEntry {
+                    share: share_pda,
+                    authority: member_authority,
+                    mint,
+                };
+                webhook_client.put(operator, aggregator, &entry).await?;
+            }
+            Ok(db_staker)
+        }
+        Err(_err) => {
+            // check if on-chain account already exists
+            let staker = operator.get_staker_onchain(&member_authority, &mint).await;
+            match staker {
+                Ok(staker) => {
                     // write staker to db
                     let conn = operator.db_client.get().await?;
-                    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
                     let db_staker =
                         database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
                             .await?;
@@ -248,14 +248,14 @@ async fn register_new_staker(
                     webhook_client.put(operator, aggregator, &entry).await?;
                     Ok(db_staker)
                 }
+                Err(err) => {
+                    // staker doesn't exist yet on-chain
+                    log::error!("{:?}", err);
+                    // return error to http client
+                    // bc they should create the staker (share) account before hitting this path
+                    Err(Error::StakerDoesNotExist)
+                }
             }
-        }
-        Err(err) => {
-            // staker doesn't exist yet on-chain
-            log::error!("{:?}", err);
-            // return error to http client
-            // bc they should create the staker (share) account before hitting this path
-            Err(Error::StakerDoesNotExist)
         }
     }
 }
@@ -267,34 +267,35 @@ async fn register_new_member(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
-    // check if on-chain account already exists
-    let member = operator.get_member_onchain(&member_authority).await;
+    // fetch db record
     let db_client = operator.db_client.get().await?;
-    match member {
-        Ok(member) => {
-            // member already exists on-chain
-            // check if record is in db already
-            let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
-            let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
-            match db_member {
-                Ok(db_member) => {
-                    // member already exists in db
-                    Ok(db_member)
-                }
-                Err(_) => {
+    let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
+    let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
+    // idempotent get or create
+    match db_member {
+        Ok(db_member) => {
+            // member already exists in db
+            Ok(db_member)
+        }
+        Err(_) => {
+            // member not in db
+            // check if on-chain account already exists
+            let member = operator.get_member_onchain(&member_authority).await;
+            match member {
+                Ok(member) => {
                     // write member to db
                     let db_member = database::write_new_member(&db_client, &member, false).await?;
                     Ok(db_member)
                 }
+                Err(err) => {
+                    // member doesn't exist yet on-chain
+                    // land tx to create new member account
+                    log::error!("{:?}", err);
+                    // return error to http client
+                    // bc they should create the member account before hitting this path
+                    Err(Error::MemberDoesNotExist)
+                }
             }
-        }
-        Err(err) => {
-            // member doesn't exist yet on-chain
-            // land tx to create new member account
-            log::error!("{:?}", err);
-            // return error to http client
-            // bc they should create the member account before hitting this path
-            Err(Error::MemberDoesNotExist)
         }
     }
 }
