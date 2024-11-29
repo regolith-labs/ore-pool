@@ -248,8 +248,8 @@ impl Operator {
                 authority,
                 rpc_client,
                 ixs.as_slice(),
-                1_000_000,
-                10_000,
+                150_000,
+                20_000,
             )
             .await?;
             log::info!("commit stake sig: {:?}", sig);

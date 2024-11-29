@@ -105,7 +105,7 @@ async fn main() -> Result<(), error::Error> {
                 let aggregator = aggregator.clone().into_inner();
                 // commit stake
                 if let Err(err) = commit_stake(operator, aggregator).await {
-                    log::error!("{:?}", err);
+                    log::error!("commit stake err: {:?}", err);
                 }
                 // sleep until next epoch
                 tokio::time::sleep(tokio::time::Duration::from_secs(60 * stake_commit_epoch)).await;
