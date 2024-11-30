@@ -13,15 +13,12 @@ use steel::AccountDeserialize;
 use crate::{
     database,
     error::Error,
-    miner::{Contribution, MinerContributions, Miners, Winner},
-    operator::{Operator, BUFFER_OPERATOR},
+    miner::{Contribution, Devices, Miner, MinerContributions, Miners, Winner},
+    operator::Operator,
     staker::Stakers,
     tx, webhook,
 };
 
-/// The client submits slightly earlier
-/// than the operator's cutoff time to create a "submission window".
-pub const BUFFER_CLIENT: u64 = 0 + BUFFER_OPERATOR;
 const MAX_DIFFICULTY: u32 = 22;
 const MAX_SCORE: u64 = 2u64.pow(MAX_DIFFICULTY);
 
@@ -257,6 +254,22 @@ impl Aggregator {
         // reset
         self.reset(operator).await?;
         Ok(())
+    }
+
+    pub fn get_device_id(&mut self, miner: Miner) -> u8 {
+        // get device indices at current challenge
+        let last_hash_at = &self.challenge.lash_hash_at;
+        let all_devices = &mut self.contributions.devices;
+        let mut new_devices: Devices = HashMap::new();
+        new_devices.insert(miner, 0);
+        let current_devices = all_devices
+            .entry((*last_hash_at) as u64)
+            .or_insert(new_devices);
+        // lookup miner devices against current challenge
+        let miner_devices = current_devices.entry(miner).or_insert(0);
+        // increment device index
+        *miner_devices += 1;
+        *miner_devices
     }
 
     pub async fn distribute_rewards(
