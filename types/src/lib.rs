@@ -154,6 +154,9 @@ pub struct MemberChallengeV2 {
 
     /// The id/index for distinguishing devices the client is using.
     pub device_id: u8,
+
+    /// The number of client devices permitted per member.
+    pub num_devices: u8,
 }
 
 /// The response from the update-balance request.

@@ -12,6 +12,8 @@ use crate::{
     aggregator::Aggregator, database, error::Error, operator::Operator, tx, webhook, Contribution,
 };
 
+const NUM_CLIENT_DEVICES: u8 = 5;
+
 ////////////////////////////////////////////////////////////////////////////////////
 /// HTTP HANDLERS //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +130,7 @@ pub async fn challenge_v2(
         challenge,
         num_total_members: last_num_members,
         device_id,
+        num_devices: NUM_CLIENT_DEVICES,
     };
     HttpResponse::Ok().json(&member_challenge)
 }
