@@ -168,7 +168,6 @@ impl Aggregator {
         match insert {
             Some(prev) => {
                 if contribution.score.gt(&prev.score) {
-                    log::info!("updating contribution: {:?}", contribution.member);
                     let difficulty = contribution.solution.to_hash().difficulty();
                     let contender = Winner {
                         solution: contribution.solution,
