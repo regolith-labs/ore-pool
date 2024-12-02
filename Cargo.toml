@@ -29,7 +29,7 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-ore-api = "2.5"
+ore-api = "2.7"
 ore-boost-api = "0.3"
 ore-pool-api = { path = "api", version = "0.2.0" }
 ore-pool-types = { path = "types", version = "0.2.0" }

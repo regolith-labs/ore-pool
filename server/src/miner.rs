@@ -6,6 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 
 pub struct Miners {
     pub miners: HashMap<LastHashAt, MinerContributions>,
+    pub devices: HashMap<LastHashAt, Devices>,
     attribution_filter: AttributionFilter,
 }
 
@@ -13,6 +14,7 @@ impl Miners {
     pub fn new(attribution_filter_size: u8) -> Self {
         Self {
             miners: HashMap::new(),
+            devices: HashMap::new(),
             attribution_filter: AttributionFilter::new(attribution_filter_size),
         }
     }
@@ -50,12 +52,16 @@ impl Miners {
     fn filter(&mut self) {
         let validation = &self.attribution_filter.time_stamps;
         self.miners.retain(|k, _v| validation.contains(k));
+        self.devices.retain(|k, _v| validation.contains(k));
     }
 }
 
 /// miner authority
 pub type Miner = Pubkey;
-pub type TotalScore = u64;
+
+/// miner devices
+pub type DeviceIndex = u8;
+pub type Devices = HashMap<Miner, DeviceIndex>;
 
 /// miner lookup table
 /// challenge --> contribution
@@ -65,6 +71,9 @@ pub struct MinerContributions {
     pub winner: Option<Winner>,
     pub total_score: u64,
 }
+
+/// total score per challenge
+pub type TotalScore = u64;
 
 /// timestamps of last n challenges
 pub struct AttributionFilter {

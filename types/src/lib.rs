@@ -17,6 +17,12 @@ pub struct GetMemberPayload {
     pub authority: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GetChallengePayload {
+    /// The authority of the member account sending the payload.
+    pub authority: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ContributePayload {
     /// The authority of the member account sending the payload.
@@ -135,6 +141,22 @@ pub struct MemberChallenge {
 
     /// The number of total members to divide the nonce space by.
     pub num_total_members: u64,
+}
+
+/// The response from the /challenge request.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MemberChallengeV2 {
+    /// The challenge to mine for.
+    pub challenge: Challenge,
+
+    /// The number of total members to divide the nonce space by.
+    pub num_total_members: u64,
+
+    /// The id/index for distinguishing devices the client is using.
+    pub device_id: u8,
+
+    /// The number of client devices permitted per member.
+    pub num_devices: u8,
 }
 
 /// The response from the update-balance request.

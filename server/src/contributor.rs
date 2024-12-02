@@ -1,17 +1,18 @@
+use std::str::FromStr;
+
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayload, GetMemberPayload, MemberChallenge, PoolAddress,
-    RegisterPayload, RegisterStakerPayload, Staker, UpdateBalancePayload,
+    BalanceUpdate, ContributePayload, GetChallengePayload, GetMemberPayload, MemberChallenge,
+    MemberChallengeV2, PoolAddress, RegisterPayload, RegisterStakerPayload, Staker,
+    UpdateBalancePayload,
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use crate::{
-    aggregator::{Aggregator, BUFFER_CLIENT},
-    database,
-    error::Error,
-    operator::Operator,
-    tx, webhook, Contribution,
+    aggregator::Aggregator, database, error::Error, operator::Operator, tx, webhook, Contribution,
 };
+
+const NUM_CLIENT_DEVICES: u8 = 5;
 
 ////////////////////////////////////////////////////////////////////////////////////
 /// HTTP HANDLERS //////////////////////////////////////////////////////////////////
@@ -93,7 +94,6 @@ pub async fn member(
     }
 }
 
-// TODO: consider the need for auth on this get/read?
 pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
     // acquire read on aggregator for challenge
     let (challenge, last_num_members) = {
@@ -103,8 +103,34 @@ pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -
     // build member challenge
     let member_challenge = MemberChallenge {
         challenge,
-        buffer: BUFFER_CLIENT,
+        buffer: 0,
         num_total_members: last_num_members,
+    };
+    HttpResponse::Ok().json(&member_challenge)
+}
+
+pub async fn challenge_v2(
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    path: web::Path<GetChallengePayload>,
+) -> impl Responder {
+    let miner = match Pubkey::from_str(path.authority.as_str()) {
+        Ok(authority) => authority,
+        Err(err) => {
+            return HttpResponse::BadRequest().body(err.to_string());
+        }
+    };
+    // acquire write on aggregator for challenge
+    let (challenge, last_num_members, device_id) = {
+        let mut aggregator = aggregator.write().await;
+        let device_id = aggregator.get_device_id(miner);
+        (aggregator.challenge, aggregator.num_members, device_id)
+    };
+    // build member challenge
+    let member_challenge = MemberChallengeV2 {
+        challenge,
+        num_total_members: last_num_members,
+        device_id,
+        num_devices: NUM_CLIENT_DEVICES,
     };
     HttpResponse::Ok().json(&member_challenge)
 }

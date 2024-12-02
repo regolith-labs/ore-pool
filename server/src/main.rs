@@ -135,6 +135,10 @@ async fn main() -> Result<(), error::Error> {
             .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
             .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))
             .service(
+                web::resource("/challenge/{authority}")
+                    .route(web::get().to(contributor::challenge_v2)),
+            )
+            .service(
                 web::resource("/update-balance").route(web::post().to(contributor::update_balance)),
             )
             .service(
