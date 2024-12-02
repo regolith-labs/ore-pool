@@ -52,6 +52,6 @@ thiserror = "1.0.57"
 tokio = "1.39"
 tokio-postgres = "0.7"
 
-[patch.crates-io]
-ore-api = { path = "../ore/api" }
-ore-boost-api = { path = "../ore-boost/api" }
+# [patch.crates-io]
+# ore-api = { path = "../ore/api" }
+# ore-boost-api = { path = "../ore-boost/api" }
