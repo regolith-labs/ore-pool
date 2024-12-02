@@ -266,11 +266,11 @@ impl Aggregator {
         let current_devices = all_devices
             .entry((*last_hash_at) as u64)
             .or_insert(new_devices);
-        // lookup miner devices against current challenge
-        let miner_devices = current_devices.entry(miner).or_insert(0);
-        // increment device index
-        *miner_devices += 1;
-        *miner_devices
+        // lookup miner device id against current challenge
+        let device_id = current_devices.entry(miner).or_insert(0);
+        // increment device id
+        *device_id += 1;
+        *device_id
     }
 
     pub async fn distribute_rewards(
