@@ -167,24 +167,26 @@ impl Aggregator {
         let insert = contributions.contributions.replace(*contribution);
         match insert {
             Some(prev) => {
-                log::info!("updating contribution: {:?}", contribution.member);
-                let difficulty = contribution.solution.to_hash().difficulty();
-                let contender = Winner {
-                    solution: contribution.solution,
-                    difficulty,
-                };
-                // decrement previous score
-                contributions.total_score -= prev.score;
-                // increment new score
-                contributions.total_score += contribution.score;
-                // update winner
-                match contributions.winner {
-                    Some(winner) => {
-                        if difficulty > winner.difficulty {
-                            contributions.winner = Some(contender);
+                if contribution.score.gt(&prev.score) {
+                    log::info!("updating contribution: {:?}", contribution.member);
+                    let difficulty = contribution.solution.to_hash().difficulty();
+                    let contender = Winner {
+                        solution: contribution.solution,
+                        difficulty,
+                    };
+                    // decrement previous score
+                    contributions.total_score -= prev.score;
+                    // increment new score
+                    contributions.total_score += contribution.score;
+                    // update winner
+                    match contributions.winner {
+                        Some(winner) => {
+                            if difficulty > winner.difficulty {
+                                contributions.winner = Some(contender);
+                            }
                         }
+                        None => contributions.winner = Some(contender),
                     }
-                    None => contributions.winner = Some(contender),
                 }
                 Ok(())
             }
