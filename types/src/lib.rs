@@ -30,9 +30,6 @@ pub struct ContributePayload {
 
     /// The solution submitted.
     pub solution: Solution,
-
-    /// Must be a valid signature of the solution
-    pub signature: Signature,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

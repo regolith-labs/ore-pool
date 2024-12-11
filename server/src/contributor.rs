@@ -151,13 +151,6 @@ pub async fn contribute(
     // decode solution difficulty
     let solution = &payload.solution;
     let difficulty = solution.to_hash().difficulty();
-    // authenticate the sender signature
-    if !payload
-        .signature
-        .verify(&payload.authority.to_bytes(), &solution.to_bytes())
-    {
-        return HttpResponse::Unauthorized().finish();
-    }
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
         log::error!("solution below min difficulity: {:?}", payload.authority);
