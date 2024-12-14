@@ -30,6 +30,18 @@ pub struct ContributePayload {
 
     /// The solution submitted.
     pub solution: Solution,
+
+    /// Must be a valid signature of the solution
+    pub signature: Signature,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ContributePayloadV2 {
+    /// The authority of the member account sending the payload.
+    pub authority: Pubkey,
+
+    /// The solution submitted.
+    pub solution: Solution,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -82,7 +94,7 @@ pub struct Challenge {
 }
 
 /// The member record that sits in the operator database
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Member {
     /// The respective pda pubkey of the on-chain account.
     pub address: String,
@@ -127,7 +139,7 @@ pub struct Staker {
 }
 
 /// The response from the /challenge request.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct MemberChallenge {
     /// The challenge to mine for.
     pub challenge: Challenge,
@@ -141,7 +153,7 @@ pub struct MemberChallenge {
 }
 
 /// The response from the /challenge request.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct MemberChallengeV2 {
     /// The challenge to mine for.
     pub challenge: Challenge,

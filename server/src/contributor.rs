@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayload, GetChallengePayload, GetMemberPayload, MemberChallenge,
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetMemberPayload, MemberChallenge,
     MemberChallengeV2, PoolAddress, RegisterPayload, RegisterStakerPayload, Staker,
     UpdateBalancePayload,
 };
@@ -141,7 +141,7 @@ pub async fn contribute(
     operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
     tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
-    payload: web::Json<ContributePayload>,
+    payload: web::Json<ContributePayloadV2>,
 ) -> impl Responder {
     // acquire read on aggregator for challenge
     let aggregator = aggregator.read().await;
