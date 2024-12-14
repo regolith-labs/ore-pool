@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayload, GetChallengePayload, GetMemberPayload, MemberChallenge,
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetMemberPayload, MemberChallenge,
     MemberChallengeV2, PoolAddress, RegisterPayload, RegisterStakerPayload, Staker,
     UpdateBalancePayload,
 };
@@ -141,7 +141,7 @@ pub async fn contribute(
     operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
     tx: web::Data<tokio::sync::mpsc::UnboundedSender<Contribution>>,
-    payload: web::Json<ContributePayload>,
+    payload: web::Json<ContributePayloadV2>,
 ) -> impl Responder {
     // acquire read on aggregator for challenge
     let aggregator = aggregator.read().await;
@@ -151,13 +151,6 @@ pub async fn contribute(
     // decode solution difficulty
     let solution = &payload.solution;
     let difficulty = solution.to_hash().difficulty();
-    // authenticate the sender signature
-    if !payload
-        .signature
-        .verify(&payload.authority.to_bytes(), &solution.to_bytes())
-    {
-        return HttpResponse::Unauthorized().finish();
-    }
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
         log::error!("solution below min difficulity: {:?}", payload.authority);
