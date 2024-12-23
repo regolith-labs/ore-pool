@@ -3,13 +3,13 @@ use std::str::FromStr;
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
     BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetMemberPayload, MemberChallenge,
-    MemberChallengeV2, PoolAddress, RegisterPayload, RegisterStakerPayload, Staker,
+    MemberChallengeV2, PoolAddress, RegisterPayload,
     UpdateBalancePayload,
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use crate::{
-    aggregator::Aggregator, database, error::Error, operator::Operator, tx, webhook, Contribution,
+    aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution,
 };
 
 const NUM_CLIENT_DEVICES: u8 = 5;
@@ -25,29 +25,6 @@ pub async fn register(
     let res = register_new_member(operator, payload.into_inner()).await;
     match res {
         Ok(db_member) => HttpResponse::Ok().json(&db_member),
-        Err(err) => {
-            log::error!("{:?}", err);
-            let http_response: HttpResponse = err.into();
-            http_response
-        }
-    }
-}
-
-pub async fn register_staker(
-    operator: web::Data<Operator>,
-    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    webhook_client: web::Data<webhook::Client>,
-    payload: web::Json<RegisterStakerPayload>,
-) -> impl Responder {
-    let res = register_new_staker(
-        operator.as_ref(),
-        aggregator.as_ref(),
-        webhook_client.as_ref(),
-        payload.into_inner(),
-    )
-    .await;
-    match res {
-        Ok(staker) => HttpResponse::Ok().json(staker),
         Err(err) => {
             log::error!("{:?}", err);
             let http_response: HttpResponse = err.into();
@@ -219,64 +196,6 @@ async fn update_balance_onchain(
         balance: member.total_balance as u64,
         signature: sig,
     })
-}
-
-async fn register_new_staker(
-    operator: &Operator,
-    aggregator: &tokio::sync::RwLock<Aggregator>,
-    webhook_client: &webhook::Client,
-    payload: RegisterStakerPayload,
-) -> Result<Staker, Error> {
-    let keypair = &operator.keypair;
-    let member_authority = payload.authority;
-    let mint = payload.mint;
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
-    let (share_pda, _) = ore_pool_api::state::share_pda(member_authority, pool_pda, mint);
-    // check if record is in db already
-    let db_staker = operator.get_staker_db(&member_authority, &mint).await;
-    match db_staker {
-        Ok(db_staker) => {
-            // check if marked as added to webhook in db
-            if !db_staker.webhook {
-                // add to webhook
-                let entry = webhook::ClientPutEntry {
-                    share: share_pda,
-                    authority: member_authority,
-                    mint,
-                };
-                webhook_client.put(operator, aggregator, &entry).await?;
-            }
-            Ok(db_staker)
-        }
-        Err(_err) => {
-            // check if on-chain account already exists
-            let staker = operator.get_staker_onchain(&member_authority, &mint).await;
-            match staker {
-                Ok(staker) => {
-                    // write staker to db
-                    let conn = operator.db_client.get().await?;
-                    let db_staker =
-                        database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
-                            .await?;
-                    // add to webhook
-                    let entry = webhook::ClientPutEntry {
-                        share: staker.1,
-                        authority: member_authority,
-                        mint,
-                    };
-                    webhook_client.put(operator, aggregator, &entry).await?;
-                    Ok(db_staker)
-                }
-                Err(err) => {
-                    // staker doesn't exist yet on-chain
-                    log::error!("{:?}", err);
-                    // return error to http client
-                    // bc they should create the staker (share) account before hitting this path
-                    Err(Error::StakerDoesNotExist)
-                }
-            }
-        }
-    }
 }
 
 async fn register_new_member(

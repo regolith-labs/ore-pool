@@ -102,6 +102,8 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
 }
 
 /// Builds a commit instruction.
+#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[allow(deprecated)]
 pub fn commit(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let boost_tokens =
@@ -203,6 +205,8 @@ pub fn unstake(
 }
 
 /// builds a stake instruction.
+#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[allow(deprecated)]
 pub fn stake(
     signer: Pubkey,
     mint: Pubkey,
@@ -233,6 +237,8 @@ pub fn stake(
 }
 
 /// Builds an open share instruction.
+#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[allow(deprecated)]
 pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let (share_pda, share_bump) = share_pda(signer, pool, mint);
@@ -253,6 +259,8 @@ pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
 }
 
 /// Builds an open stake instruction.
+#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[allow(deprecated)]
 pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
     let (pool_pda, _) = pool_pda(signer);

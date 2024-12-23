@@ -7,6 +7,8 @@ pub enum PoolError {
     MissingMiningReward = 0,
     #[error("Could not parse mining reward")]
     CouldNotParseMiningReward = 1,
+    #[error("Staking is in withdraw only mode")]
+    WithdrawOnlyMode = 2,
 }
 
 #[derive(Debug, Error)]
