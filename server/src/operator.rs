@@ -1,12 +1,9 @@
-use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc, vec};
+use std::{str::FromStr, sync::Arc};
 
-use futures::{Future, StreamExt, TryFutureExt, TryStreamExt};
 use ore_api::state::{Config, Proof};
-use ore_pool_api::state::{Member, Pool, Share};
-use ore_pool_types::Staker;
+use ore_pool_api::state::{Member, Pool};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    account::Account,
     clock::Clock,
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
@@ -16,7 +13,7 @@ use solana_sdk::{
 };
 use steel::AccountDeserialize;
 
-use crate::{database, error::Error, tx};
+use crate::{database, error::Error};
 
 pub const BUFFER_OPERATOR: u64 = 5;
 const MIN_DIFFICULTY: Option<u64> = Some(7);
@@ -31,43 +28,9 @@ pub struct Operator {
     /// Postgres connection pool.
     pub db_client: deadpool_postgres::Pool,
 
-    /// The boost accounts for mining multipliers.
-    pub boost_accounts: Vec<BoostAccount>,
-
     /// The operator commission in % percentage.
     /// Applied to the miner and staker rewards.
     pub operator_commission: u64,
-
-    /// The staker commission in % percentage.
-    /// The rest is given to miners to incentize participation.
-    pub staker_commission: u64,
-}
-
-pub struct BoostAccount {
-    /// The mint account used to derive the boost account.
-    pub mint: Pubkey,
-
-    /// The boost account.
-    pub boost: Pubkey,
-
-    /// The pool's stake account derived from the boost.
-    pub stake: Pubkey,
-}
-
-impl BoostAccount {
-    fn new(mint: Pubkey, operator_pubkey: Pubkey) -> Self {
-        let (boost, _) = ore_boost_api::state::boost_pda(mint);
-        let (pool, _) = ore_pool_api::state::pool_pda(operator_pubkey);
-        let (stake, _) = ore_boost_api::state::stake_pda(pool, boost);
-        Self { mint, boost, stake }
-    }
-
-    fn new_from_vec(mint_vec: Vec<Pubkey>, operator_pubkey: Pubkey) -> Vec<Self> {
-        mint_vec
-            .into_iter()
-            .map(|mint| Self::new(mint, operator_pubkey))
-            .collect()
-    }
 }
 
 impl Operator {
@@ -75,20 +38,13 @@ impl Operator {
         let keypair = Self::keypair()?;
         let rpc_client = Self::rpc_client()?;
         let db_client = database::create_pool();
-        let boosts = Self::load_boosts()?;
-        log::info!("boosts: {:?}", boosts);
-        let boost_accounts = BoostAccount::new_from_vec(boosts, keypair.pubkey());
         let operator_commission = Self::operator_commission()?;
         log::info!("operator commision: {}", operator_commission);
-        let staker_commission = Self::staker_commission()?;
-        log::info!("staker commission: {}", staker_commission);
         Ok(Operator {
             keypair,
             rpc_client,
             db_client,
-            boost_accounts,
             operator_commission,
-            staker_commission,
         })
     }
 
@@ -99,78 +55,6 @@ impl Operator {
         let data = rpc_client.get_account_data(&pool_pda).await?;
         let pool = Pool::try_from_bytes(data.as_slice())?;
         Ok(*pool)
-    }
-
-    pub async fn get_staker_onchain(
-        &self,
-        member_authority: &Pubkey,
-        mint: &Pubkey,
-    ) -> Result<(ore_pool_api::state::Share, Pubkey), Error> {
-        let keypair = &self.keypair;
-        let rpc_client = &self.rpc_client;
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
-        let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
-        let data = rpc_client.get_account_data(&share_pda).await?;
-        let share = ore_pool_api::state::Share::try_from_bytes(data.as_slice())?;
-        Ok((*share, share_pda))
-    }
-
-    pub async fn get_staker_db(
-        &self,
-        member_authority: &Pubkey,
-        mint: &Pubkey,
-    ) -> Result<Staker, Error> {
-        let keypair = &self.keypair;
-        let db_client = &self.db_client;
-        let db_client = db_client.get().await?;
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
-        let (share_pda, _) = ore_pool_api::state::share_pda(*member_authority, pool_pda, *mint);
-        database::read_staker(&db_client, &share_pda.to_string()).await
-    }
-
-    pub async fn get_stakers_db(&self, mint: &Pubkey) -> Result<Vec<Pubkey>, Error> {
-        let db_client = &self.db_client;
-        let conn = db_client.get().await?;
-        let stream = database::stream_stakers(&conn, mint)
-            .await?
-            .map(|staker| staker.map(|ok| ok.address));
-        let vec: Vec<Pubkey> = stream.try_collect().await?;
-        Ok(vec)
-    }
-
-    pub async fn get_stakers_db_as_string(&self, mint: &Pubkey) -> Result<Vec<String>, Error> {
-        let db_client = &self.db_client;
-        let conn = db_client.get().await?;
-        let stream = database::stream_stakers(&conn, mint)
-            .await?
-            .map(|staker| staker.map(|ok| ok.address.to_string()));
-        let vec: Vec<String> = stream.try_collect().await?;
-        Ok(vec)
-    }
-
-    pub async fn get_stakers_onchain(&self, mint: &Pubkey) -> Result<HashMap<Pubkey, u64>, Error> {
-        let rpc_client = &self.rpc_client;
-        let vec = self.get_stakers_db(mint).await?;
-        let mut queries: Vec<Pin<Box<dyn Future<Output = GetManyStakers> + Send>>> = vec![];
-        for chunk in vec.chunks(100) {
-            let query = rpc_client
-                .get_multiple_accounts(chunk)
-                .map_err(Into::<Error>::into);
-            queries.push(Box::pin(query));
-        }
-        let results: Vec<Vec<Option<Account>>> = futures::future::try_join_all(queries).await?;
-        let results: HashMap<Pubkey, u64> = results
-            .into_iter()
-            .flat_map(|v| v.into_iter())
-            .filter_map(|option| {
-                option.and_then(|account| {
-                    let data = account.data;
-                    let share = Share::try_from_bytes(data.as_slice()).ok();
-                    share.map(|s| (s.authority, s.balance))
-                })
-            })
-            .collect();
-        Ok(results)
     }
 
     pub async fn get_member_onchain(&self, member_authority: &Pubkey) -> Result<Member, Error> {
@@ -234,45 +118,6 @@ impl Operator {
         Ok(())
     }
 
-    pub async fn commit_stake(&self) -> Result<(), Error> {
-        let authority = &self.keypair;
-        let rpc_client = &self.rpc_client;
-        let boost_mints = self.get_boosts();
-        if boost_mints.len().gt(&0) {
-            let mut ixs = vec![];
-            for mint in boost_mints.iter() {
-                let ix = ore_pool_api::sdk::commit(authority.pubkey(), *mint);
-                ixs.push(ix);
-            }
-            let sig = tx::submit::submit_and_confirm_instructions(
-                authority,
-                rpc_client,
-                ixs.as_slice(),
-                150_000,
-                20_000,
-            )
-            .await?;
-            log::info!("commit stake sig: {:?}", sig);
-        }
-        Ok(())
-    }
-
-    /// the optional boost accounts for the mine instruction.
-    pub fn get_boost_mine_accounts(&self) -> Vec<Pubkey> {
-        let mut vec = vec![];
-        let boost_accounts = &self.boost_accounts;
-        for ba in boost_accounts.iter() {
-            vec.push(ba.boost);
-            vec.push(ba.stake);
-        }
-        vec
-    }
-
-    fn get_boosts(&self) -> Vec<Pubkey> {
-        let boost_accounts = &self.boost_accounts;
-        boost_accounts.iter().map(|ba| ba.mint).collect()
-    }
-
     async fn get_config(&self) -> Result<Config, Error> {
         let config_pda = ore_api::consts::CONFIG_ADDRESS;
         let rpc_client = &self.rpc_client;
@@ -310,54 +155,12 @@ impl Operator {
         std::env::var("RPC_URL").map_err(From::from)
     }
 
-    fn load_boosts() -> Result<Vec<Pubkey>, Error> {
-        let boost_1 = Self::boost_one()?;
-        let boost_2 = Self::boost_two()?;
-        let boost_3 = Self::boost_three()?;
-        let boosts: Vec<Pubkey> = vec![boost_1, boost_2, boost_3]
-            .into_iter()
-            .flatten()
-            .collect();
-        Ok(boosts)
-    }
-
-    fn load_boost(var: String) -> Result<Option<Pubkey>, Error> {
-        match std::env::var(var) {
-            Ok(boost) => {
-                let boost = Pubkey::from_str(boost.as_str())?;
-                Ok(Some(boost))
-            }
-            // optional
-            Err(_) => Ok(None),
-        }
-    }
-
-    fn boost_one() -> Result<Option<Pubkey>, Error> {
-        Self::load_boost("BOOST_ONE".to_string())
-    }
-
-    fn boost_two() -> Result<Option<Pubkey>, Error> {
-        Self::load_boost("BOOST_TWO".to_string())
-    }
-
-    fn boost_three() -> Result<Option<Pubkey>, Error> {
-        Self::load_boost("BOOST_THREE".to_string())
-    }
-
     fn operator_commission() -> Result<u64, Error> {
         let str = std::env::var("OPERATOR_COMMISSION")?;
         let commission: u64 = str.parse()?;
         Ok(commission)
     }
-
-    fn staker_commission() -> Result<u64, Error> {
-        let str = std::env::var("STAKER_COMMISSION")?;
-        let commission: u64 = str.parse()?;
-        Ok(commission)
-    }
 }
-
-type GetManyStakers = Result<Vec<Option<Account>>, Error>;
 
 #[cfg(test)]
 mod tests {

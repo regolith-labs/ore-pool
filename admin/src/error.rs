@@ -14,8 +14,6 @@ pub enum Error {
     SolaanProgram(#[from] solana_program::program_error::ProgramError),
     #[error("solana parse pubkey")]
     SolanaParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
-    #[error("missing boost mint")]
-    MissingBoostMint,
     #[error("missing pool url")]
     MissingPoolUrl,
     #[error("invalid command")]

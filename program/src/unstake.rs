@@ -6,7 +6,7 @@ use steel::*;
 /// Unstake tokens from the pool's stake account.
 pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
-    let args = ore_pool_api::instruction::Stake::try_from_bytes(data)?;
+    let args = ore_pool_api::instruction::Unstake::try_from_bytes(data)?;
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
