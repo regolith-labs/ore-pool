@@ -5,15 +5,15 @@
 ## Admin
 Must `cargo run` the [admin application](./admin/src/main.rs) before starting server.
 
-Create the pool and member accounts on-chain which the server expects to exist upon starting. A member account is created because we need an account to write the pool commissions to.
-You can manage this member account (claim, etc.) from the `ore-cli`.
+Creates the pool and member accounts on-chain which the server expects to exist upon starting. A member account is created because we need an account to write the pool commissions to.
+You can manage this member account (balance, claim, etc.) from the `ore-cli`.
 ```sh
 # cd ./admin
 COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="/my/path/id.json" cargo run --release
 ```
 
 ## Server
-There are many parameters that the server supports via [env vars](./server/.env.example). 
+Start the server. Parameterized via [env vars](./server/.env.example).
 ```sh
 # cd ./server
 RPC_URL="" KEYPAIR_PATH="/my/path/id.json" DB_URL="" ATTR_EPOCH="60" HELIUS_AUTH_TOKEN="" OPERATOR_COMMISSION="" RUST_LOG=info cargo run --release
@@ -21,7 +21,7 @@ RPC_URL="" KEYPAIR_PATH="/my/path/id.json" DB_URL="" ATTR_EPOCH="60" HELIUS_AUTH
 
 ## Webhook
 The server depends on a [helius webhook](https://docs.helius.dev/webhooks-and-websockets/what-are-webhooks),
-such that we can parse mining rewards asynchronously.
+for parsing the mining rewards asynchronously.
 - You'll need to create the webhook manually in the helius dashboard. It should be of type `raw`.
 - Also will need to generate an auth token that helius will include in their POST requests to your server. Pass this as an env var to the server.
 - Creating new webhooks requires specifying the account address(es) to listen for. You want to put the proof account pubkey that belongs to the pool. You can find this pubkey by running the `proof-account` command in the [admin server](./admin/src/main.rs).
