@@ -28,13 +28,12 @@ async fn main() -> Result<(), error::Error> {
     // contributions channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
     let tx = web::Data::new(tx);
-    
+
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
     let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
     let aggregator = web::Data::new(aggregator);
     let webhook_handler = web::Data::new(webhook::Handle::new()?);
-    let webhook_client = web::Data::new(webhook::Client::new_stake()?);
 
     // env vars
     let attribution_epoch = attribution_epoch()?;
@@ -103,7 +102,6 @@ async fn main() -> Result<(), error::Error> {
             .app_data(operator.clone())
             .app_data(aggregator.clone())
             .app_data(webhook_handler.clone())
-            .app_data(webhook_client.clone())
             .app_data(rewards_tx.clone())
             .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
             .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))

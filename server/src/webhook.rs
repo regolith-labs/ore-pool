@@ -3,26 +3,6 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 
 use crate::error::Error;
 
-const HELIUS_URL: &str = "https://api.helius.xyz";
-const HELIUS_WEBHOOK_API_PATH: &str = "v0/webhooks";
-const HELIUS_WEBHOOK_TYPE: &str = "raw";
-const HELIUS_TRANSACTION_TYPE: &str = "all";
-
-/// client for managing helius webhooks
-pub struct Client {
-    http_client: reqwest::Client,
-    /// query paramter added to the url for making http requets to helius
-    helius_api_key: String,
-    /// the helius webhook id created in the console
-    /// for tracking share accounts
-    helius_webhook_id: String,
-    /// the /webhook path that your server exposes to helius
-    helius_webhook_url: String,
-    /// the auth token expected to be included in webhook events
-    /// posted from helius to our server.
-    helius_auth_token: String,
-}
-
 /// handler for receiving helius webhook events
 pub struct Handle {
     /// the auth token expected to be included in webhook events
@@ -30,45 +10,15 @@ pub struct Handle {
     helius_auth_token: String,
 }
 
-
-#[derive(serde::Deserialize, Debug)]
-struct ClientEditSuccess {
-    #[serde(rename = "webhookID")]
-    webhook_id: String,
-}
-
 #[derive(serde::Deserialize, Debug)]
 pub struct Event {
     pub meta: EventMeta,
-    pub transaction: EventTransaction,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct EventTransaction {
-    pub message: EventMessage,
-}
-
-#[derive(serde::Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct EventMessage {
-    pub account_keys: Vec<String>,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EventMeta {
     pub log_messages: Vec<String>,
-    pub inner_instructions: Vec<EventInnerInstructions>,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct EventInnerInstructions {
-    pub instructions: Vec<EventAccountIndices>,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct EventAccountIndices {
-    pub accounts: Vec<u8>,
 }
 
 impl Handle {
@@ -111,11 +61,12 @@ impl Handle {
         req: &HttpRequest,
         bytes: &web::Bytes,
     ) -> Result<ore_api::event::MineEvent, Error> {
+        // authorize
         self.auth(req)?;
+        // decode payload
         let bytes = bytes.to_vec();
         let json = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
         let event = serde_json::from_value::<Vec<Event>>(json)?;
-
         // parse the mine event
         let event = event
             .first()
@@ -133,7 +84,6 @@ impl Handle {
         let mine_event: &ore_api::event::MineEvent =
             bytemuck::try_from_bytes(mine_event.as_slice())
                 .map_err(|e| Error::Internal(e.to_string()))?;
-
         Ok(*mine_event)
     }
 
@@ -152,39 +102,8 @@ impl Handle {
     }
 }
 
-impl Client {
-    /// create new client for listening to share account state changes
-    pub fn new_stake() -> Result<Self, Error> {
-        let helius_api_key = helius_api_key()?;
-        let helius_webhook_id = helius_webhook_id()?;
-        let helius_webhook_url = helius_webhook_url()?;
-        let helius_auth_token = helius_auth_token()?;
-        let s = Self {
-            http_client: reqwest::Client::new(),
-            helius_api_key,
-            helius_webhook_id,
-            helius_webhook_url,
-            helius_auth_token,
-        };
-        Ok(s)
-    }
-}
-
-/// this the /webhook path that your server exposes to helius.
-fn helius_webhook_url() -> Result<String, Error> {
-    std::env::var("HELIUS_WEBHOOK_URL").map_err(From::from)
-}
-
-fn helius_api_key() -> Result<String, Error> {
-    std::env::var("HELIUS_API_KEY").map_err(From::from)
-}
-
 fn helius_auth_token() -> Result<String, Error> {
     std::env::var("HELIUS_AUTH_TOKEN").map_err(From::from)
-}
-
-fn helius_webhook_id() -> Result<String, Error> {
-    std::env::var("HELIUS_WEBHOOK_ID").map_err(From::from)
 }
 
 #[cfg(test)]
