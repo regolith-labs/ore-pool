@@ -15,7 +15,7 @@ use crate::{
     error::Error,
     miner::{Contribution, Devices, Miner, MinerContributions, Miners, Winner},
     operator::Operator,
-    tx, 
+    tx,
 };
 
 const MAX_DIFFICULTY: u32 = 22;
@@ -271,12 +271,9 @@ impl Aggregator {
         // compute attributions for miners
         log::info!("reward: {:?}", rewards);
         log::info!("// miner ////////////////////////");
-        let rewards_distribution = self.rewards_distribution(
-            pool_pda,
-            rewards,
-            operator.operator_commission,
-        );
-      
+        let rewards_distribution =
+            self.rewards_distribution(pool_pda, rewards, operator.operator_commission);
+
         // compute attribution for operator
         log::info!("// operator ////////////////////////");
         let rewards_distribution_operator = self.rewards_distribution_operator(
@@ -304,27 +301,25 @@ impl Aggregator {
         // compute denominator
         let denominator: u64 = total_score;
         let denominator: u128 = denominator as u128;
+        log::info!("contributions denominator: {}", denominator);
         // compute base mine rewards
-        let mine_rewards = rewards.reward - rewards.boost_1 - rewards.boost_2 - rewards.boost_3;
-        log::info!("base reward denominator: {}", denominator);
+        let mine_rewards = rewards.net_base_reward + rewards.net_miner_boost_reward;
         // compute miner split
         let miner_commission = 100 - operator_commission;
-        log::info!("miner commission: {}", miner_commission);
         let miner_rewards = (mine_rewards as u128)
             .saturating_mul(miner_commission as u128)
             .saturating_div(100);
+        log::info!("total miner rewards: {}", miner_rewards);
         let contributions = scores.iter();
-        let distribution = contributions
+        contributions
             .map(|(member, score)| {
-                log::info!("raw base reward score: {}", score);
                 let score = (*score as u128).saturating_mul(miner_rewards);
                 let score = score.checked_div(denominator).unwrap_or(0);
-                log::info!("attributed base reward score: {}", score);
+                log::info!("attributed: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(*member, pool);
                 (member_pda.to_string(), score as u64)
             })
-            .collect();
-        distribution
+            .collect()
     }
 
     fn rewards_distribution_operator(
@@ -334,12 +329,11 @@ impl Aggregator {
         rewards: &ore_api::event::MineEvent,
         operator_commission: u64,
     ) -> (String, u64) {
-        log::info!("operator commission: {}", operator_commission);
-        let total_rewards = (rewards.reward as u128)
+        let total_rewards = ((rewards.net_base_reward + rewards.net_miner_boost_reward) as u128)
             .saturating_mul(operator_commission as u128)
             .saturating_div(100);
         let total_rewards = total_rewards as u64;
-        log::info!("total rewards for operator: {}", total_rewards);
+        log::info!("total operator rewards: {}", total_rewards);
         let (member_pda, _) = ore_pool_api::state::member_pda(pool_authority, pool);
         (member_pda.to_string(), total_rewards)
     }

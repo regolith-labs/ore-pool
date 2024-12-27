@@ -9,7 +9,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Submit::try_from_bytes(data)?;
 
     // Load accounts.
-    let (required_accounts, optional_accounts) = accounts.split_at(9);
+    let (required_accounts, boost_accounts) = accounts.split_at(9);
     let [signer_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
         required_accounts
     else {
@@ -49,18 +49,22 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         instructions_sysvar.clone(),
         slot_hashes_sysvar.clone(),
     ];
-    let mine_accounts = [mine_accounts, optional_accounts].concat();
-    let optional_accounts = optional_accounts.iter().map(|a| *a.key).collect();
-    solana_program::program::invoke(
-        &ore_api::sdk::mine(
-            *signer_info.key,
-            *pool_info.key,
-            *bus_info.key,
-            solution,
-            optional_accounts,
-        ),
-        &mine_accounts,
-    )?;
+    if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
+        let mine_accounts = [mine_accounts, boost_accounts].concat();
+        solana_program::program::invoke(
+            &ore_api::sdk::mine(
+                *signer_info.key,
+                *pool_info.key,
+                *bus_info.key,
+                solution,
+                *reservation_info.key,
+                Some(*boost_info.key),
+            ),
+            &mine_accounts,
+        )?;
+    } else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
 
     // Parse the proof balance again
     // to compute the diff which gives us the reward for attribution.
