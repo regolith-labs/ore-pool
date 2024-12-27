@@ -32,7 +32,7 @@ for parsing the mining rewards asynchronously.
 - Feel free to fork this repo and add your custom logic.
 - Ofc we're accepting PRs / contributions. Please help us reach a solid v1.0.0.
 - This implementation is integrated with the official `ore-cli`.
-- So if you fork and change things, just make sure you serve the same HTTP paths that the `ore-cli` is interfacing with. If you do that, people should be able to participate in your pool with no additional installs or changes to their client.
+- If you fork and change things, just make sure you serve the same HTTP paths that the `ore-cli` is interfacing with. If you do that, people should be able to participate in your pool with no additional installs or changes to their client.
 - For reference, you'll find the required HTTP paths [here](./server/src/contributor.rs) and also the client-side API types [here](./types/src/lib.rs).
 
 ## For now
