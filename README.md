@@ -8,13 +8,15 @@ Must `cargo run` the [admin application](./admin/src/main.rs) before starting se
 Create the pool and member accounts on-chain which the server expects to exist upon starting. A member account is created because we need an account to write the pool commissions to.
 You can manage this member account (claim, etc.) from the `ore-cli`.
 ```sh
-COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="" cargo run --release
+# cd ./admin
+COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="/my/path/id.json" cargo run --release
 ```
 
 ## Server
 There are many parameters that the server supports via [env vars](./server/.env.example). 
 ```sh
-RPC_URL="" KEYPAIR_PATH="" DB_URL="" ATTR_EPOCH="60" STAKE_EPOCH="60" HELIUS_AUTH_TOKEN="" OPERATOR_COMMISSION="" RUST_LOG=info cargo run --release
+# cd ./server
+RPC_URL="" KEYPAIR_PATH="/my/path/id.json" DB_URL="" ATTR_EPOCH="60" HELIUS_AUTH_TOKEN="" OPERATOR_COMMISSION="" RUST_LOG=info cargo run --release
 ```
 
 ## Webhook
