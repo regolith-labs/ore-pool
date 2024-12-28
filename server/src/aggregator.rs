@@ -313,13 +313,11 @@ impl Aggregator {
         let miner_rewards = (mine_rewards as u128)
             .saturating_mul(miner_commission as u128)
             .saturating_div(100);
-        log::info!("total miner rewards: {}", miner_rewards);
         let contributions = scores.iter();
         contributions
             .map(|(member, score)| {
                 let score = (*score as u128).saturating_mul(miner_rewards);
                 let score = score.checked_div(denominator).unwrap_or(0);
-                log::info!("attributed: {}", score);
                 let (member_pda, _) = ore_pool_api::state::member_pda(*member, pool);
                 (member_pda.to_string(), score as u64)
             })
@@ -337,7 +335,6 @@ impl Aggregator {
             .saturating_mul(operator_commission as u128)
             .saturating_div(100);
         let total_rewards = total_rewards as u64;
-        log::info!("total operator rewards: {}", total_rewards);
         let (member_pda, _) = ore_pool_api::state::member_pda(pool_authority, pool);
         (member_pda.to_string(), total_rewards)
     }
