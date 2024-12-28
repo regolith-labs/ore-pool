@@ -226,18 +226,19 @@ impl Aggregator {
         // build instructions
         let auth_ix = ore_api::sdk::auth(pool_proof_pda);
         let submit_ix = ore_pool_api::sdk::submit(
-            operator.keypair.pubkey(),
+            *authority,
             bus,
             best_solution,
             attestation,
             reservation_pda,
             boost,
         );
+        let rotate_ix = ore_boost_api::sdk::rotate(*authority, pool_proof_pda);
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
             rpc_client,
-            &[auth_ix, submit_ix],
+            &[auth_ix, submit_ix, rotate_ix],
             1_500_000,
             500_000,
         )

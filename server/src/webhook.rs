@@ -72,7 +72,7 @@ impl Handle {
             .first()
             .ok_or(Error::Internal("empty webhook event".to_string()))?;
         let log_messages = event.meta.log_messages.as_slice();
-        let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
+        let index = log_messages.len().checked_sub(5).ok_or(Error::Internal(
             "invalid webhook event message index".to_string(),
         ))?;
         let mine_event = log_messages
