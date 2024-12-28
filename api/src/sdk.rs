@@ -102,7 +102,10 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
 }
 
 /// Builds a commit instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn commit(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
@@ -131,14 +134,15 @@ pub fn commit(signer: Pubkey, mint: Pubkey) -> Instruction {
 /// Builds an submit instruction.
 pub fn submit(
     signer: Pubkey,
+    bus: Pubkey,
     solution: Solution,
     attestation: [u8; 32],
-    bus: Pubkey,
-    boost_accounts: Vec<Pubkey>,
+    reservation: Pubkey,
+    boost: Option<Pubkey>,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
-    let accounts = vec![
+    let mut accounts = vec![
         AccountMeta::new(signer, true),
         AccountMeta::new(bus, false),
         AccountMeta::new_readonly(CONFIG_ADDRESS, false),
@@ -148,12 +152,13 @@ pub fn submit(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(sysvar::instructions::ID, false),
         AccountMeta::new_readonly(sysvar::slot_hashes::ID, false),
+        AccountMeta::new_readonly(reservation, false),
     ];
-    let boost_accounts = boost_accounts
-        .into_iter()
-        .map(|pk| AccountMeta::new_readonly(pk, false))
-        .collect();
-    let accounts = [accounts, boost_accounts].concat();
+    if let Some(boost) = boost {
+        let (boost_proof_pda, _) = ore_api::state::proof_pda(boost);
+        accounts.push(AccountMeta::new_readonly(boost, false));
+        accounts.push(AccountMeta::new(boost_proof_pda, false));
+    }
     Instruction {
         program_id: crate::ID,
         accounts,
@@ -205,7 +210,10 @@ pub fn unstake(
 }
 
 /// builds a stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn stake(
     signer: Pubkey,
@@ -237,7 +245,10 @@ pub fn stake(
 }
 
 /// Builds an open share instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
@@ -259,7 +270,10 @@ pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
 }
 
 /// Builds an open stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
     let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);

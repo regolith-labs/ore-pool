@@ -178,7 +178,6 @@ impl Aggregator {
                 Ok(())
             }
             None => {
-                log::info!("new contribution: {:?}", contribution.member);
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
@@ -221,14 +220,18 @@ impl Aggregator {
         let (pool_pda, _) = ore_pool_api::state::pool_pda(*authority);
         let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
         let bus = self.find_bus(operator).await?;
+        let (reservation_pda, _) = ore_boost_api::state::reservation_pda(pool_proof_pda);
+        // fetch boost
+        let boost = operator.get_boost(&reservation_pda).await?;
         // build instructions
         let auth_ix = ore_api::sdk::auth(pool_proof_pda);
         let submit_ix = ore_pool_api::sdk::submit(
             operator.keypair.pubkey(),
+            bus,
             best_solution,
             attestation,
-            bus,
-            vec![], // TODO fetch from reservation accounts
+            reservation_pda,
+            boost,
         );
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_instructions(

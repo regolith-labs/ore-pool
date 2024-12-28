@@ -1,3 +1,4 @@
+use ore_boost_api::state::Reservation;
 use ore_pool_api::state::{Member, Pool};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{signature::Keypair, signer::Signer};
@@ -23,5 +24,11 @@ pub async fn init(
     let join_ix = ore_pool_api::sdk::join(pubkey, pool_pda, pubkey);
     println!("member address: {:?}", member_pda);
     get_or_create::pda::<Member>(rpc_client, keypair, &member_pda, join_ix).await?;
+    // get or create reservation account
+    let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
+    let (reservation_pda, _) = ore_boost_api::state::reservation_pda(pool_proof_pda);
+    let reservation_ix = ore_boost_api::sdk::register(pubkey, pubkey, pool_proof_pda);
+    get_or_create::pda::<Reservation>(rpc_client, keypair, &reservation_pda, reservation_ix)
+        .await?;
     Ok(())
 }

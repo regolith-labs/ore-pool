@@ -9,8 +9,8 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Submit::try_from_bytes(data)?;
 
     // Load accounts.
-    let (required_accounts, boost_accounts) = accounts.split_at(9);
-    let [signer_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
+    let (required_accounts, optional_accounts) = accounts.split_at(10);
+    let [signer_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar, reservation_info] =
         required_accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -41,7 +41,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     // Submit solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    let mine_accounts = &[
+    let mut mine_accounts = vec![
         signer_info.clone(),
         bus_info.clone(),
         config_info.clone(),
@@ -49,22 +49,24 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         instructions_sysvar.clone(),
         slot_hashes_sysvar.clone(),
     ];
-    if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
-        let mine_accounts = [mine_accounts, boost_accounts].concat();
-        solana_program::program::invoke(
-            &ore_api::sdk::mine(
-                *signer_info.key,
-                *pool_info.key,
-                *bus_info.key,
-                solution,
-                *reservation_info.key,
-                Some(*boost_info.key),
-            ),
-            &mine_accounts,
-        )?;
-    } else {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
+    let mut boost_pda: Option<Pubkey> = None;
+    if let [boost_info, boost_proof_info] = optional_accounts {
+        mine_accounts.push(boost_info.clone());
+        mine_accounts.push(boost_proof_info.clone());
+        mine_accounts.push(reservation_info.clone());
+        boost_pda = Some(*boost_info.key);
+    };
+    solana_program::program::invoke(
+        &ore_api::sdk::mine(
+            *signer_info.key,
+            *pool_info.key,
+            *bus_info.key,
+            solution,
+            *reservation_info.key,
+            boost_pda,
+        ),
+        mine_accounts.as_slice(),
+    )?;
 
     // Parse the proof balance again
     // to compute the diff which gives us the reward for attribution.

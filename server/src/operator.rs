@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ore_api::state::{Config, Proof};
+use ore_boost_api::state::Reservation;
 use ore_pool_api::state::{Member, Pool};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -89,6 +90,16 @@ impl Operator {
         Ok(*proof)
     }
 
+    pub async fn get_boost(&self, reservation_pda: &Pubkey) -> Result<Option<Pubkey>, Error> {
+        let reservation = self.get_reservation(reservation_pda).await?;
+        let boost = if reservation.boost.eq(&Pubkey::default()) {
+            None
+        } else {
+            Some(reservation.boost)
+        };
+        Ok(boost)
+    }
+
     pub async fn get_cutoff(&self, proof: &Proof) -> Result<u64, Error> {
         let clock = self.get_clock().await?;
         Ok(proof
@@ -116,6 +127,13 @@ impl Operator {
         let db_client = Arc::new(db_client);
         database::stream_members_attribution(db_client, self).await?;
         Ok(())
+    }
+
+    async fn get_reservation(&self, reservation_pda: &Pubkey) -> Result<Reservation, Error> {
+        let rpc_client = &self.rpc_client;
+        let data = rpc_client.get_account_data(reservation_pda).await?;
+        let reservation = Reservation::try_from_bytes(data.as_slice())?;
+        Ok(*reservation)
     }
 
     async fn get_config(&self) -> Result<Config, Error> {
