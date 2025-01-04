@@ -281,10 +281,11 @@ impl Aggregator {
         operator: &Operator,
         event: &ore_api::event::MineEvent,
     ) -> Result<(), Error> {
+        log::info!("{:?}", event);
+        
         let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
 
         // Compute operator rewards
-        log::info!("// operator ////////////////////////");
         let operator_rewards = self.rewards_distribution_operator(
             pool_pda,
             operator.keypair.pubkey(),
@@ -293,8 +294,6 @@ impl Aggregator {
         );
 
         // Compute miner rewards
-        log::info!("{:?}", event);
-        log::info!("// miner ////////////////////////");
         let mut rewards_distribution =
             self.rewards_distribution(pool_pda, event, operator_rewards.1);
 
@@ -436,9 +435,7 @@ impl Aggregator {
     }
 
     async fn reset(&mut self, operator: &Operator) -> Result<(), Error> {
-        log::info!("//////////////////////////////////////////");
         log::info!("resetting");
-        log::info!("//////////////////////////////////////////");
 
         // update challenge
         self.update_challenge(operator).await?;
@@ -446,9 +443,7 @@ impl Aggregator {
         // allocate key for new contributions
         let last_hash_at = self.current_challenge.lash_hash_at as u64;
         let contributions = &mut self.contributions;
-        log::info!("//////////////////////////////////////////");
         log::info!("new contributions key: {:?}", last_hash_at);
-        log::info!("//////////////////////////////////////////");
         contributions.insert(last_hash_at);
 
         // reset accumulators
