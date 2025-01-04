@@ -19,6 +19,7 @@ array-const-fn-init = "0.1.1"
 base64 = "0.22.1"
 bincode = "1.3.3"
 bytemuck = "1.14.3"
+cached = "0.54.0"
 const-crypto = "0.1.0"
 deadpool-postgres = "0.12"
 drillx = { features = ["solana"], version = "2.0.1" }

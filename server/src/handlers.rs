@@ -2,9 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetMemberPayload, MemberChallenge,
-    MemberChallengeV2, PoolAddress, RegisterPayload,
-    UpdateBalancePayload,
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, LatestEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
@@ -33,7 +31,7 @@ pub async fn register(
     }
 }
 
-pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
+pub async fn address(operator: web::Data<Operator>) -> impl Responder {
     let operator = operator.as_ref();
     let (pool_pda, bump) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
     HttpResponse::Ok().json(&PoolAddress {
@@ -71,22 +69,7 @@ pub async fn member(
     }
 }
 
-pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
-    // acquire read on aggregator for challenge
-    let (challenge, last_num_members) = {
-        let aggregator = aggregator.read().await;
-        (aggregator.challenge, aggregator.num_members)
-    };
-    // build member challenge
-    let member_challenge = MemberChallenge {
-        challenge,
-        buffer: 0,
-        num_total_members: last_num_members,
-    };
-    HttpResponse::Ok().json(&member_challenge)
-}
-
-pub async fn challenge_v2(
+pub async fn challenge(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
     path: web::Path<GetChallengePayload>,
 ) -> impl Responder {
@@ -96,14 +79,16 @@ pub async fn challenge_v2(
             return HttpResponse::BadRequest().body(err.to_string());
         }
     };
+
     // acquire write on aggregator for challenge
     let (challenge, last_num_members, device_id) = {
         let mut aggregator = aggregator.write().await;
         let device_id = aggregator.get_device_id(miner);
-        (aggregator.challenge, aggregator.num_members, device_id)
+        (aggregator.current_challenge, aggregator.num_members, device_id)
     };
+
     // build member challenge
-    let member_challenge = MemberChallengeV2 {
+    let member_challenge = MemberChallenge {
         challenge,
         num_total_members: last_num_members,
         device_id,
@@ -122,17 +107,21 @@ pub async fn contribute(
 ) -> impl Responder {
     // acquire read on aggregator for challenge
     let aggregator = aggregator.read().await;
-    let challenge = aggregator.challenge;
+    let challenge = aggregator.current_challenge;
     let num_members = aggregator.num_members;
     drop(aggregator);
+
     // decode solution difficulty
     let solution = &payload.solution;
     let difficulty = solution.to_hash().difficulty();
+    let score = 2u64.pow(difficulty);
+
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
         log::error!("solution below min difficulity: {:?}", payload.authority);
         return HttpResponse::BadRequest().finish();
     }
+
     // validate nonce
     let member_authority = &payload.authority;
     let nonce = solution.n;
@@ -142,8 +131,7 @@ pub async fn contribute(
         log::error!("{:?}", err);
         return HttpResponse::Unauthorized().finish();
     }
-    // calculate score
-    let score = 2u64.pow(difficulty);
+
     // update the aggegator
     if let Err(err) = tx.send(Contribution {
         member: payload.authority,
@@ -154,6 +142,44 @@ pub async fn contribute(
     }
     HttpResponse::Ok().finish()
 }
+
+
+pub async fn latest_event(
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    path: web::Path<GetEventPayload>,
+) -> impl Responder {
+    // Parse miner pubkey
+    let miner = match Pubkey::from_str(path.authority.as_str()) {
+        Ok(authority) => authority,
+        Err(err) => {
+            return HttpResponse::BadRequest().body(err.to_string());
+        }
+    };
+
+    // Read latest event
+    let aggregator = aggregator.read().await;
+    if let Some(latest_key) = aggregator.recent_events.keys().iter().max().copied() {
+        if let Some(pool_event) = aggregator.recent_events.get(latest_key) {
+            let resp = LatestEvent {
+                balance: pool_event.mine_event.balance,
+                difficulty: pool_event.mine_event.difficulty,
+                last_hash_at: pool_event.mine_event.last_hash_at,
+                timing: pool_event.mine_event.timing,
+                net_reward: pool_event.mine_event.net_reward,
+                net_base_reward: pool_event.mine_event.net_base_reward,
+                net_miner_boost_reward: pool_event.mine_event.net_miner_boost_reward,
+                net_staker_boost_reward: pool_event.mine_event.net_staker_boost_reward,
+                member_score: *pool_event.member_scores.get(&miner).unwrap_or(&0),
+                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0)
+            };
+            return HttpResponse::Ok().json(resp);
+        }
+    }
+
+    // Otherwise return 404
+    HttpResponse::NotFound().finish()
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
 

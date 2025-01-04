@@ -9,6 +9,7 @@ actix-web = { workspace = true }
 base64 = { workspace = true }
 bincode = { workspace = true }
 bytemuck = { workspace = true }
+cached = { workspace = true }
 deadpool-postgres = { workspace = true }
 drillx = { workspace = true }
 env_logger = { workspace = true }
