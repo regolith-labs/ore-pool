@@ -118,7 +118,7 @@ pub async fn contribute(
 
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
-        log::error!("solution below min difficulity: {:?}", payload.authority);
+        log::error!("solution below min difficulity: {:?} received: {:?} required: {:?}", payload.authority, difficulty, challenge.min_difficulty);
         return HttpResponse::BadRequest().finish();
     }
 
