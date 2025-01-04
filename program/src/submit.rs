@@ -39,9 +39,10 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     pool.last_total_members = pool.total_members;
     let previous_balance = proof.balance;
 
-    // Submit solution to the ORE program
+    // Build instruction for submitting solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    let mine_accounts = &[
+    let mut boost_keys = None;
+    let mut mine_accounts = vec![
         signer_info.clone(),
         bus_info.clone(),
         config_info.clone(),
@@ -50,21 +51,21 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         slot_hashes_sysvar.clone(),
     ];
     if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
-        let mine_accounts = [mine_accounts, boost_accounts].concat();
-        solana_program::program::invoke(
-            &ore_api::sdk::mine(
-                *signer_info.key,
-                *pool_info.key,
-                *bus_info.key,
-                solution,
-                *reservation_info.key,
-                Some(*boost_info.key),
-            ),
-            &mine_accounts,
-        )?;
-    } else {
-        return Err(ProgramError::NotEnoughAccountKeys);
+        boost_keys = Some([*boost_info.key, *reservation_info.key]);
+        mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
     }
+
+    // Invoke CPI
+    solana_program::program::invoke(
+        &ore_api::sdk::mine(
+            *signer_info.key,
+            *pool_info.key,
+            *bus_info.key,
+            solution,
+            boost_keys,
+        ),
+        &mine_accounts,
+    )?;
 
     // Parse the proof balance again
     // to compute the diff which gives us the reward for attribution.
