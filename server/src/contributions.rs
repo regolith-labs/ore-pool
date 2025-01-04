@@ -4,13 +4,13 @@ use std::hash::Hash;
 use drillx::Solution;
 use solana_sdk::pubkey::Pubkey;
 
-pub struct Miners {
+pub struct Contributions {
     pub miners: HashMap<LastHashAt, MinerContributions>,
     pub devices: HashMap<LastHashAt, Devices>,
     attribution_filter: AttributionFilter,
 }
 
-impl Miners {
+impl Contributions {
     pub fn new(attribution_filter_size: u8) -> Self {
         Self {
             miners: HashMap::new(),
@@ -34,6 +34,7 @@ impl Miners {
     pub fn scores(&mut self) -> (TotalScore, Vec<(Miner, u64)>) {
         // filter for valid timestamps
         self.filter();
+        
         // sum contribution scores for each member
         let mut total_score: u64 = 0;
         let mut merge: HashMap<Miner, u64> = HashMap::new();
@@ -138,5 +139,46 @@ impl Eq for Contribution {}
 impl Hash for Contribution {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.member.hash(state);
+    }
+}
+
+/// Tracks recent mining events and rewards for each submission
+pub struct RecentEvents {
+    /// Maps last_hash_at timestamp to mining event data
+    events: HashMap<LastHashAt, PoolMiningEvent>,
+    /// Maximum number of events to keep in memory
+    max_events: usize,
+}
+
+pub struct PoolMiningEvent {
+    pub mine_event: ore_api::event::MineEvent,
+    pub member_rewards: HashMap<Pubkey, u64>,
+    pub member_scores: HashMap<Pubkey, u64>,
+}
+
+impl RecentEvents {
+    pub fn new(max_events: usize) -> Self {
+        Self {
+            events: HashMap::with_capacity(max_events),
+            max_events,
+        }
+    }
+
+    pub fn keys(&self) -> Vec<LastHashAt> {
+        self.events.keys().cloned().collect()
+    }
+
+    pub fn insert(&mut self, last_hash_at: LastHashAt, event: PoolMiningEvent) {
+        if self.events.len() >= self.max_events {
+            // Remove oldest event if at capacity
+            if let Some(oldest) = self.events.keys().min().copied() {
+                self.events.remove(&oldest);
+            }
+        }
+        self.events.insert(last_hash_at, event);
+    }
+
+    pub fn get(&self, last_hash_at: LastHashAt) -> Option<&PoolMiningEvent> {
+        self.events.get(&last_hash_at)
     }
 }

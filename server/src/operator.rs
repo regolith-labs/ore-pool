@@ -179,25 +179,3 @@ impl Operator {
         Ok(commission)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use ore_api::event::MineEvent;
-
-    #[test]
-    fn one() {
-        let bytes = vec![
-            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 245, 15, 0, 0, 0, 0, 0, 0,
-        ];
-        let res = bytemuck::try_from_bytes::<MineEvent>(bytes.as_slice()).cloned();
-        println!("res: {:?}", res);
-    }
-
-    #[test]
-    fn two() {
-        let base64 = "CgAAAAAAAAAAAAAAAAAAAPUPAAAAAAAA".to_string();
-        let bytes = BASE64_STANDARD.decode(base64);
-        println!("bytes: {:?}", bytes);
-    }
-}

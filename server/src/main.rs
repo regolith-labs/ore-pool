@@ -1,8 +1,8 @@
 mod aggregator;
-mod contributor;
+mod handlers;
 mod database;
 mod error;
-mod miner;
+mod contributions;
 mod operator;
 mod tx;
 mod utils;
@@ -12,7 +12,7 @@ use core::panic;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::Aggregator;
-use miner::Contribution;
+use contributions::Contribution;
 use operator::Operator;
 use utils::create_cors;
 
@@ -21,9 +21,9 @@ use utils::create_cors;
 #[actix_web::main]
 async fn main() -> Result<(), error::Error> {
     env_logger::init();
-    // rewards channel
-    let (rewards_tx, mut rewards_rx) = tokio::sync::mpsc::channel::<ore_api::event::MineEvent>(1);
-    let rewards_tx = web::Data::new(rewards_tx);
+    // events channel
+    let (events_tx, mut events_rx) = tokio::sync::mpsc::channel::<ore_api::event::MineEvent>(1);
+    let events_tx = web::Data::new(events_tx);
 
     // contributions channel
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Contribution>();
@@ -31,9 +31,7 @@ async fn main() -> Result<(), error::Error> {
 
     // operator and aggregator mutex
     let operator = web::Data::new(Operator::new()?);
-    let aggregator = tokio::sync::RwLock::new(Aggregator::new(&operator).await?);
-    let aggregator = web::Data::new(aggregator);
-    let webhook_handler = web::Data::new(webhook::Handle::new()?);
+    let aggregator = web::Data::new(tokio::sync::RwLock::new(Aggregator::new(&operator).await?));
 
     // env vars
     let attribution_epoch = attribution_epoch()?;
@@ -58,7 +56,7 @@ async fn main() -> Result<(), error::Error> {
         let aggregator = aggregator.clone();
         async move {
             loop {
-                match rewards_rx.recv().await {
+                match events_rx.recv().await {
                     Some(rewards) => {
                         let mut aggregator = aggregator.write().await;
                         if let Err(err) = aggregator
@@ -94,30 +92,22 @@ async fn main() -> Result<(), error::Error> {
 
     // launch server
     HttpServer::new(move || {
-        log::info!("starting server");
+        log::info!("starting pool server");
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(create_cors())
             .app_data(tx.clone())
             .app_data(operator.clone())
             .app_data(aggregator.clone())
-            .app_data(webhook_handler.clone())
-            .app_data(rewards_tx.clone())
-            .service(web::resource("/member/{authority}").route(web::get().to(contributor::member)))
-            .service(web::resource("/pool-address").route(web::get().to(contributor::pool_address)))
-            .service(web::resource("/register").route(web::post().to(contributor::register)))
-            .service(web::resource("/contribute").route(web::post().to(contributor::contribute)))
-            .service(web::resource("/challenge").route(web::get().to(contributor::challenge)))
-            .service(
-                web::resource("/challenge/{authority}")
-                    .route(web::get().to(contributor::challenge_v2)),
-            )
-            .service(
-                web::resource("/update-balance").route(web::post().to(contributor::update_balance)),
-            )
-            .service(
-                web::resource("/webhook/rewards").route(web::post().to(webhook::Handle::rewards)),
-            )
+            .app_data(events_tx.clone())
+            .service(web::resource("/address").route(web::get().to(handlers::address)))
+            .service(web::resource("/challenge/{authority}").route(web::get().to(handlers::challenge)))
+            .service(web::resource("/contribute").route(web::post().to(handlers::contribute)))
+            .service(web::resource("/event/latest/{authority}").route(web::get().to(handlers::latest_event)))
+            .service(web::resource("/member/{authority}").route(web::get().to(handlers::member)))
+            .service(web::resource("/register").route(web::post().to(handlers::register)))
+            .service(web::resource("/update-balance").route(web::post().to(handlers::update_balance)))
+            .service(web::resource("/webhook/events/mine").route(web::post().to(webhook::mine_event)))
             .service(health)
     })
     .bind("0.0.0.0:3000")?

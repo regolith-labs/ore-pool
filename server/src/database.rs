@@ -18,16 +18,16 @@ pub fn create_pool() -> Pool {
 // also sets the is-synced field to false
 // so that in the attribution loop we know which accounts
 // have been incremented in the db but not yet on-chain
-pub async fn write_member_total_balances(
+pub async fn update_member_balances(
     conn: &mut Object,
-    increments: Vec<(String, u64)>,
+    increments: Vec<(Pubkey, u64)>,
 ) -> Result<(), Error> {
     let transaction = conn.transaction().await?;
     for (address, increment) in increments.iter() {
         transaction
                 .execute(
                     "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE address = $2",
-                    &[&(*increment as i64), address],
+                    &[&(*increment as i64), &address.to_string()],
                 )
                 .await?;
     }
@@ -48,11 +48,13 @@ pub async fn stream_members_attribution(
     let count_query = "SELECT COUNT(*) FROM members WHERE is_synced = false";
     let row = conn.query_one(count_query, &[]).await?;
     let record_count: i64 = row.try_get(0)?;
+
     // build stream of memebrs to be attributed
     let stmt = "SELECT address, authority, total_balance FROM members WHERE is_synced = false";
     let params: Vec<String> = vec![];
     let stream = conn.query_raw(stmt, params).await?;
     pin_mut!(stream);
+
     // buffer stream for packing attributions transaction
     let signer = operator.keypair.pubkey();
     let buffer_size = NUM_ATTRIBUTIONS_PER_TX.min(record_count as usize);
@@ -65,20 +67,20 @@ pub async fn stream_members_attribution(
         let member_authority: String = row.try_get(1)?;
         let member_authority = Pubkey::from_str(member_authority.as_str())?;
         let total_balance: i64 = row.try_get(2)?;
+
         // build instruction
         let ix = ore_pool_api::sdk::attribute(signer, member_authority, total_balance as u64);
         ix_buffer.push(ix);
         address_buffer.push(address);
+
         // if buffer is full
         if ix_buffer.len().eq(&buffer_size) {
-            // spawn thread
             let conn = conn.clone();
             let operator = operator.clone();
             let handle = tokio::spawn({
                 let ix_buffer = ix_buffer.clone();
                 let address_buffer = address_buffer.clone();
                 async move {
-                    // attribute
                     match tx::submit::submit_and_confirm_instructions(
                         &operator.keypair,
                         &operator.rpc_client,
@@ -104,11 +106,13 @@ pub async fn stream_members_attribution(
                 }
             });
             handles.push(handle);
+            
             // clear buffers
             address_buffer.clear();
             ix_buffer.clear();
         }
     }
+
     // join handles
     let _ = futures::future::join_all(handles).await;
     Ok(())
