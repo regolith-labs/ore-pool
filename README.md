@@ -8,7 +8,7 @@ Must `cargo run` the [admin application](./admin/src/main.rs) before starting se
 Creates the pool and member accounts on-chain which the server expects to exist upon starting. A member account is created because we need an account to write the pool commissions to. You can manage this member account (balance, claim, etc.) from the `ore-cli`.
 ```sh
 # cd ./admin
-COMMAND="init" RPC_URL="" KEYPAIR_PATH="" POOL_URL="/my/path/id.json" cargo run --release
+COMMAND="init" RPC_URL="" KEYPAIR_PATH="/my/path/id.json" POOL_URL="" cargo run --release
 ```
 
 ## Server
