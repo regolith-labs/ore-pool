@@ -296,6 +296,8 @@ impl Aggregator {
         // Compute miner rewards
         let mut rewards_distribution =
             self.rewards_distribution(pool_pda, event, operator_rewards.1);
+        
+        println!("rewards_distribution: {:?}", rewards_distribution);
 
         // Collect all rewards
         rewards_distribution.push(operator_rewards);
