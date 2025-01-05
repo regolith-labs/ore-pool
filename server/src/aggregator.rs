@@ -304,16 +304,15 @@ impl Aggregator {
         let mut db_client = operator.db_client.get().await?;
         database::update_member_balances(&mut db_client, rewards_distribution.clone()).await?;
 
-        // Get member scores for this event
+        // Get best member scores for this event
         let member_scores = if let Some(miner_contributions) = self.contributions.miners.get(&(event.last_hash_at as u64)) {
-            HashMap::from_iter(
-                miner_contributions
-                    .contributions
-                    .clone()
-                    .iter()
-                    .map(|contribution| (contribution.member, contribution.score))
-                    .collect::<Vec<(Pubkey, u64)>>()
-            )
+            let mut member_scores = HashMap::new();
+            for contribution in miner_contributions.contributions.iter() {
+                if contribution.score > *member_scores.get(&contribution.member).unwrap_or(&0) {
+                    member_scores.insert(contribution.member, contribution.score);
+                }
+            }
+            member_scores
         } else {
             HashMap::new()
         };        
