@@ -175,6 +175,6 @@ pub struct PoolMemberMiningEvent {
     pub net_base_reward: u64,
     pub net_miner_boost_reward: u64,
     pub net_staker_boost_reward: u64,
-    pub member_score: u64,
+    pub member_difficulty: u64,
     pub member_reward: u64
 }
