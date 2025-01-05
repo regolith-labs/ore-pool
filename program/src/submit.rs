@@ -51,7 +51,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         slot_hashes_sysvar.clone(),
     ];
     if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
-        boost_keys = Some([*boost_info.key, *reservation_info.key]);
+        boost_keys = Some((*boost_info.key, *reservation_info.key));
         mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
     }
 
