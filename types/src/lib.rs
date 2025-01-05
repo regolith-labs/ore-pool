@@ -166,7 +166,7 @@ pub struct BalanceUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LatestEvent {
+pub struct PoolMemberMiningEvent {
     pub balance: u64,
     pub difficulty: u64,
     pub last_hash_at: i64,

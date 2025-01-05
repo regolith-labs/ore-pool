@@ -3,7 +3,7 @@ resolver = "2"
 members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.2.2"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://ore.supply"
@@ -32,8 +32,8 @@ mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
 ore-api = { path = "../ore/api", version = "3.0" }
 ore-boost-api = { path = "../ore-boost/api", version = "1.0" }
-ore-pool-api = { path = "api", version = "0.3.0" }
-ore-pool-types = { path = "types", version = "0.3.0" }
+ore-pool-api = { path = "api", version = "0.2" }
+ore-pool-types = { path = "types", version = "0.2" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 reqwest = { version = "0.12", features = ["json"] }
 serde = { features = ["derive"], version = "1.0" }

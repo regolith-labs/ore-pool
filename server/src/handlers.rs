@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, LatestEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, PoolMemberMiningEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
@@ -156,9 +156,12 @@ pub async fn latest_event(
 
     // Read latest event
     let aggregator = aggregator.read().await;
+    log::info!("A");
     if let Some(latest_key) = aggregator.recent_events.keys().iter().max().copied() {
+        log::info!("B");
         if let Some(pool_event) = aggregator.recent_events.get(latest_key) {
-            let resp = LatestEvent {
+            log::info!("C");
+            let resp = PoolMemberMiningEvent {
                 balance: pool_event.mine_event.balance,
                 difficulty: pool_event.mine_event.difficulty,
                 last_hash_at: pool_event.mine_event.last_hash_at,
