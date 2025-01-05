@@ -185,12 +185,13 @@ impl Aggregator {
                 Ok(())
             }
             None => {
-                log::info!("new contribution: {:?}", contribution.member);
                 let difficulty = contribution.solution.to_hash().difficulty();
                 let contender = Winner {
                     solution: contribution.solution,
                     difficulty,
                 };
+
+                log::info!("new contribution: {:?} {}", contribution.member, difficulty);
 
                 // increment score
                 contributions.total_score += contribution.score;
