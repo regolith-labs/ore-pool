@@ -17,6 +17,16 @@ BEGIN
 END
 $$;
 
+-- create index on members authority
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'members_authority_idx') THEN
+        CREATE INDEX members_authority_idx ON members(authority);
+    END IF;
+END
+$$;
+
+
 -- create stakers table
 DO $$
 BEGIN

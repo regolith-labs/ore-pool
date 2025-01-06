@@ -26,7 +26,7 @@ pub async fn update_member_balances(
     for (address, increment) in increments.iter() {
         transaction
                 .execute(
-                    "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE address = $2",
+                    "UPDATE members SET total_balance = total_balance + $1, is_synced = false WHERE authority = $2",
                     &[&(*increment as i64), &address.to_string()],
                 )
                 .await?;

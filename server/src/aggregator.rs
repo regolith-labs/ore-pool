@@ -283,12 +283,9 @@ impl Aggregator {
         event: &ore_api::event::MineEvent,
     ) -> Result<(), Error> {
         log::info!("{:?}", event);
-        
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
 
         // Compute operator rewards
         let operator_rewards = self.rewards_distribution_operator(
-            pool_pda,
             operator.keypair.pubkey(),
             event,
             operator.operator_commission,
@@ -296,7 +293,7 @@ impl Aggregator {
 
         // Compute miner rewards
         let mut rewards_distribution =
-            self.rewards_distribution(pool_pda, event, operator_rewards.1);
+            self.rewards_distribution(event, operator_rewards.1);
         
         println!("rewards_distribution: {:?}", rewards_distribution);
 
@@ -335,7 +332,6 @@ impl Aggregator {
 
     fn rewards_distribution(
         &mut self,
-        pool: Pubkey,
         event: &ore_api::event::MineEvent,
         operator_rewards: u64,
     ) -> Vec<(Pubkey, u64)> {
@@ -356,16 +352,13 @@ impl Aggregator {
                     .unwrap()
                     .checked_div(total_score as u128)
                     .unwrap_or(0) as u64;
-                log::info!("{}: {}", member, member_rewards);
-                let member_pda = ore_pool_api::state::member_pda(*member, pool);
-                (member_pda.0, member_rewards)
+                (*member, member_rewards)
             })
             .collect()
     }
 
     fn rewards_distribution_operator(
         &self,
-        pool: Pubkey,
         pool_authority: Pubkey,
         event: &ore_api::event::MineEvent,
         operator_commission: u64,
@@ -374,8 +367,7 @@ impl Aggregator {
             .saturating_mul(operator_commission as u128)
             .saturating_div(100) as u64;
         log::info!("total operator rewards: {}", operator_rewards);
-        let member_pda = ore_pool_api::state::member_pda(pool_authority, pool);
-        (member_pda.0, operator_rewards)
+        (pool_authority, operator_rewards)
     }
 
     /// fetch the bus with the largest balance
