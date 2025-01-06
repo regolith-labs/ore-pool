@@ -13,13 +13,19 @@ pub struct RawPayload {
     pub block_time: u64,
     pub slot: u64,
     pub meta: Meta,
-    pub signatures: Vec<Signature>,
+    pub transaction: Transaction,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     pub log_messages: Vec<String>,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Transaction {
+    pub signatures: Vec<Signature>,
 }
 
 pub async fn mine_event(
@@ -62,7 +68,7 @@ pub async fn mine_event(
 
     // Submit mine event to aggregator
     let event = PoolMiningEvent {
-        signature: payload.signatures.first().unwrap().clone(),
+        signature: payload.transaction.signatures.first().unwrap().clone(),
         block: payload.slot,
         timestamp: payload.block_time,
         mine_event: mine_event.clone(),
