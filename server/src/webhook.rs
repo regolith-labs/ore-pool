@@ -1,12 +1,19 @@
+use std::collections::HashMap;
+
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use cached::proc_macro::cached;
+use solana_sdk::signature::Signature;
 
-use crate::error::Error;
+use crate::{contributions::PoolMiningEvent, error::Error};
 
 #[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct RawPayload {
+    pub block_time: u64,
+    pub slot: u64,
     pub meta: Meta,
+    pub signatures: Vec<Signature>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -16,7 +23,7 @@ pub struct Meta {
 }
 
 pub async fn mine_event(
-    tx: web::Data<tokio::sync::mpsc::Sender<ore_api::event::MineEvent>>,
+    tx: web::Data<tokio::sync::mpsc::Sender<PoolMiningEvent>>,
     req: HttpRequest,
     bytes: web::Bytes,
 ) -> impl Responder {
@@ -26,8 +33,26 @@ pub async fn mine_event(
         return HttpResponse::Unauthorized().finish();
     }
 
+    // Parse payload
+    let bytes = bytes.to_vec();
+    let json = match serde_json::from_slice::<serde_json::Value>(bytes.as_slice()) {
+        Ok(json) => json,
+        Err(err) => {
+            log::error!("{:?}", err);
+            return HttpResponse::BadRequest().finish();
+        }
+    };
+    let payload = match serde_json::from_value::<Vec<RawPayload>>(json) {
+        Ok(payload) => payload,
+        Err(err) => {
+            log::error!("{:?}", err);
+            return HttpResponse::BadRequest().finish();
+        }
+    };
+    let payload = payload.first().unwrap();
+
     // Parse mine event from transaction logs
-    let mine_event = match parse_mine_event(&req, &bytes) {
+    let mine_event = match parse_mine_event(&payload) {
         Ok(event) => event,
         Err(err) => {
             log::error!("{:?}", err);
@@ -36,7 +61,15 @@ pub async fn mine_event(
     };
 
     // Submit mine event to aggregator
-    if let Err(err) = tx.send(mine_event).await {
+    let event = PoolMiningEvent {
+        signature: payload.signatures.first().unwrap().clone(),
+        block: payload.slot,
+        timestamp: payload.block_time,
+        mine_event: mine_event.clone(),
+        member_rewards: HashMap::new(),
+        member_scores: HashMap::new(),
+    };
+    if let Err(err) = tx.send(event).await {
         log::error!("{:?}", err);
         return HttpResponse::InternalServerError().finish();
     }
@@ -45,23 +78,12 @@ pub async fn mine_event(
     HttpResponse::Ok().finish()
 }
 
+
 /// Parse a MineEvent from a Helius webhook event
 fn parse_mine_event(
-    req: &HttpRequest,
-    bytes: &web::Bytes,
+    payload: &RawPayload,
 ) -> Result<ore_api::event::MineEvent, Error> {
-    // Authorize request
-    auth(req)?;
-
-    // Decode payload
-    let bytes = bytes.to_vec();
-    let json = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
-    let payload = serde_json::from_value::<Vec<RawPayload>>(json)?;
-
     // Parse the payload
-    let payload = payload
-        .first()
-        .ok_or(Error::Internal("empty webhook event".to_string()))?;
     let log_messages = payload.meta.log_messages.as_slice();
     let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
         "invalid webhook event message index".to_string(),

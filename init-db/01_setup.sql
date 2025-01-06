@@ -25,19 +25,3 @@ BEGIN
     END IF;
 END
 $$;
-
-
--- create stakers table
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stakers') THEN
-        CREATE TABLE stakers (
-          address VARCHAR PRIMARY KEY, -- address of share account
-          member_id BIGINT NOT NULL,
-          mint VARCHAR NOT NULL, -- the mint of the boost account
-          webhook BOOLEAN NOT NULL, -- whether or not the address has been added to the webhook
-          FOREIGN KEY (member_id) REFERENCES members(id)
-        );
-    END IF;
-END
-$$;

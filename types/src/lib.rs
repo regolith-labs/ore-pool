@@ -167,6 +167,9 @@ pub struct BalanceUpdate {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PoolMemberMiningEvent {
+    pub signature: Signature,
+    pub block: u64,
+    pub timestamp: u64,
     pub balance: u64,
     pub difficulty: u64,
     pub last_hash_at: i64,

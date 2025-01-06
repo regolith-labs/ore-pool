@@ -280,20 +280,20 @@ impl Aggregator {
     pub async fn distribute_rewards(
         &mut self,
         operator: &Operator,
-        event: &ore_api::event::MineEvent,
+        event: &PoolMiningEvent,
     ) -> Result<(), Error> {
         log::info!("{:?}", event);
 
         // Compute operator rewards
         let operator_rewards = self.rewards_distribution_operator(
             operator.keypair.pubkey(),
-            event,
+            &event.mine_event,
             operator.operator_commission,
         );
 
         // Compute miner rewards
         let mut rewards_distribution =
-            self.rewards_distribution(event, operator_rewards.1);
+            self.rewards_distribution(&event.mine_event, operator_rewards.1);
         
         println!("rewards_distribution: {:?}", rewards_distribution);
 
@@ -305,7 +305,7 @@ impl Aggregator {
         database::update_member_balances(&mut db_client, rewards_distribution.clone()).await?;
 
         // Get best member scores for this event
-        let member_scores = if let Some(miner_contributions) = self.contributions.miners.get(&(event.last_hash_at as u64)) {
+        let member_scores = if let Some(miner_contributions) = self.contributions.miners.get(&(event.mine_event.last_hash_at as u64)) {
             let mut member_scores = HashMap::new();
             for contribution in miner_contributions.contributions.iter() {
                 if contribution.score > *member_scores.get(&contribution.member).unwrap_or(&0) {
@@ -318,13 +318,12 @@ impl Aggregator {
         };        
 
         // Insert record into recent events 
+        let mut event = event.clone();
+        event.member_scores = member_scores;
+        event.member_rewards = HashMap::from_iter(rewards_distribution);
         self.recent_events.insert(
-            event.last_hash_at as u64,
-            PoolMiningEvent {
-                mine_event: event.clone(),
-                member_rewards: HashMap::from_iter(rewards_distribution),
-                member_scores,
-            }
+            event.mine_event.last_hash_at as u64,
+            event
         );
 
         Ok(())

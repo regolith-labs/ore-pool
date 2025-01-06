@@ -162,6 +162,9 @@ pub async fn latest_event(
         if let Some(pool_event) = aggregator.recent_events.get(latest_key) {
             log::info!("C");
             let resp = PoolMemberMiningEvent {
+                signature: pool_event.signature,
+                block: pool_event.block,
+                timestamp: pool_event.timestamp,
                 balance: pool_event.mine_event.balance,
                 difficulty: pool_event.mine_event.difficulty,
                 last_hash_at: pool_event.mine_event.last_hash_at,

@@ -3,6 +3,7 @@ use std::hash::Hash;
 
 use drillx::Solution;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Signature;
 
 pub struct Contributions {
     pub miners: HashMap<LastHashAt, MinerContributions>,
@@ -150,7 +151,11 @@ pub struct RecentEvents {
     max_events: usize,
 }
 
+#[derive(Clone, Debug)]
 pub struct PoolMiningEvent {
+    pub signature: Signature,
+    pub block: u64,
+    pub timestamp: u64,
     pub mine_event: ore_api::event::MineEvent,
     pub member_rewards: HashMap<Pubkey, u64>,
     pub member_scores: HashMap<Pubkey, u64>,

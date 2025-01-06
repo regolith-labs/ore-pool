@@ -12,7 +12,7 @@ use core::panic;
 
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer, Responder};
 use aggregator::Aggregator;
-use contributions::Contribution;
+use contributions::{Contribution, PoolMiningEvent};
 use operator::Operator;
 use utils::create_cors;
 
@@ -22,7 +22,7 @@ use utils::create_cors;
 async fn main() -> Result<(), error::Error> {
     env_logger::init();
     // events channel
-    let (events_tx, mut events_rx) = tokio::sync::mpsc::channel::<ore_api::event::MineEvent>(1);
+    let (events_tx, mut events_rx) = tokio::sync::mpsc::channel::<PoolMiningEvent>(1);
     let events_tx = web::Data::new(events_tx);
 
     // contributions channel
