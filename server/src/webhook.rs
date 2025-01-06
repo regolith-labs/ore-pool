@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{prelude::BASE64_STANDARD, Engine};
@@ -25,7 +25,7 @@ pub struct Meta {
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
-    pub signatures: Vec<Signature>,
+    pub signatures: Vec<String>,
 }
 
 pub async fn mine_event(
@@ -68,7 +68,7 @@ pub async fn mine_event(
 
     // Submit mine event to aggregator
     let event = PoolMiningEvent {
-        signature: payload.transaction.signatures.first().unwrap().clone(),
+        signature: Signature::from_str(payload.transaction.signatures.first().unwrap()).unwrap(),
         block: payload.slot,
         timestamp: payload.block_time,
         mine_event: mine_event.clone(),
