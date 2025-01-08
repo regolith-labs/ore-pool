@@ -24,6 +24,10 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         .assert_mut(|m| m.authority == *signer_info.key)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
     let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
+    proof_info.as_account::<Proof>(&ore_api::ID)?
+        .assert(|p| p.authority == *pool_info.key)?;
+    treasury_info.has_address(&ore_api::consts::TREASURY_ADDRESS)?;
+    treasury_tokens_info.has_address(&ore_api::consts::TREASURY_TOKENS_ADDRESS)?;
     ore_program.is_program(&ore_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
 
