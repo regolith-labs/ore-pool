@@ -156,11 +156,8 @@ pub async fn latest_event(
 
     // Read latest event
     let aggregator = aggregator.read().await;
-    log::info!("A");
     if let Some(latest_key) = aggregator.recent_events.keys().iter().max().copied() {
-        log::info!("B");
         if let Some(pool_event) = aggregator.recent_events.get(latest_key) {
-            log::info!("C");
             let resp = PoolMemberMiningEvent {
                 signature: pool_event.signature,
                 block: pool_event.block,
@@ -191,10 +188,12 @@ async fn update_balance_onchain(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let hash = payload.hash;
+
     // fetch member balance
     let member = operator
         .get_member_db(member_authority.to_string().as_str())
         .await?;
+
     // assert that the fee payer is someone else
     let tx = payload.transaction;
     let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
@@ -205,14 +204,17 @@ async fn update_balance_onchain(
             "fee payer must be client for update balance".to_string(),
         ));
     }
+
     // validate transaction
     tx::validate::validate_attribution(&tx, member.total_balance)?;
+    
     // sign transaction and submit
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
     tx.partial_sign(&[keypair], hash);
     let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
     log::info!("on demand attribution sig: {:?}", sig);
+
     // set member as synced in db
     let db_client = &operator.db_client;
     let db_client = db_client.get().await?;
@@ -232,10 +234,12 @@ async fn register_new_member(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+
     // fetch db record
     let db_client = operator.db_client.get().await?;
     let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
     let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
+
     // idempotent get or create
     match db_member {
         Ok(db_member) => {
