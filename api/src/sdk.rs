@@ -1,5 +1,5 @@
 use drillx::Solution;
-use ore_api::consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS};
+use ore_api::{consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS}, state::proof_pda};
 use steel::*;
 
 use crate::{
@@ -56,19 +56,19 @@ pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
 pub fn claim(
     signer: Pubkey,
     beneficiary: Pubkey,
-    pool_pda: Pubkey,
+    pool_address: Pubkey,
     pool_bump: u8,
     amount: u64,
 ) -> Instruction {
-    let (member_pda, _) = member_pda(signer, pool_pda);
-    let (pool_proof_pda, _) = pool_proof_pda(pool_pda);
+    let (member_pda, _) = member_pda(signer, pool_address);
+    let (pool_proof_pda, _) = proof_pda(pool_address);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
             AccountMeta::new(beneficiary, false),
             AccountMeta::new(member_pda, false),
-            AccountMeta::new(pool_pda, false),
+            AccountMeta::new(pool_address, false),
             AccountMeta::new(pool_proof_pda, false),
             AccountMeta::new_readonly(TREASURY_ADDRESS, false),
             AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),
