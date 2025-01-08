@@ -11,7 +11,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
 
     // Load accounts.
     sol_log("A");
-    let [signer`_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
+    let [signer_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
