@@ -29,7 +29,7 @@ pub async fn init(
         let hash = rpc_client.get_latest_blockhash().await?;
         tx.sign(&[keypair], hash);
         let sig = rpc_client.send_transaction(&tx).await?;
-        println!("{:?}", sig);
+        println!("OK: {:?}", sig);
     }
 
     // get or create member account
@@ -42,7 +42,7 @@ pub async fn init(
         let hash = rpc_client.get_latest_blockhash().await?;
         tx.sign(&[keypair], hash);
         let sig = rpc_client.send_transaction(&tx).await?;
-        println!("{:?}", sig);
+        println!("OK: {:?}", sig);
     }
     
     Ok(())
