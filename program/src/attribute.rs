@@ -12,13 +12,14 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let total_balance = u64::from_le_bytes(args.total_balance);
 
     // Load accounts.
-    let [signer_info, pool_info, member_info] = accounts else {
+    let [signer_info, pool_authority_info, pool_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
+    pool_authority_info.is_signer()?;
     pool_info
         .as_account::<Pool>(&ore_pool_api::ID)?
-        .assert(|p| p.authority == *signer_info.key)?;
+        .assert(|p| p.authority == *pool_authority_info.key)?;
     let member = member_info
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.pool == *pool_info.key)?;

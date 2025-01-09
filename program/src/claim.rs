@@ -10,38 +10,27 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
-    sol_log("A");
     let [signer_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    sol_log("B");
     signer_info.is_signer()?;
-    sol_log("C");
     beneficiary_info
         .is_writable()?
         .as_token_account()?
         .assert(|t| t.mint == MINT_ADDRESS)?;
-    sol_log("D");
-    let member = member_info
+    let member: &mut Member = member_info
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.authority == *signer_info.key)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
-    sol_log("E");
     let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
-    sol_log("F");
     proof_info.as_account::<Proof>(&ore_api::ID)?
         .assert(|p| p.authority == *pool_info.key)?;
-    sol_log("G");
     treasury_info.has_address(&ore_api::consts::TREASURY_ADDRESS)?;
-    sol_log("H");
     treasury_tokens_info.has_address(&ore_api::consts::TREASURY_TOKENS_ADDRESS)?;
-    sol_log("I");
     ore_program.is_program(&ore_api::ID)?;
-    sol_log("J");
     token_program.is_program(&spl_token::ID)?;
-    sol_log("K");
 
     // Update member balance
     member.balance = member.balance.checked_sub(amount).unwrap();

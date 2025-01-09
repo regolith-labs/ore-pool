@@ -38,7 +38,7 @@ pub async fn address(operator: web::Data<Operator>) -> impl Responder {
     })
 }
 
-pub async fn update_balance(
+pub async fn commit_balance(
     operator: web::Data<Operator>,
     payload: web::Json<UpdateBalancePayload>,
 ) -> impl Responder {
@@ -207,7 +207,7 @@ async fn update_balance_onchain(
 
     // validate transaction
     tx::validate::validate_attribution(&tx, member.total_balance)?;
-    
+
     // sign transaction and submit
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
