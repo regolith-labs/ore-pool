@@ -13,6 +13,7 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
     let url = url_to_bytes(url.as_str())?;
     let (pool_pda, pool_bump) = pool_pda(signer);
     let (proof_pda, proof_bump) = pool_proof_pda(pool_pda);
+    let (reservation_pda, _) = ore_boost_api::state::reservation_pda(proof_pda);
     let ix = Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -20,7 +21,9 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
             AccountMeta::new_readonly(miner, false),
             AccountMeta::new(pool_pda, false),
             AccountMeta::new(proof_pda, false),
+            AccountMeta::new(reservation_pda, false),
             AccountMeta::new_readonly(ore_api::ID, false),
+            AccountMeta::new_readonly(ore_boost_api::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
             AccountMeta::new_readonly(spl_associated_token_account::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
