@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ore_api::{
     consts::{BUS_ADDRESSES, BUS_COUNT},
-    state::Bus,
+    state::{proof_pda, Bus},
 };
 use ore_pool_types::Challenge;
 use rand::Rng;
@@ -234,6 +234,18 @@ impl Aggregator {
         let (pool_proof_address, _) = ore_pool_api::state::pool_proof_pda(pool_address);
         let bus = self.find_bus(operator).await?;
 
+        // Get boost accounts
+        let mut boost_accounts = vec![];
+        let (reservation_address, _) = ore_boost_api::state::reservation_pda(pool_proof_address);
+        let reservation = operator.get_reservation().await;
+        if let Ok(reservation) = reservation {
+            if reservation.boost != Pubkey::default() {
+                boost_accounts.push(reservation.boost);
+                boost_accounts.push(proof_pda(reservation.boost).0);
+                boost_accounts.push(reservation_address);
+            }
+        }
+
         // build instructions
         let auth_ix = ore_api::sdk::auth(pool_proof_address);
         let submit_ix = ore_pool_api::sdk::submit(
@@ -241,7 +253,7 @@ impl Aggregator {
             best_solution,
             attestation,
             bus,
-            vec![], // TODO fetch from reservation accounts
+            boost_accounts
         );
         let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey(), pool_proof_address);
         let rpc_client = &operator.rpc_client;
