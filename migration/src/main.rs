@@ -103,16 +103,24 @@ pub async fn main() {
             }
         };        
 
-        // Migrate each member balance
-        for member in members {
-            let ix = ore_pool_api::sdk::migrate_member_balance(signer.pubkey(), pool.0, member.0);
-            let cu_limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
-            let cu_price_ix = ComputeBudgetInstruction::set_compute_unit_price(10_000);
-            let final_ixs = &[cu_limit_ix, cu_price_ix, ix];
+        // Migrate member balances in batches of 24
+        for chunk in members.chunks(24) {
+            let mut ixs = vec![
+                ComputeBudgetInstruction::set_compute_unit_limit(1_200_000),
+                ComputeBudgetInstruction::set_compute_unit_price(10_000),
+            ];
+
+            // Add instructions for each member in this batch
+            for member in chunk {
+                let ix = ore_pool_api::sdk::migrate_member_balance(signer.pubkey(), pool.0, member.0);
+                ixs.push(ix);
+            }
+
+            // Submit transaction for this batch
             let hash = rpc.get_latest_blockhash().await.unwrap();
-            let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
+            let mut tx = Transaction::new_with_payer(ixs.as_slice(), Some(&signer.pubkey()));
             tx.sign(&[&signer], hash);
-            println!("Migrate member balance: {:?}", tx);
+            println!("Migrate member balance batch: {:?}", tx);
             // rpc.send_transaction(&tx).await.unwrap();
         }
     }
