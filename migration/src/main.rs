@@ -14,8 +14,8 @@ use steel::{AccountDeserialize, Discriminator};
 #[tokio::main]
 pub async fn main() {
     // Create client
-    let signer = read_keypair_file("../migration-admin-key.json").unwrap();
-    let url = "https://mainnet.helius-rpc.com/?api-key=TODO";
+    let signer = read_keypair_file("~/.config/solana/id.json").unwrap(); // TODO
+    let url = "https://devnet.helius-rpc.com/?api-key=TODO"; // TODO Mainnet
     let rpc = RpcClient::new_with_commitment(url.to_owned(), CommitmentConfig::confirmed());
 
     // Fetch pools
@@ -23,7 +23,7 @@ pub async fn main() {
         0,
         Pool::discriminator().to_le_bytes().to_vec(),
     ));
-    let Ok(pools) = rpc
+    let pools = match rpc
         .get_program_accounts_with_config(
             &ore_pool_api::ID,
             RpcProgramAccountsConfig {
@@ -38,10 +38,16 @@ pub async fn main() {
             },
         )
         .await
-    else {
-        return;
+    {
+        Ok(pools) => {
+            println!("Num pools {:?}\n", pools.len());
+            pools
+        }
+        Err(e) => {
+            println!("Error fetching pools: {:?}", e);
+            return;
+        }
     };
-    println!("Pools {:?}\n", pools.len());
 
     // TODO Phase 1: Initialize migration
     for pool in pools {
@@ -59,6 +65,10 @@ pub async fn main() {
 
     // TODO: Phase 2: Migrate member balances
     // for pool in pools {
+    //     // Fetch pool
+    //     let pool_account = Pool::try_from_bytes(&pool.1.data).unwrap();
+    //     println!("Pool: {}", pool.0);
+
     //     // Fetch members of the given pool
     //     let member_filter = RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
     //         0,
@@ -66,7 +76,7 @@ pub async fn main() {
     //     ));
     //     let pool_member_filter =
     //         RpcFilterType::Memcmp(Memcmp::new_raw_bytes(16, pool.0.to_bytes().to_vec()));
-    //     let Ok(members) = rpc
+    //     let members = match rpc
     //         .get_program_accounts_with_config(
     //             &ore_pool_api::ID,
     //             RpcProgramAccountsConfig {
@@ -81,13 +91,17 @@ pub async fn main() {
     //             },
     //         )
     //         .await
-    //     else {
-    //         return;
-    //     };
-    //     let pool_account = Pool::try_from_bytes(&pool.1.data).unwrap();
-    //     println!("Pool: {}", pool.0);
-    //     println!("Expected members: {}", pool_account.total_members);
-    //     println!("Actual members: {}\n", members.len());
+    //     {
+    //         Ok(members) => {
+    //             println!("Expected members: {}", pool_account.total_members);
+    //             println!("Actual members: {}\n", members.len());
+    //             members
+    //         }
+    //         Err(e) => {
+    //             println!("Error fetching members: {:?}", e);
+    //             return;
+    //         }
+    //     };        
 
     //     // Migrate each member balance
     //     for member in members {
@@ -98,7 +112,9 @@ pub async fn main() {
     //         let hash = rpc.get_latest_blockhash().await.unwrap();
     //         let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
     //         tx.sign(&[&signer], hash);
-    //         rpc.send_transaction(&tx).await.unwrap();
+    //         println!("Migrate member balance: {:?}", tx);
+    //         // rpc.send_transaction(&tx).await.unwrap();
     //     }
     // }
 }
+
