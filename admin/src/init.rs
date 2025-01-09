@@ -13,11 +13,13 @@ pub async fn init(
     // parse arguments
     let pool_url = pool_url.ok_or(Error::MissingPoolUrl)?;
     let pubkey = keypair.pubkey();
+    
     // get or create pool account
     let (pool_pda, _) = ore_pool_api::state::pool_pda(pubkey);
     let launch_ix = ore_pool_api::sdk::launch(pubkey, pubkey, pool_url)?;
     println!("pool address: {:?}", pool_pda);
     get_or_create::pda::<Pool>(rpc_client, keypair, &pool_pda, launch_ix).await?;
+
     // get or create member account
     let (member_pda, _) = ore_pool_api::state::member_pda(pubkey, pool_pda);
     let join_ix = ore_pool_api::sdk::join(pubkey, pool_pda, pubkey);
