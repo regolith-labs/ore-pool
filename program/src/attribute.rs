@@ -21,7 +21,6 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
         .as_account_mut::<Pool>(&ore_pool_api::ID)?
         .assert_mut(|p| p.authority == *signer_info.key)?;
     let proof = proof_info
-        .is_writable()?
         .as_account::<Proof>(&ore_api::ID)?
         .assert(|p| p.authority == *pool_info.key)?;
     let member = member_info
