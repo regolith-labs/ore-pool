@@ -1,6 +1,5 @@
 use ore_api::prelude::*;
 use ore_pool_api::prelude::*;
-use solana_program::log::sol_log;
 use steel::*;
 
 /// Claim allows a member to claim their ORE rewards from the pool.
