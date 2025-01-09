@@ -64,7 +64,7 @@ pub async fn main() {
     // }
 
     // TODO: Phase 2: Migrate member balances
-    for pool in pools {
+    for pool in pools.clone() {
         // Fetch pool
         let pool_account = Pool::try_from_bytes(&pool.1.data).unwrap();
         println!("Pool: {}", pool.0);
@@ -124,5 +124,56 @@ pub async fn main() {
             // rpc.send_transaction(&tx).await.unwrap();
         }
     }
-}
 
+    // TODO: Verify migration
+    // for pool in pools.clone() {
+    //     let pool_account = Pool::try_from_bytes(&pool.1.data).unwrap();
+
+    //     // Fetch members of the given pool
+    //     let member_filter = RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+    //         0,
+    //         Member::discriminator().to_le_bytes().to_vec(),
+    //     ));
+    //     let pool_member_filter =
+    //         RpcFilterType::Memcmp(Memcmp::new_raw_bytes(16, pool.0.to_bytes().to_vec()));
+    //     let members = match rpc
+    //         .get_program_accounts_with_config(
+    //             &ore_pool_api::ID,
+    //             RpcProgramAccountsConfig {
+    //                 filters: Some(vec![member_filter, pool_member_filter]),
+    //                 account_config: RpcAccountInfoConfig {
+    //                     encoding: Some(UiAccountEncoding::Base64),
+    //                     data_slice: None,
+    //                     commitment: None,
+    //                     min_context_slot: None,
+    //                 },
+    //                 with_context: None,
+    //             },
+    //         )
+    //         .await
+    //     {
+    //         Ok(members) => {
+    //             println!("Expected members: {}", pool_account.total_members);
+    //             println!("Actual members: {}\n", members.len());
+    //             members
+    //         }
+    //         Err(e) => {
+    //             println!("Error fetching members: {:?}", e);
+    //             return;
+    //         }
+    //     };
+
+    //     // Sum up member balances
+    //     let mut total_balance = 0;
+    //     for (_, account) in members {
+    //         let member = Member::try_from_bytes(&account.data).unwrap();
+    //         total_balance += member.balance;
+    //     }
+    //     println!("Pool: {}", pool.0);
+    //     println!("Total balance: {}", total_balance);
+    //     println!("Pool balance: {}", pool_account.total_rewards);
+    //     if total_balance != pool_account.total_rewards {
+    //         panic!("Total balance mismatch for pool: {}", pool.0);
+    //     }   
+    // }
+}
