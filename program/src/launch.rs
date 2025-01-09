@@ -58,7 +58,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     sol_log("G");
     if reservation_info.is_empty().is_ok() {
         solana_program::program::invoke_signed(
-            &ore_boost_api::sdk::register(*pool_info.key, *signer_info.key, *proof_info.key),
+            &ore_boost_api::sdk::register(*signer_info.key, *signer_info.key, *proof_info.key),
             &[
                 pool_info.clone(),
                 signer_info.clone(),
