@@ -7,7 +7,7 @@ pub fn process_migrate_pool(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Progr
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?.has_address(&ADMIN_ADDRESS)?;
-    pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
+    let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
     migration_info
         .is_empty()?
         .is_writable()?
@@ -15,7 +15,7 @@ pub fn process_migrate_pool(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Progr
     system_program.is_program(&system_program::ID)?;
 
     // Allocate space for new data field.
-    pool_info.realloc(pool_info.data.borrow().len() + 8, true)?;
+    pool.total_rewards = 0;
 
     // Create migration account
     create_account::<Migration>(

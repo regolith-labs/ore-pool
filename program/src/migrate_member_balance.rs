@@ -17,8 +17,8 @@ pub fn process_migrate_member_balance(accounts: &[AccountInfo<'_>], _data: &[u8]
         .assert_mut(|m| m.members_migrated == member.id)?;
     system_program.is_program(&system_program::ID)?;
 
-    // Increment pool claimable balance
-    pool.claimable_rewards += member.balance;
+    // Increment pool total rewards counter
+    pool.total_rewards += member.balance;
 
     // Increment migrated balance
     migration.members_migrated += 1;

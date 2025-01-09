@@ -21,8 +21,8 @@ pub struct Pool {
     /// Foreign key to the ORE proof account.
     pub last_hash_at: i64,
 
-    /// The reward from the most recent solution.
-    pub reward: u64,
+    // The total claimable rewards in the pool.
+    pub total_rewards: u64,
 
     /// The total number of hashes this pool has submitted.
     pub total_submissions: u64,
@@ -32,9 +32,6 @@ pub struct Pool {
 
     // The total number of members in this pool at the last submission.
     pub last_total_members: u64,
-    // TODO Uncomment in phase 2
-    // The total claimable rewards in the pool.
-    // pub claimable_rewards: u64,
 }
 
 account!(AccountDiscriminator, Pool);

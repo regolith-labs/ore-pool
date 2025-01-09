@@ -45,6 +45,7 @@ pub async fn main() {
 
     // TODO Phase 1: Initialize migration
     for pool in pools {
+        println!("Pool: {:?}", pool.0);
         let ix = ore_pool_api::sdk::migrate_pool(signer.pubkey(), pool.0);
         let cu_limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
         let cu_price_ix = ComputeBudgetInstruction::set_compute_unit_price(10_000);
@@ -52,7 +53,8 @@ pub async fn main() {
         let hash = rpc.get_latest_blockhash().await.unwrap();
         let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
         tx.sign(&[&signer], hash);
-        rpc.send_transaction(&tx).await.unwrap();
+        println!("{:?}", tx);
+        // rpc.send_transaction(&tx).await.unwrap();
     }
 
     // TODO: Phase 2: Migrate member balances
