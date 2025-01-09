@@ -89,19 +89,20 @@ pub async fn mine_event(
 fn parse_mine_event(
     payload: &RawPayload,
 ) -> Result<ore_api::event::MineEvent, Error> {
-    // Parse the payload
+    // Find return data string
     let log_messages = payload.meta.log_messages.as_slice();
-    let index = log_messages.len().checked_sub(2).ok_or(Error::Internal(
-        "invalid webhook event message index".to_string(),
-    ))?;
+    let prefix = format!("Program return: {} ", ore_pool_api::ID);
+    let mut mine_event_str = "";
+    for log_message in log_messages.iter().rev() {
+        if log_message.starts_with(&prefix) {
+            mine_event_str = log_message.trim_start_matches(&prefix);
+            break;
+        }
+        return Err(Error::Internal("missing webhook base reward".to_string()));
+    }
 
-    // Parse the mine event
-    let mine_event = log_messages
-        .get(index)
-        .ok_or(Error::Internal("missing webhook base reward".to_string()))?;
-    let mine_event = mine_event
-    .trim_start_matches(format!("Program return: {} ", ore_pool_api::ID).as_str());
-    let mine_event = BASE64_STANDARD.decode(mine_event)?;
+    // Parse return data 
+    let mine_event = BASE64_STANDARD.decode(mine_event_str)?;
     let mine_event: &ore_api::event::MineEvent =
         bytemuck::try_from_bytes(mine_event.as_slice())
             .map_err(|e| Error::Internal(e.to_string()))?;
