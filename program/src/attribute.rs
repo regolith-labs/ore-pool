@@ -26,7 +26,8 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
         .assert(|p| p.authority == *pool_info.key)?;
     let member = member_info
         .as_account_mut::<Member>(&ore_pool_api::ID)?
-        .assert_mut(|m| m.pool == *pool_info.key)?;
+        .assert_mut(|m| m.pool == *pool_info.key)?
+        .assert_mut(|m| total_balance >= m.total_balance)?;
 
     // Update balance idempotently
     let balance_change = total_balance.checked_sub(member.total_balance).unwrap();
@@ -37,6 +38,9 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     pool.total_rewards = pool.total_rewards.checked_add(balance_change).unwrap();
 
     // Validate there are claimable rewards in the proof account for this attribution.
+    // 
+    // This protects pool members from the scenario of a malicious pool operator or pool operator
+    // key compromise. It prevents a pool operator from being able to steal previously attributed member rewards.
     if pool.total_rewards > proof.balance {
         return Err(PoolError::AttributionTooLarge.into());
     }
