@@ -1,7 +1,6 @@
 use ore_api::prelude::*;
 use ore_boost_api::consts::RESERVATION;
 use ore_pool_api::prelude::*;
-use solana_program::log::sol_log;
 use steel::*;
 
 /// Launch creates a new pool.
@@ -15,21 +14,16 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    sol_log("A");
     signer_info.is_signer()?;
-    sol_log("B");
     pool_info
         .is_writable()?
         .has_seeds(&[POOL, signer_info.key.as_ref()], &ore_pool_api::ID)?;
-    sol_log("C");
     proof_info
         .is_writable()?
         .has_seeds(&[PROOF, pool_info.key.as_ref()], &ore_api::ID)?;
-    sol_log("D");
     reservation_info
         .is_writable()?
         .has_seeds(&[RESERVATION, proof_info.key.as_ref()], &ore_boost_api::ID)?;
-    sol_log("E");
     ore_program.is_program(&ore_api::ID)?;
     ore_boost_program.is_program(&ore_boost_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
@@ -38,7 +32,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     slot_hashes_sysvar.is_sysvar(&sysvar::slot_hashes::ID)?;
 
     // Open proof account.
-    sol_log("F");
     if proof_info.is_empty().is_ok() {
         solana_program::program::invoke_signed(
             &ore_api::sdk::open(*pool_info.key, *miner_info.key, *signer_info.key),
@@ -55,7 +48,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     }
 
     // Initialize reservation account.
-    sol_log("G");
     if reservation_info.is_empty().is_ok() {
         solana_program::program::invoke_signed(
             &ore_boost_api::sdk::register(*signer_info.key, *signer_info.key, *proof_info.key),
@@ -71,7 +63,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     }
 
     // Initialize pool account.
-    sol_log("H");
     let proof = proof_info.as_account::<Proof>(&ore_api::ID)?;
     if pool_info.is_empty().is_ok() {
         create_account::<Pool>(
