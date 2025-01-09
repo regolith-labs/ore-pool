@@ -137,11 +137,11 @@ pub fn submit(
     solution: Solution,
     attestation: [u8; 32],
     bus: Pubkey,
-    boost_accounts: Vec<Pubkey>,
+    boost_accounts: Option<[Pubkey; 3]>,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
-    let accounts = vec![
+    let mut accounts = vec![
         AccountMeta::new(signer, true),
         AccountMeta::new(bus, false),
         AccountMeta::new_readonly(CONFIG_ADDRESS, false),
@@ -152,11 +152,11 @@ pub fn submit(
         AccountMeta::new_readonly(sysvar::instructions::ID, false),
         AccountMeta::new_readonly(sysvar::slot_hashes::ID, false),
     ];
-    let boost_accounts = boost_accounts
-        .into_iter()
-        .map(|pk| AccountMeta::new_readonly(pk, false))
-        .collect();
-    let accounts = [accounts, boost_accounts].concat();
+    if let Some(boost_accounts) = boost_accounts {
+        accounts.push(AccountMeta::new_readonly(boost_accounts[0], false));
+        accounts.push(AccountMeta::new(boost_accounts[1], false));
+        accounts.push(AccountMeta::new_readonly(boost_accounts[2], false));
+    }
     Instruction {
         program_id: crate::ID,
         accounts,

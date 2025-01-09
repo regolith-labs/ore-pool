@@ -235,14 +235,12 @@ impl Aggregator {
         let bus = self.find_bus(operator).await?;
 
         // Get boost accounts
-        let mut boost_accounts = vec![];
+        let mut boost_accounts: Option<[Pubkey; 3]> = None;
         let (reservation_address, _) = ore_boost_api::state::reservation_pda(pool_proof_address);
         let reservation = operator.get_reservation().await;
         if let Ok(reservation) = reservation {
             if reservation.boost != Pubkey::default() {
-                boost_accounts.push(reservation.boost);
-                boost_accounts.push(proof_pda(reservation.boost).0);
-                boost_accounts.push(reservation_address);
+                boost_accounts = Some([reservation.boost, proof_pda(reservation.boost).0, reservation_address]);
             }
         }
 
