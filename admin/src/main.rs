@@ -4,7 +4,6 @@ use solana_sdk::{
 };
 
 mod error;
-mod get_or_create;
 mod init;
 mod member_account;
 mod pool_account;
