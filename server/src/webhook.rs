@@ -91,14 +91,15 @@ fn parse_mine_event(
 ) -> Result<ore_api::event::MineEvent, Error> {
     // Find return data string
     let log_messages = payload.meta.log_messages.as_slice();
-    log::info!("log_messages: {:?}", log_messages);
-    let prefix = format!("Program return: {} ", ore_pool_api::ID);
+    let prefix = format!("Program return: {} ", ore_pool_api::ID.to_string());
     let mut mine_event_str = "";
     for log_message in log_messages.iter().rev() {
         if log_message.starts_with(&prefix) {
             mine_event_str = log_message.trim_start_matches(&prefix);
             break;
         }
+    }
+    if mine_event_str.is_empty() {
         return Err(Error::Internal("webhook event missing return data".to_string()));
     }
 
