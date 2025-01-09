@@ -197,6 +197,10 @@ async fn update_balance_onchain(
     // assert that the fee payer is someone else
     let tx = payload.transaction;
 
+    log::info!("tx: {:?}", tx);
+    log::info!("signer: {:?}", tx.message.signer_keys());
+    log::info!("keypair: {:?}", keypair.pubkey());
+
     let fee_payer = *tx.message.signer_keys().first().ok_or(Error::Internal(
         "missing fee payer in update balance payload".to_string(),
     ))?;
