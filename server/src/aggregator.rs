@@ -230,12 +230,12 @@ impl Aggregator {
 
         // derive accounts for instructions
         let authority = &operator.keypair.pubkey();
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(*authority);
-        let (pool_proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
+        let (pool_address, _) = ore_pool_api::state::pool_pda(*authority);
+        let (pool_proof_address, _) = ore_pool_api::state::pool_proof_pda(pool_address);
         let bus = self.find_bus(operator).await?;
 
         // build instructions
-        let auth_ix = ore_api::sdk::auth(pool_proof_pda);
+        let auth_ix = ore_api::sdk::auth(pool_proof_address);
         let submit_ix = ore_pool_api::sdk::submit(
             operator.keypair.pubkey(),
             best_solution,
@@ -243,11 +243,12 @@ impl Aggregator {
             bus,
             vec![], // TODO fetch from reservation accounts
         );
+        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey(), pool_proof_address);
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
             rpc_client,
-            &[auth_ix, submit_ix],
+            &[auth_ix, submit_ix, rotate_ix],
             1_500_000,
             500_000,
         )
