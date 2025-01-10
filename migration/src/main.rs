@@ -9,7 +9,7 @@ use solana_sdk::{
     commitment_config::CommitmentConfig, compute_budget::ComputeBudgetInstruction,
     signature::read_keypair_file, signer::Signer, transaction::Transaction,
 };
-use steel::{AccountDeserialize, Discriminator};
+use steel::{AccountDeserialize, Discriminator, Pubkey};
 
 #[tokio::main]
 pub async fn main() {
@@ -103,16 +103,26 @@ pub async fn main() {
             }
         };        
 
+        // Map members into (Pubkey, Member) tuples and sort by member id
+        let mut members_with_data: Vec<(Pubkey, Member)> = members
+            .iter()
+            .map(|(pubkey, account)| {
+                let member = Member::try_from_bytes(&account.data).unwrap();
+                (*pubkey, member.clone())
+            })
+            .collect();
+        members_with_data.sort_by_key(|(_, member)| member.id);
+
         // Migrate member balances in batches of 24
-        for chunk in members.chunks(24) {
+        for chunk in members_with_data.chunks(24) {
             let mut ixs = vec![
                 ComputeBudgetInstruction::set_compute_unit_limit(1_200_000),
                 ComputeBudgetInstruction::set_compute_unit_price(10_000),
             ];
 
             // Add instructions for each member in this batch
-            for member in chunk {
-                let ix = ore_pool_api::sdk::migrate_member_balance(signer.pubkey(), pool.0, member.0);
+            for (member_address, _member) in chunk {
+                let ix = ore_pool_api::sdk::migrate_member_balance(signer.pubkey(), pool.0, *member_address);
                 ixs.push(ix);
             }
 
