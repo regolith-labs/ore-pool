@@ -1,4 +1,4 @@
-use ore_boost_api::state::Boost;
+use ore_boost_legacy_api::state::Boost;
 use ore_pool_api::prelude::*;
 use solana_program::log::sol_log_data;
 use steel::*;
@@ -18,7 +18,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     signer_info.is_signer()?;
     boost_info
         .is_writable()?
-        .as_account::<Boost>(&ore_boost_api::ID)?
+        .as_account::<Boost>(&ore_boost_legacy_api::ID)?
         .assert(|b| b.mint == *mint_info.key)?;
     boost_tokens_info
         .is_writable()?
@@ -38,7 +38,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         .assert(|t| t.mint == *mint_info.key)?;
     stake_info
         .is_writable()?
-        .as_account::<ore_boost_api::state::Stake>(&ore_boost_api::ID)?
+        .as_account::<ore_boost_legacy_api::state::Stake>(&ore_boost_legacy_api::ID)?
         .assert(|s| s.authority == *pool_info.key)?
         .assert(|s| s.boost == *boost_info.key)?;
     let share = share_info
@@ -47,7 +47,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         .assert_mut(|s| s.pool == *pool_info.key)?
         .assert_mut(|s| s.mint == *mint_info.key)?;
     token_program.is_program(&spl_token::ID)?;
-    ore_boost_program.is_program(&ore_boost_api::ID)?;
+    ore_boost_program.is_program(&ore_boost_legacy_api::ID)?;
 
     // Update the share balance.
     share.balance = share.balance.checked_sub(amount).unwrap();
@@ -59,7 +59,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     // Withdraw remaining amount from staked balance.
     if withdraw_amount.gt(&0) {
         solana_program::program::invoke_signed(
-            &ore_boost_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
+            &ore_boost_legacy_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
             &[
                 pool_info.clone(),
                 pool_tokens_info.clone(),
