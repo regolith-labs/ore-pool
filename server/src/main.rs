@@ -107,7 +107,7 @@ async fn main() -> Result<(), error::Error> {
             .service(web::resource("/event/latest/{authority}").route(web::get().to(handlers::latest_event)))
             .service(web::resource("/member/{authority}").route(web::get().to(handlers::member)))
             .service(web::resource("/register").route(web::post().to(handlers::register)))
-            .service(web::resource("/webhook/events/mine").route(web::post().to(webhook::mine_event)))
+            .service(web::resource("/webhook/rewards").route(web::post().to(webhook::mine_event)))
             .service(health)
     })
     .bind("0.0.0.0:3000")?
