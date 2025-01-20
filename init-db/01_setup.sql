@@ -17,17 +17,11 @@ BEGIN
 END
 $$;
 
--- create stakers table
+-- create index on members authority
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stakers') THEN
-        CREATE TABLE stakers (
-          address VARCHAR PRIMARY KEY, -- address of share account
-          member_id BIGINT NOT NULL,
-          mint VARCHAR NOT NULL, -- the mint of the boost account
-          webhook BOOLEAN NOT NULL, -- whether or not the address has been added to the webhook
-          FOREIGN KEY (member_id) REFERENCES members(id)
-        );
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'members_authority_idx') THEN
+        CREATE INDEX members_authority_idx ON members(authority);
     END IF;
 END
 $$;

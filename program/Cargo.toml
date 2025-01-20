@@ -23,6 +23,7 @@ drillx.workspace = true
 mpl-token-metadata.workspace = true
 ore-api.workspace = true
 ore-boost-api.workspace = true
+ore-boost-legacy-api.workspace = true
 ore-pool-api.workspace = true
 solana-program.workspace = true
 spl-token.workspace = true

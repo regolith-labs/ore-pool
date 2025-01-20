@@ -5,6 +5,7 @@ use crate::error::Error;
 
 pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Result<(), Error> {
     let instructions = &transaction.message.instructions;
+
     // validate that all but the last instruction are compute budget
     let n = instructions.len();
     let num_compute_budget_instructions = n - 1;
@@ -27,6 +28,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
             ));
         }
     }
+
     // validate that last instruction is the attribution
     let last = instructions
         .last()
@@ -41,6 +43,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
             "expected instruction to be pool program".to_string(),
         ));
     }
+    
     // validate attribution amount
     let data = last.data.as_slice();
     let (_tag, data) = data

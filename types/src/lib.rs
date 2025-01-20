@@ -2,9 +2,6 @@ use drillx::Solution;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{hash::Hash, pubkey::Pubkey, signature::Signature, transaction::Transaction};
 
-///////////////////////////////////////////////////////////////////////////
-/// Request ///////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RegisterPayload {
     /// The authority of the member account sending the payload.
@@ -16,6 +13,13 @@ pub struct GetMemberPayload {
     /// The authority of the member account sending the payload.
     pub authority: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct GetEventPayload {
+    /// The authority of the member account sending the payload.
+    pub authority: String,
+}
+
 
 #[derive(Debug, Deserialize)]
 pub struct GetChallengePayload {
@@ -66,9 +70,6 @@ pub struct RegisterStakerPayload {
     pub mint: Pubkey,
 }
 
-///////////////////////////////////////////////////////////////////////////
-/// Response //////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PoolAddress {
     /// The pubkey address of the pool pda of this operator.
@@ -144,20 +145,6 @@ pub struct MemberChallenge {
     /// The challenge to mine for.
     pub challenge: Challenge,
 
-    /// Additional seconds to be subtracted from the cuttoff time
-    /// to create a "submission window".
-    pub buffer: u64,
-
-    /// The number of total members to divide the nonce space by.
-    pub num_total_members: u64,
-}
-
-/// The response from the /challenge request.
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-pub struct MemberChallengeV2 {
-    /// The challenge to mine for.
-    pub challenge: Challenge,
-
     /// The number of total members to divide the nonce space by.
     pub num_total_members: u64,
 
@@ -176,4 +163,21 @@ pub struct BalanceUpdate {
 
     /// The transaction signature.
     pub signature: Signature,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PoolMemberMiningEvent {
+    pub signature: Signature,
+    pub block: u64,
+    pub timestamp: u64,
+    pub balance: u64,
+    pub difficulty: u64,
+    pub last_hash_at: i64,
+    pub timing: i64,
+    pub net_reward: u64,
+    pub net_base_reward: u64,
+    pub net_miner_boost_reward: u64,
+    pub net_staker_boost_reward: u64,
+    pub member_difficulty: u64,
+    pub member_reward: u64
 }

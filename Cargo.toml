@@ -3,11 +3,11 @@ resolver = "2"
 members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
-version = "0.2.2"
+version = "1.1.0"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://ore.supply"
-documentation = "https://ore.supply"
+documentation = "https://docs.rs/ore-pool-api/latest/ore_pool_api/"
 repository = "https://github.com/regolith-labs/ore-pool"
 readme = "./README.md"
 keywords = ["solana", "crypto", "mining"]
@@ -19,6 +19,7 @@ array-const-fn-init = "0.1.1"
 base64 = "0.22.1"
 bincode = "1.3.3"
 bytemuck = "1.14.3"
+cached = "0.54.0"
 const-crypto = "0.1.0"
 deadpool-postgres = "0.12"
 drillx = { features = ["solana"], version = "2.0.1" }
@@ -29,10 +30,11 @@ futures-util = "0.3"
 log = "0.4"
 mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
-ore-api = "2.7"
-ore-boost-api = "0.3"
-ore-pool-api = { path = "api", version = "0.2.0" }
-ore-pool-types = { path = "types", version = "0.2.0" }
+ore-api = "3.0"
+ore-boost-legacy-api = { package = "ore-boost-api", version = "0.3" }
+ore-boost-api = "1.1"
+ore-pool-api = { path = "api" }
+ore-pool-types = { path = "types" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
 reqwest = { version = "0.12", features = ["json"] }
 serde = { features = ["derive"], version = "1.0" }
@@ -43,15 +45,9 @@ solana-program = "^1.18"
 solana-sdk = "^1.18"
 solana-transaction-status = "^1.18"
 spl-token = { features = ["no-entrypoint"], version = "^4" }
-spl-associated-token-account = { features = [
-  "no-entrypoint",
-], version = "^2.3" }
+spl-associated-token-account = { features = ["no-entrypoint"], version = "^2.3" }
 static_assertions = "1.1.0"
 steel = { features = ["spl"], version = "2.0" }
 thiserror = "1.0.57"
 tokio = "1.39"
 tokio-postgres = "0.7"
-
-# [patch.crates-io]
-# ore-api = { path = "../ore/api" }
-# ore-boost-api = { path = "../ore-boost/api" }

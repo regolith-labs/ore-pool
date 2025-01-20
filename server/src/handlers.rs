@@ -2,21 +2,17 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetMemberPayload, MemberChallenge,
-    MemberChallengeV2, PoolAddress, RegisterPayload, RegisterStakerPayload, Staker,
-    UpdateBalancePayload,
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, PoolMemberMiningEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use crate::{
-    aggregator::Aggregator, database, error::Error, operator::Operator, tx, webhook, Contribution,
+    aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution,
 };
 
 const NUM_CLIENT_DEVICES: u8 = 5;
 
-////////////////////////////////////////////////////////////////////////////////////
-/// HTTP HANDLERS //////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////
+
 pub async fn register(
     operator: web::Data<Operator>,
     payload: web::Json<RegisterPayload>,
@@ -33,30 +29,7 @@ pub async fn register(
     }
 }
 
-pub async fn register_staker(
-    operator: web::Data<Operator>,
-    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    webhook_client: web::Data<webhook::Client>,
-    payload: web::Json<RegisterStakerPayload>,
-) -> impl Responder {
-    let res = register_new_staker(
-        operator.as_ref(),
-        aggregator.as_ref(),
-        webhook_client.as_ref(),
-        payload.into_inner(),
-    )
-    .await;
-    match res {
-        Ok(staker) => HttpResponse::Ok().json(staker),
-        Err(err) => {
-            log::error!("{:?}", err);
-            let http_response: HttpResponse = err.into();
-            http_response
-        }
-    }
-}
-
-pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
+pub async fn address(operator: web::Data<Operator>) -> impl Responder {
     let operator = operator.as_ref();
     let (pool_pda, bump) = ore_pool_api::state::pool_pda(operator.keypair.pubkey());
     HttpResponse::Ok().json(&PoolAddress {
@@ -65,7 +38,7 @@ pub async fn pool_address(operator: web::Data<Operator>) -> impl Responder {
     })
 }
 
-pub async fn update_balance(
+pub async fn commit_balance(
     operator: web::Data<Operator>,
     payload: web::Json<UpdateBalancePayload>,
 ) -> impl Responder {
@@ -94,22 +67,7 @@ pub async fn member(
     }
 }
 
-pub async fn challenge(aggregator: web::Data<tokio::sync::RwLock<Aggregator>>) -> impl Responder {
-    // acquire read on aggregator for challenge
-    let (challenge, last_num_members) = {
-        let aggregator = aggregator.read().await;
-        (aggregator.challenge, aggregator.num_members)
-    };
-    // build member challenge
-    let member_challenge = MemberChallenge {
-        challenge,
-        buffer: 0,
-        num_total_members: last_num_members,
-    };
-    HttpResponse::Ok().json(&member_challenge)
-}
-
-pub async fn challenge_v2(
+pub async fn challenge(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
     path: web::Path<GetChallengePayload>,
 ) -> impl Responder {
@@ -119,14 +77,16 @@ pub async fn challenge_v2(
             return HttpResponse::BadRequest().body(err.to_string());
         }
     };
+
     // acquire write on aggregator for challenge
     let (challenge, last_num_members, device_id) = {
         let mut aggregator = aggregator.write().await;
         let device_id = aggregator.get_device_id(miner);
-        (aggregator.challenge, aggregator.num_members, device_id)
+        (aggregator.current_challenge, aggregator.num_members, device_id)
     };
+
     // build member challenge
-    let member_challenge = MemberChallengeV2 {
+    let member_challenge = MemberChallenge {
         challenge,
         num_total_members: last_num_members,
         device_id,
@@ -145,17 +105,21 @@ pub async fn contribute(
 ) -> impl Responder {
     // acquire read on aggregator for challenge
     let aggregator = aggregator.read().await;
-    let challenge = aggregator.challenge;
+    let challenge = aggregator.current_challenge;
     let num_members = aggregator.num_members;
     drop(aggregator);
+
     // decode solution difficulty
     let solution = &payload.solution;
     let difficulty = solution.to_hash().difficulty();
+    let score = 2u64.pow(difficulty);
+
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
-        log::error!("solution below min difficulity: {:?}", payload.authority);
+        log::error!("solution below min difficulity: {:?} received: {:?} required: {:?}", payload.authority, difficulty, challenge.min_difficulty);
         return HttpResponse::BadRequest().finish();
     }
+
     // validate nonce
     let member_authority = &payload.authority;
     let nonce = solution.n;
@@ -165,8 +129,7 @@ pub async fn contribute(
         log::error!("{:?}", err);
         return HttpResponse::Unauthorized().finish();
     }
-    // calculate score
-    let score = 2u64.pow(difficulty);
+
     // update the aggegator
     if let Err(err) = tx.send(Contribution {
         member: payload.authority,
@@ -177,8 +140,46 @@ pub async fn contribute(
     }
     HttpResponse::Ok().finish()
 }
-////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////
+
+
+pub async fn latest_event(
+    aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    path: web::Path<GetEventPayload>,
+) -> impl Responder {
+    // Parse miner pubkey
+    let miner = match Pubkey::from_str(path.authority.as_str()) {
+        Ok(authority) => authority,
+        Err(err) => {
+            return HttpResponse::BadRequest().body(err.to_string());
+        }
+    };
+
+    // Read latest event
+    let aggregator = aggregator.read().await;
+    if let Some(latest_key) = aggregator.recent_events.keys().iter().max().copied() {
+        if let Some(pool_event) = aggregator.recent_events.get(latest_key) {
+            let resp = PoolMemberMiningEvent {
+                signature: pool_event.signature,
+                block: pool_event.block,
+                timestamp: pool_event.timestamp,
+                balance: pool_event.mine_event.balance,
+                difficulty: pool_event.mine_event.difficulty,
+                last_hash_at: pool_event.mine_event.last_hash_at,
+                timing: pool_event.mine_event.timing,
+                net_reward: pool_event.mine_event.net_reward,
+                net_base_reward: pool_event.mine_event.net_base_reward,
+                net_miner_boost_reward: pool_event.mine_event.net_miner_boost_reward,
+                net_staker_boost_reward: pool_event.mine_event.net_staker_boost_reward,
+                member_difficulty: pool_event.member_scores.get(&miner).unwrap_or(&0).ilog2() as u64,
+                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0)
+            };
+            return HttpResponse::Ok().json(resp);
+        }
+    }
+
+    // Otherwise return 404
+    HttpResponse::NotFound().finish()
+}
 
 async fn update_balance_onchain(
     operator: &Operator,
@@ -187,13 +188,15 @@ async fn update_balance_onchain(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let hash = payload.hash;
+
     // fetch member balance
     let member = operator
         .get_member_db(member_authority.to_string().as_str())
         .await?;
+
     // assert that the fee payer is someone else
     let tx = payload.transaction;
-    let fee_payer = tx.message.account_keys.first().ok_or(Error::Internal(
+    let fee_payer = *tx.message.signer_keys().first().ok_or(Error::Internal(
         "missing fee payer in update balance payload".to_string(),
     ))?;
     if fee_payer.eq(&keypair.pubkey()) {
@@ -201,14 +204,17 @@ async fn update_balance_onchain(
             "fee payer must be client for update balance".to_string(),
         ));
     }
+
     // validate transaction
     tx::validate::validate_attribution(&tx, member.total_balance)?;
+
     // sign transaction and submit
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
     tx.partial_sign(&[keypair], hash);
     let sig = tx::submit::submit_and_confirm_transaction(rpc_client, &tx).await?;
     log::info!("on demand attribution sig: {:?}", sig);
+
     // set member as synced in db
     let db_client = &operator.db_client;
     let db_client = db_client.get().await?;
@@ -221,64 +227,6 @@ async fn update_balance_onchain(
     })
 }
 
-async fn register_new_staker(
-    operator: &Operator,
-    aggregator: &tokio::sync::RwLock<Aggregator>,
-    webhook_client: &webhook::Client,
-    payload: RegisterStakerPayload,
-) -> Result<Staker, Error> {
-    let keypair = &operator.keypair;
-    let member_authority = payload.authority;
-    let mint = payload.mint;
-    let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
-    let (share_pda, _) = ore_pool_api::state::share_pda(member_authority, pool_pda, mint);
-    // check if record is in db already
-    let db_staker = operator.get_staker_db(&member_authority, &mint).await;
-    match db_staker {
-        Ok(db_staker) => {
-            // check if marked as added to webhook in db
-            if !db_staker.webhook {
-                // add to webhook
-                let entry = webhook::ClientPutEntry {
-                    share: share_pda,
-                    authority: member_authority,
-                    mint,
-                };
-                webhook_client.put(operator, aggregator, &entry).await?;
-            }
-            Ok(db_staker)
-        }
-        Err(_err) => {
-            // check if on-chain account already exists
-            let staker = operator.get_staker_onchain(&member_authority, &mint).await;
-            match staker {
-                Ok(staker) => {
-                    // write staker to db
-                    let conn = operator.db_client.get().await?;
-                    let db_staker =
-                        database::write_new_staker(&conn, &member_authority, &pool_pda, &mint)
-                            .await?;
-                    // add to webhook
-                    let entry = webhook::ClientPutEntry {
-                        share: staker.1,
-                        authority: member_authority,
-                        mint,
-                    };
-                    webhook_client.put(operator, aggregator, &entry).await?;
-                    Ok(db_staker)
-                }
-                Err(err) => {
-                    // staker doesn't exist yet on-chain
-                    log::error!("{:?}", err);
-                    // return error to http client
-                    // bc they should create the staker (share) account before hitting this path
-                    Err(Error::StakerDoesNotExist)
-                }
-            }
-        }
-    }
-}
-
 async fn register_new_member(
     operator: &Operator,
     payload: RegisterPayload,
@@ -286,10 +234,12 @@ async fn register_new_member(
     let keypair = &operator.keypair;
     let member_authority = payload.authority;
     let (pool_pda, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+
     // fetch db record
     let db_client = operator.db_client.get().await?;
     let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool_pda);
     let db_member = database::read_member(&db_client, &member_pda.to_string()).await;
+
     // idempotent get or create
     match db_member {
         Ok(db_member) => {

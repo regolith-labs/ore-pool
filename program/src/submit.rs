@@ -9,7 +9,7 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Submit::try_from_bytes(data)?;
 
     // Load accounts.
-    let (required_accounts, optional_accounts) = accounts.split_at(9);
+    let (required_accounts, boost_accounts) = accounts.split_at(9);
     let [signer_info, bus_info, config_info, pool_info, proof_info, ore_program, system_program, instructions_sysvar, slot_hashes_sysvar] =
         required_accounts
     else {
@@ -39,9 +39,10 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     pool.last_total_members = pool.total_members;
     let previous_balance = proof.balance;
 
-    // Submit solution to the ORE program
+    // Build instruction for submitting solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    let mine_accounts = &[
+    let mut boost_keys = None;
+    let mut mine_accounts = vec![
         signer_info.clone(),
         bus_info.clone(),
         config_info.clone(),
@@ -49,15 +50,19 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         instructions_sysvar.clone(),
         slot_hashes_sysvar.clone(),
     ];
-    let mine_accounts = [mine_accounts, optional_accounts].concat();
-    let optional_accounts = optional_accounts.iter().map(|a| *a.key).collect();
+    if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
+        boost_keys = Some((*boost_info.key, *reservation_info.key));
+        mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
+    }
+
+    // Invoke CPI
     solana_program::program::invoke(
         &ore_api::sdk::mine(
             *signer_info.key,
             *pool_info.key,
             *bus_info.key,
             solution,
-            optional_accounts,
+            boost_keys,
         ),
         &mine_accounts,
     )?;

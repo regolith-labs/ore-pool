@@ -23,13 +23,13 @@ use unstake::*;
 use ore_pool_api::prelude::*;
 use steel::*;
 
+#[allow(deprecated)]
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> ProgramResult {
     let (ix, data) = parse_instruction(&ore_pool_api::ID, program_id, data)?;
-
     match ix {
         // User
         PoolInstruction::Join => process_join(accounts, data)?,
@@ -45,7 +45,6 @@ pub fn process_instruction(
         PoolInstruction::OpenStake => process_open_stake(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
     }
-
     Ok(())
 }
 
