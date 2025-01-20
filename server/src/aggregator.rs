@@ -259,7 +259,7 @@ impl Aggregator {
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix, rotate_ix],
-            1_500_000,
+            800_000,
             500_000,
         )
         .await?;
