@@ -101,6 +101,7 @@ async fn main() -> Result<(), error::Error> {
             .app_data(aggregator.clone())
             .app_data(events_tx.clone())
             .service(web::resource("/address").route(web::get().to(handlers::address)))
+            .service(web::resource("/challenge").route(web::get().to(handlers::challenge)))
             .service(web::resource("/challenge/{authority}").route(web::get().to(handlers::challenge)))
             .service(web::resource("/contribute").route(web::post().to(handlers::contribute)))
             .service(web::resource("/commit").route(web::post().to(handlers::commit_balance)))

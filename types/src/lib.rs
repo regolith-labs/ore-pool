@@ -149,6 +149,7 @@ pub struct MemberChallenge {
     pub num_total_members: u64,
 
     /// The id/index for distinguishing devices the client is using.
+    #[deprecated(since = "1.2.0", note = "The pool server no longer automatically assigns device IDs. Miners should set their device IDs manually.")]
     pub device_id: u8,
 
     /// The number of client devices permitted per member.

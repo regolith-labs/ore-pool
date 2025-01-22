@@ -11,7 +11,7 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use steel::AccountDeserialize;
 
 use crate::{
-    contributions::{Contribution, Contributions, Devices, Miner, MinerContributions, PoolMiningEvent, RecentEvents, Winner}, database, error::Error, operator::Operator, tx
+    contributions::{Contribution, Contributions, MinerContributions, PoolMiningEvent, RecentEvents, Winner}, database, error::Error, operator::Operator, tx
 };
 
 const MAX_DIFFICULTY: u32 = 22;
@@ -268,24 +268,6 @@ impl Aggregator {
         // reset
         self.reset(operator).await?;
         Ok(())
-    }
-
-    pub fn get_device_id(&mut self, miner: Miner) -> u8 {
-        // get device indices at current challenge
-        let last_hash_at = &self.current_challenge.lash_hash_at;
-        let all_devices = &mut self.contributions.devices;
-        let mut new_devices: Devices = HashMap::new();
-        new_devices.insert(miner, 0);
-        let current_devices = all_devices
-            .entry((*last_hash_at) as u64)
-            .or_insert(new_devices);
-
-        // lookup miner device id against current challenge
-        let device_id = current_devices.entry(miner).or_insert(0);
-
-        // increment device id
-        *device_id += 1;
-        *device_id
     }
 
     pub async fn distribute_rewards(
