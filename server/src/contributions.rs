@@ -7,7 +7,6 @@ use solana_sdk::signature::Signature;
 
 pub struct Contributions {
     pub miners: HashMap<LastHashAt, MinerContributions>,
-    pub devices: HashMap<LastHashAt, Devices>,
     attribution_filter: AttributionFilter,
 }
 
@@ -15,7 +14,6 @@ impl Contributions {
     pub fn new(attribution_filter_size: u8) -> Self {
         Self {
             miners: HashMap::new(),
-            devices: HashMap::new(),
             attribution_filter: AttributionFilter::new(attribution_filter_size),
         }
     }
@@ -54,16 +52,11 @@ impl Contributions {
     fn filter(&mut self) {
         let validation = &self.attribution_filter.time_stamps;
         self.miners.retain(|k, _v| validation.contains(k));
-        self.devices.retain(|k, _v| validation.contains(k));
     }
 }
 
 /// miner authority
 pub type Miner = Pubkey;
-
-/// miner devices
-pub type DeviceIndex = u8;
-pub type Devices = HashMap<Miner, DeviceIndex>;
 
 /// miner lookup table
 /// challenge --> contribution

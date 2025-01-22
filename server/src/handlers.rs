@@ -69,27 +69,20 @@ pub async fn member(
 
 pub async fn challenge(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    path: web::Path<GetChallengePayload>,
+    _path: web::Path<GetChallengePayload>,
 ) -> impl Responder {
-    let miner = match Pubkey::from_str(path.authority.as_str()) {
-        Ok(authority) => authority,
-        Err(err) => {
-            return HttpResponse::BadRequest().body(err.to_string());
-        }
+    // Acquire write on aggregator for challenge
+    let (challenge, last_num_members) = {
+        let aggregator = aggregator.read().await;
+        (aggregator.current_challenge, aggregator.num_members)
     };
 
-    // acquire write on aggregator for challenge
-    let (challenge, last_num_members, device_id) = {
-        let mut aggregator = aggregator.write().await;
-        let device_id = aggregator.get_device_id(miner);
-        (aggregator.current_challenge, aggregator.num_members, device_id)
-    };
-
-    // build member challenge
+    // Build member challenge
+    #[allow(deprecated)]
     let member_challenge = MemberChallenge {
         challenge,
         num_total_members: last_num_members,
-        device_id,
+        device_id: 0,
         num_devices: NUM_CLIENT_DEVICES,
     };
     HttpResponse::Ok().json(&member_challenge)
