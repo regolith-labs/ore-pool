@@ -163,7 +163,14 @@ pub async fn latest_event(
                 net_base_reward: pool_event.mine_event.net_base_reward,
                 net_miner_boost_reward: pool_event.mine_event.net_miner_boost_reward,
                 net_staker_boost_reward: pool_event.mine_event.net_staker_boost_reward,
-                member_difficulty: pool_event.member_scores.get(&miner).unwrap_or(&0).ilog2() as u64,
+                member_difficulty: {
+                    let score = pool_event.member_scores.get(&miner).unwrap_or(&0);
+                    if *score > 0 {
+                        score.ilog2() as u64
+                    } else {
+                        0
+                    }
+                },
                 member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0)
             };
             return HttpResponse::Ok().json(resp);
