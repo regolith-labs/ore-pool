@@ -36,7 +36,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
 
     // Claim tokens to the beneficiary
     let pool_authority = pool.authority;
-    solana_program::program::invoke_signed(
+    invoke_signed(
         &ore_api::sdk::claim(*pool_info.key, *beneficiary_info.key, amount),
         &[
             pool_info.clone(),
@@ -46,7 +46,8 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
             treasury_tokens_info.clone(),
             token_program.clone(),
         ],
-        &[&[POOL, pool_authority.as_ref(), &[args.pool_bump]]],
+        &ore_pool_api::ID,
+        &[POOL, pool_authority.as_ref()],
     )?;
 
     Ok(())

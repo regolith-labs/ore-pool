@@ -9,6 +9,7 @@ use crate::{
 };
 
 /// Builds a launch instruction.
+#[allow(deprecated)]
 pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction, ApiError> {
     let url = url_to_bytes(url.as_str())?;
     let (pool_pda, pool_bump) = pool_pda(signer);
@@ -40,6 +41,7 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
 }
 
 /// Builds an join instruction.
+#[allow(deprecated)]
 pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
     let (member_pda, member_bump) = member_pda(member_authority, pool);
     Instruction {
@@ -56,11 +58,11 @@ pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
 }
 
 /// Builds a claim instruction.
+#[allow(deprecated)]
 pub fn claim(
     signer: Pubkey,
     beneficiary: Pubkey,
     pool_address: Pubkey,
-    pool_bump: u8,
     amount: u64,
 ) -> Instruction {
     let (member_pda, _) = member_pda(signer, pool_address);
@@ -80,7 +82,7 @@ pub fn claim(
         ],
         data: Claim {
             amount: amount.to_le_bytes(),
-            pool_bump,
+            pool_bump: 0,
         }
         .to_bytes(),
     }

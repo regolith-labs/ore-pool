@@ -10,6 +10,7 @@ pub struct Pool {
     pub authority: Pubkey,
 
     /// The bump used for signing CPIs.
+    #[deprecated(since = "0.1.3", note = "Bumps are no longer required")]
     pub bump: u64,
 
     /// The url where hashes should be submitted (right padded with 0s).

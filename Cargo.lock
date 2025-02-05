@@ -227,7 +227,7 @@ checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
 name = "admin"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "ore-api",
  "ore-boost-api 1.1.0",
@@ -3169,7 +3169,7 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-api"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -3190,7 +3190,7 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-program"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
@@ -3245,7 +3245,7 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-types"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "drillx",
  "serde",
