@@ -58,7 +58,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
 
     // Withdraw remaining amount from staked balance.
     if withdraw_amount.gt(&0) {
-        solana_program::program::invoke_signed(
+        invoke_signed(
             &ore_boost_legacy_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
             &[
                 pool_info.clone(),
@@ -69,7 +69,8 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
                 stake_info.clone(),
                 token_program.clone(),
             ],
-            &[&[POOL, pool.authority.as_ref(), &[pool.bump as u8]]],
+            &ore_pool_api::ID,
+            &[POOL, pool.authority.as_ref()],
         )?;
     }
 

@@ -33,7 +33,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     // Open proof account.
     if proof_info.is_empty().is_ok() {
-        solana_program::program::invoke_signed(
+        invoke_signed(
             &ore_api::sdk::open(*pool_info.key, *miner_info.key, *signer_info.key),
             &[
                 pool_info.clone(),
@@ -43,13 +43,14 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
                 system_program.clone(),
                 slot_hashes_sysvar.clone(),
             ],
-            &[&[POOL, signer_info.key.as_ref(), &[args.pool_bump]]],
+            &ore_pool_api::ID,
+            &[POOL, signer_info.key.as_ref()],
         )?;
     }
 
     // Initialize reservation account.
     if reservation_info.is_empty().is_ok() {
-        solana_program::program::invoke_signed(
+        invoke_signed(
             &ore_boost_api::sdk::register(*signer_info.key, *signer_info.key, *proof_info.key),
             &[
                 pool_info.clone(),
@@ -58,7 +59,8 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
                 reservation_info.clone(),
                 system_program.clone(),
             ],
-            &[&[POOL, signer_info.key.as_ref(), &[args.pool_bump]]],
+            &ore_pool_api::ID,
+            &[POOL, signer_info.key.as_ref()],
         )?;
     }
 
@@ -73,12 +75,11 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
             &[POOL, signer_info.key.as_ref()],
         )?;
         let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
-        pool.authority = *signer_info.key;
-        pool.bump = args.pool_bump as u64;
-        pool.url = args.url;
         pool.attestation = [0; 32];
+        pool.authority = *signer_info.key;
         pool.last_total_members = 0;
         pool.last_hash_at = proof.last_hash_at;
+        pool.url = args.url;
     }
 
     Ok(())

@@ -32,6 +32,7 @@ pub struct Attribute {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Claim {
     pub amount: [u8; 8],
+    #[deprecated(since = "0.1.3", note = "Bumps are no longer required")]
     pub pool_bump: u8,
 }
 
@@ -43,7 +44,9 @@ pub struct Commit {}
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Launch {
+    #[deprecated(since = "0.1.3", note = "Bumps are no longer required")]
     pub pool_bump: u8,
+    #[deprecated(since = "0.1.3", note = "Bumps are no longer required")]
     pub proof_bump: u8,
     pub url: [u8; 128],
 }
@@ -63,6 +66,7 @@ pub struct OpenStake {}
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Join {
+    #[deprecated(since = "0.1.3", note = "Bumps are no longer required")]
     pub member_bump: u8,
 }
 
