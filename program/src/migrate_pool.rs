@@ -14,7 +14,7 @@ pub fn process_migrate_pool(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Progr
         .has_seeds(&[MIGRATION, pool_info.key.as_ref()], &ore_pool_api::ID)?;
     system_program.is_program(&system_program::ID)?;
 
-    // Allocate space for new data field.
+    // Reset total rewards
     pool.total_rewards = 0;
 
     // Create migration account
