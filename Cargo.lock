@@ -230,7 +230,7 @@ name = "admin"
 version = "1.3.0"
 dependencies = [
  "ore-api",
- "ore-boost-api 1.1.0",
+ "ore-boost-api 1.3.0",
  "ore-pool-api",
  "solana-client",
  "solana-program",
@@ -3150,9 +3150,9 @@ dependencies = [
 
 [[package]]
 name = "ore-boost-api"
-version = "1.1.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bc00f3a2ccc8504446d9170854e8e040e4292fe7b74a470b9b6c169968c70f9"
+checksum = "77d6dd7a19f27baf52a4a820a8306c3c636d597a8f3693a0c33108e5c01e90cb"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -3179,7 +3179,7 @@ dependencies = [
  "num_enum 0.7.3",
  "ore-api",
  "ore-boost-api 0.3.0",
- "ore-boost-api 1.1.0",
+ "ore-boost-api 1.3.0",
  "solana-program",
  "spl-associated-token-account",
  "spl-token",
@@ -3198,7 +3198,7 @@ dependencies = [
  "mpl-token-metadata",
  "ore-api",
  "ore-boost-api 0.3.0",
- "ore-boost-api 1.1.0",
+ "ore-boost-api 1.3.0",
  "ore-pool-api",
  "rand 0.8.5",
  "solana-program",
@@ -3225,7 +3225,7 @@ dependencies = [
  "futures-util",
  "log",
  "ore-api",
- "ore-boost-api 1.1.0",
+ "ore-boost-api 1.3.0",
  "ore-pool-api",
  "ore-pool-types",
  "postgres-types",

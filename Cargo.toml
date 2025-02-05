@@ -32,7 +32,7 @@ mpl-token-metadata = "4.1.2"
 num_enum = "0.7.2"
 ore-api = "3.0"
 ore-boost-legacy-api = { package = "ore-boost-api", version = "0.3" }
-ore-boost-api = "1.1"
+ore-boost-api = "1.3"
 ore-pool-api = { path = "api" }
 ore-pool-types = { path = "types" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
