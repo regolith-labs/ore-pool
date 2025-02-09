@@ -1,7 +1,5 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig, signature::Keypair, signer::EncodableKey,
-};
+use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::EncodableKey};
 
 mod error;
 mod init;
