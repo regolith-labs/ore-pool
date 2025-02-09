@@ -58,7 +58,7 @@ pub async fn mine_event(
     let payload = payload.first().unwrap();
 
     // Parse mine event from transaction logs
-    let mine_event = match parse_mine_event(&payload) {
+    let mine_event = match parse_mine_event(payload) {
         Ok(event) => event,
         Err(err) => {
             log::error!("{:?}", err);
@@ -71,7 +71,7 @@ pub async fn mine_event(
         signature: Signature::from_str(payload.transaction.signatures.first().unwrap()).unwrap(),
         block: payload.slot,
         timestamp: payload.block_time,
-        mine_event: mine_event.clone(),
+        mine_event,
         member_rewards: HashMap::new(),
         member_scores: HashMap::new(),
     };
@@ -84,14 +84,11 @@ pub async fn mine_event(
     HttpResponse::Ok().finish()
 }
 
-
 /// Parse a MineEvent from a Helius webhook event
-fn parse_mine_event(
-    payload: &RawPayload,
-) -> Result<ore_api::event::MineEvent, Error> {
+fn parse_mine_event(payload: &RawPayload) -> Result<ore_api::event::MineEvent, Error> {
     // Find return data string
     let log_messages = payload.meta.log_messages.as_slice();
-    let prefix = format!("Program return: {} ", ore_pool_api::ID.to_string());
+    let prefix = format!("Program return: {} ", ore_pool_api::ID);
     let mut mine_event_str = "";
     for log_message in log_messages.iter().rev() {
         if log_message.starts_with(&prefix) {
@@ -100,14 +97,15 @@ fn parse_mine_event(
         }
     }
     if mine_event_str.is_empty() {
-        return Err(Error::Internal("webhook event missing return data".to_string()));
+        return Err(Error::Internal(
+            "webhook event missing return data".to_string(),
+        ));
     }
 
-    // Parse return data 
+    // Parse return data
     let mine_event = BASE64_STANDARD.decode(mine_event_str)?;
-    let mine_event: &ore_api::event::MineEvent =
-        bytemuck::try_from_bytes(mine_event.as_slice())
-            .map_err(|e| Error::Internal(e.to_string()))?;
+    let mine_event: &ore_api::event::MineEvent = bytemuck::try_from_bytes(mine_event.as_slice())
+        .map_err(|e| Error::Internal(e.to_string()))?;
     Ok(*mine_event)
 }
 

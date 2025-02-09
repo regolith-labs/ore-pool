@@ -67,7 +67,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
                     AccountMeta::new_readonly(*token_program.key, false),
                 ],
                 data: [
-                    [3 as u8].to_vec(),
+                    [3_u8].to_vec(),
                     bytemuck::bytes_of(&withdraw_amount).to_vec(),
                 ]
                 .concat(),
