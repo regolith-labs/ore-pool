@@ -106,7 +106,7 @@ pub async fn stream_members_attribution(
                 }
             });
             handles.push(handle);
-            
+
             // clear buffers
             address_buffer.clear();
             ix_buffer.clear();

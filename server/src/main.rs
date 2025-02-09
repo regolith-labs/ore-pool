@@ -1,8 +1,8 @@
 mod aggregator;
-mod handlers;
+mod contributions;
 mod database;
 mod error;
-mod contributions;
+mod handlers;
 mod operator;
 mod tx;
 mod utils;
@@ -102,10 +102,15 @@ async fn main() -> Result<(), error::Error> {
             .app_data(events_tx.clone())
             .service(web::resource("/address").route(web::get().to(handlers::address)))
             .service(web::resource("/challenge").route(web::get().to(handlers::challenge)))
-            .service(web::resource("/challenge/{authority}").route(web::get().to(handlers::challenge)))
+            .service(
+                web::resource("/challenge/{authority}").route(web::get().to(handlers::challenge)),
+            )
             .service(web::resource("/contribute").route(web::post().to(handlers::contribute)))
             .service(web::resource("/commit").route(web::post().to(handlers::commit_balance)))
-            .service(web::resource("/event/latest/{authority}").route(web::get().to(handlers::latest_event)))
+            .service(
+                web::resource("/event/latest/{authority}")
+                    .route(web::get().to(handlers::latest_event)),
+            )
             .service(web::resource("/member/{authority}").route(web::get().to(handlers::member)))
             .service(web::resource("/register").route(web::post().to(handlers::register)))
             .service(web::resource("/webhook/rewards").route(web::post().to(webhook::mine_event)))

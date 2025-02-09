@@ -2,16 +2,14 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, PoolMemberMiningEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload,
+    MemberChallenge, PoolAddress, PoolMemberMiningEvent, RegisterPayload, UpdateBalancePayload,
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
-use crate::{
-    aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution,
-};
+use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution};
 
 const NUM_CLIENT_DEVICES: u8 = 5;
-
 
 pub async fn register(
     operator: web::Data<Operator>,
@@ -85,7 +83,7 @@ pub async fn challenge(
         device_id: 0,
         num_devices: NUM_CLIENT_DEVICES,
     };
-    HttpResponse::Ok().json(&member_challenge)
+    HttpResponse::Ok().json(member_challenge)
 }
 
 /// Accepts solutions from pool members. If their solutions are valid, it
@@ -109,7 +107,12 @@ pub async fn contribute(
 
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
-        log::error!("solution below min difficulity: {:?} received: {:?} required: {:?}", payload.authority, difficulty, challenge.min_difficulty);
+        log::error!(
+            "solution below min difficulity: {:?} received: {:?} required: {:?}",
+            payload.authority,
+            difficulty,
+            challenge.min_difficulty
+        );
         return HttpResponse::BadRequest().finish();
     }
 
@@ -133,7 +136,6 @@ pub async fn contribute(
     }
     HttpResponse::Ok().finish()
 }
-
 
 pub async fn latest_event(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
@@ -171,7 +173,7 @@ pub async fn latest_event(
                         0
                     }
                 },
-                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0)
+                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0),
             };
             return HttpResponse::Ok().json(resp);
         }
