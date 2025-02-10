@@ -38,10 +38,10 @@ reqwest = { version = "0.12", features = ["json"] }
 serde = { features = ["derive"], version = "1.0" }
 serde_json = "1.0"
 sha3 = "0.10"
-solana-client = "2.1"
-solana-program = "2.1"
-solana-sdk = "2.1"
-solana-transaction-status = "2.1"
+solana-client = "=2.1"
+solana-program = "=2.1"
+solana-sdk = "=2.1"
+solana-transaction-status = "=2.1"
 spl-token = { features = ["no-entrypoint"], version = "^4" }
 spl-associated-token-account = { features = ["no-entrypoint"], version = "^6" }
 static_assertions = "1.1.0"
