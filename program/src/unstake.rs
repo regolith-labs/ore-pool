@@ -1,4 +1,3 @@
-use ore_boost_legacy_api::state::Boost;
 use ore_pool_api::prelude::*;
 use solana_program::log::sol_log_data;
 use steel::*;
@@ -18,8 +17,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     signer_info.is_signer()?;
     boost_info
         .is_writable()?
-        .as_account::<Boost>(&ore_boost_legacy_api::ID)?
-        .assert(|b| b.mint == *mint_info.key)?;
+        .has_owner(&LEGACY_BOOST_PROGRAM_ID)?;
     boost_tokens_info
         .is_writable()?
         .as_associated_token_account(boost_info.key, mint_info.key)?;
@@ -38,16 +36,14 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
         .assert(|t| t.mint == *mint_info.key)?;
     stake_info
         .is_writable()?
-        .as_account::<ore_boost_legacy_api::state::Stake>(&ore_boost_legacy_api::ID)?
-        .assert(|s| s.authority == *pool_info.key)?
-        .assert(|s| s.boost == *boost_info.key)?;
+        .has_owner(&LEGACY_BOOST_PROGRAM_ID)?;
     let share = share_info
         .as_account_mut::<Share>(&ore_pool_api::ID)?
         .assert_mut(|s| s.authority == *signer_info.key)?
         .assert_mut(|s| s.pool == *pool_info.key)?
         .assert_mut(|s| s.mint == *mint_info.key)?;
     token_program.is_program(&spl_token::ID)?;
-    ore_boost_program.is_program(&ore_boost_legacy_api::ID)?;
+    ore_boost_program.is_program(&LEGACY_BOOST_PROGRAM_ID)?;
 
     // Update the share balance.
     share.balance = share.balance.checked_sub(amount).unwrap();
@@ -59,7 +55,24 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     // Withdraw remaining amount from staked balance.
     if withdraw_amount.gt(&0) {
         invoke_signed(
-            &ore_boost_legacy_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
+            // &ore_boost_legacy_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
+            &Instruction {
+                program_id: LEGACY_BOOST_PROGRAM_ID,
+                accounts: vec![
+                    AccountMeta::new(*pool_info.key, true),
+                    AccountMeta::new(*pool_tokens_info.key, false),
+                    AccountMeta::new(*boost_info.key, false),
+                    AccountMeta::new(*boost_tokens_info.key, false),
+                    AccountMeta::new_readonly(*mint_info.key, false),
+                    AccountMeta::new(*stake_info.key, false),
+                    AccountMeta::new_readonly(*token_program.key, false),
+                ],
+                data: [
+                    [3 as u8].to_vec(),
+                    bytemuck::bytes_of(&withdraw_amount).to_vec(),
+                ]
+                .concat(),
+            },
             &[
                 pool_info.clone(),
                 pool_tokens_info.clone(),
