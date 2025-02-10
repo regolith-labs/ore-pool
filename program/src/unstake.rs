@@ -55,7 +55,6 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     // Withdraw remaining amount from staked balance.
     if withdraw_amount.gt(&0) {
         invoke_signed(
-            // &ore_boost_legacy_api::sdk::withdraw(*pool_info.key, *mint_info.key, withdraw_amount),
             &Instruction {
                 program_id: LEGACY_BOOST_PROGRAM_ID,
                 accounts: vec![
