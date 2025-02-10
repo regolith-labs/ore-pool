@@ -67,7 +67,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     // Initialize pool account.
     let proof = proof_info.as_account::<Proof>(&ore_api::ID)?;
     if pool_info.is_empty().is_ok() {
-        create_account::<Pool>(
+        create_program_account::<Pool>(
             pool_info,
             system_program,
             signer_info,
