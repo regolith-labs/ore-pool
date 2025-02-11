@@ -1,5 +1,8 @@
 use drillx::Solution;
-use ore_api::{consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS}, state::proof_pda};
+use ore_api::{
+    consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
+    state::proof_pda,
+};
 use steel::*;
 
 use crate::{
@@ -105,7 +108,10 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
 }
 
 /// Builds a commit instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn commit(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
@@ -188,7 +194,10 @@ pub fn unstake(
 }
 
 /// builds a stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn stake(
     signer: Pubkey,
@@ -220,14 +229,20 @@ pub fn stake(
 }
 
 /// Builds an open share instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_share(_signer: Pubkey, _mint: Pubkey, _pool: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
 }
 
 /// Builds an open stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_stake(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");

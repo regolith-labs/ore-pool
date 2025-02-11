@@ -84,4 +84,3 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     Ok(())
 }
-
