@@ -2,7 +2,7 @@ use ore_pool_api::prelude::*;
 use solana_program::log::sol_log_data;
 use steel::*;
 
-/// Unstake tokens from the pool's stake account.
+/// Unstake tokens from the pool's legacy stake account.
 pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult {
     // Parse args.
     let args = ore_pool_api::instruction::Unstake::try_from_bytes(data)?;
