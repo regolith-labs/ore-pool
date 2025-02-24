@@ -33,4 +33,4 @@ steel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
-rand = "0.8.5"
+rand = { workspace = true }
