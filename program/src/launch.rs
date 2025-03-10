@@ -1,5 +1,4 @@
 use ore_api::prelude::*;
-use ore_boost_api::consts::RESERVATION;
 use ore_pool_api::prelude::*;
 use steel::*;
 
@@ -9,7 +8,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     let args = Launch::try_from_bytes(data)?;
 
     // Load accounts.
-    let [signer_info, miner_info, pool_info, proof_info, reservation_info, ore_program, ore_boost_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =
+    let [signer_info, miner_info, pool_info, proof_info, ore_program, ore_boost_program, token_program, associated_token_program, system_program, slot_hashes_sysvar] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -21,9 +20,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     proof_info
         .is_writable()?
         .has_seeds(&[PROOF, pool_info.key.as_ref()], &ore_api::ID)?;
-    reservation_info
-        .is_writable()?
-        .has_seeds(&[RESERVATION, proof_info.key.as_ref()], &ore_boost_api::ID)?;
     ore_program.is_program(&ore_api::ID)?;
     ore_boost_program.is_program(&ore_boost_api::ID)?;
     token_program.is_program(&spl_token::ID)?;
@@ -40,23 +36,6 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
                 miner_info.clone(),
                 signer_info.clone(),
                 proof_info.clone(),
-                system_program.clone(),
-                slot_hashes_sysvar.clone(),
-            ],
-            &ore_pool_api::ID,
-            &[POOL, signer_info.key.as_ref()],
-        )?;
-    }
-
-    // Initialize reservation account.
-    if reservation_info.is_empty().is_ok() {
-        invoke_signed(
-            &ore_boost_api::sdk::register(*signer_info.key, *signer_info.key, *proof_info.key),
-            &[
-                pool_info.clone(),
-                signer_info.clone(),
-                proof_info.clone(),
-                reservation_info.clone(),
                 system_program.clone(),
                 slot_hashes_sysvar.clone(),
             ],

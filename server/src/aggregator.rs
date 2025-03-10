@@ -260,16 +260,15 @@ impl Aggregator {
 
         // Get boost accounts
         let mut boost_accounts: Option<[Pubkey; 3]> = None;
-        let (reservation_address, _) = ore_boost_api::state::reservation_pda(pool_proof_address);
-        let reservation = operator.get_reservation().await;
-        if let Ok(reservation) = reservation {
-            if reservation.boost != Pubkey::default() {
-                boost_accounts = Some([
-                    reservation.boost,
-                    proof_pda(reservation.boost).0,
-                    reservation_address,
-                ]);
-            }
+        let boost_config_address = ore_boost_api::state::config_pda().0;
+        let rpc_client = &operator.rpc_client;
+        let accounts = rpc_client.get_account(&boost_config_address).await?;
+        if let Ok(boost_config) = ore_boost_api::state::Config::try_from_bytes(&accounts.data) {
+            boost_accounts = Some([
+                boost_config.current,
+                proof_pda(boost_config.current).0,
+                boost_config_address,
+            ]);
         }
 
         // build instructions
@@ -281,7 +280,7 @@ impl Aggregator {
             bus,
             boost_accounts,
         );
-        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey(), pool_proof_address);
+        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey());
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
