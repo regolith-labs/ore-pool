@@ -1,9 +1,15 @@
 use drillx::Solution;
-use ore_api::{consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS}, state::proof_pda};
+use ore_api::{
+    consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
+    state::proof_pda,
+};
 use steel::*;
 
 use crate::{
-    consts::LEGACY_BOOST_PROGRAM_ID, error::ApiError, instruction::*, state::{legacy_boost_pda, legacy_stake_pda, member_pda, pool_pda, pool_proof_pda, share_pda}
+    consts::LEGACY_BOOST_PROGRAM_ID,
+    error::ApiError,
+    instruction::*,
+    state::{legacy_boost_pda, legacy_stake_pda, member_pda, pool_pda, pool_proof_pda, share_pda},
 };
 
 /// Builds a launch instruction.
@@ -12,7 +18,6 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
     let url = url_to_bytes(url.as_str())?;
     let (pool_pda, pool_bump) = pool_pda(signer);
     let (proof_pda, proof_bump) = pool_proof_pda(pool_pda);
-    let (reservation_pda, _) = ore_boost_api::state::reservation_pda(proof_pda);
     let ix = Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -20,7 +25,6 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
             AccountMeta::new_readonly(miner, false),
             AccountMeta::new(pool_pda, false),
             AccountMeta::new(proof_pda, false),
-            AccountMeta::new(reservation_pda, false),
             AccountMeta::new_readonly(ore_api::ID, false),
             AccountMeta::new_readonly(ore_boost_api::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
@@ -105,7 +109,10 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
 }
 
 /// Builds a commit instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn commit(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
@@ -188,7 +195,10 @@ pub fn unstake(
 }
 
 /// builds a stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn stake(
     signer: Pubkey,
@@ -220,14 +230,20 @@ pub fn stake(
 }
 
 /// Builds an open share instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_share(_signer: Pubkey, _mint: Pubkey, _pool: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
 }
 
 /// Builds an open stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn open_stake(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
