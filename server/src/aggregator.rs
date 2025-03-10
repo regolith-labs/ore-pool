@@ -11,7 +11,13 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use steel::AccountDeserialize;
 
 use crate::{
-    contributions::{Contribution, Contributions, MinerContributions, PoolMiningEvent, RecentEvents, Winner}, database, error::Error, operator::Operator, tx
+    contributions::{
+        Contribution, Contributions, MinerContributions, PoolMiningEvent, RecentEvents, Winner,
+    },
+    database,
+    error::Error,
+    operator::Operator,
+    tx,
 };
 
 const MAX_DIFFICULTY: u32 = 22;
@@ -126,7 +132,7 @@ impl Aggregator {
             min_difficulty,
             cutoff_time,
         };
-        
+
         // build self
         let mut contributions = Contributions::new(15 + 1);
         contributions.insert(challenge.lash_hash_at as u64);
@@ -236,12 +242,15 @@ impl Aggregator {
 
         // Get boost accounts
         let mut boost_accounts: Option<[Pubkey; 3]> = None;
-        let (reservation_address, _) = ore_boost_api::state::reservation_pda(pool_proof_address);
-        let reservation = operator.get_reservation().await;
-        if let Ok(reservation) = reservation {
-            if reservation.boost != Pubkey::default() {
-                boost_accounts = Some([reservation.boost, proof_pda(reservation.boost).0, reservation_address]);
-            }
+        let boost_config_address = ore_boost_api::state::config_pda().0;
+        let rpc_client = &operator.rpc_client;
+        let accounts = rpc_client.get_account(&boost_config_address).await?;
+        if let Ok(boost_config) = ore_boost_api::state::Config::try_from_bytes(&accounts.data) {
+            boost_accounts = Some([
+                boost_config.current,
+                proof_pda(boost_config.current).0,
+                boost_config_address,
+            ]);
         }
 
         // build instructions
@@ -251,9 +260,9 @@ impl Aggregator {
             best_solution,
             attestation,
             bus,
-            boost_accounts
+            boost_accounts,
         );
-        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey(), pool_proof_address);
+        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey());
         let rpc_client = &operator.rpc_client;
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
@@ -287,7 +296,7 @@ impl Aggregator {
         // Compute miner rewards
         let mut rewards_distribution =
             self.rewards_distribution(&event.mine_event, operator_rewards.1);
-        
+
         println!("rewards_distribution: {:?}", rewards_distribution);
 
         // Collect all rewards
@@ -298,7 +307,11 @@ impl Aggregator {
         database::update_member_balances(&mut db_client, rewards_distribution.clone()).await?;
 
         // Get best member scores for this event
-        let member_scores = if let Some(miner_contributions) = self.contributions.miners.get(&(event.mine_event.last_hash_at as u64)) {
+        let member_scores = if let Some(miner_contributions) = self
+            .contributions
+            .miners
+            .get(&(event.mine_event.last_hash_at as u64))
+        {
             let mut member_scores = HashMap::new();
             for contribution in miner_contributions.contributions.iter() {
                 if contribution.score > *member_scores.get(&contribution.member).unwrap_or(&0) {
@@ -308,16 +321,14 @@ impl Aggregator {
             member_scores
         } else {
             HashMap::new()
-        };        
+        };
 
-        // Insert record into recent events 
+        // Insert record into recent events
         let mut event = event.clone();
         event.member_scores = member_scores;
         event.member_rewards = HashMap::from_iter(rewards_distribution);
-        self.recent_events.insert(
-            event.mine_event.last_hash_at as u64,
-            event
-        );
+        self.recent_events
+            .insert(event.mine_event.last_hash_at as u64, event);
 
         Ok(())
     }
@@ -330,7 +341,7 @@ impl Aggregator {
         // Get attributed scores
         let contributions = &mut self.contributions;
         let (total_score, scores) = contributions.scores();
-        
+
         // Calculate total miner rewards
         let miner_rewards = event.net_reward.checked_sub(operator_rewards).unwrap();
         log::info!("total miner rewards: {}", miner_rewards);

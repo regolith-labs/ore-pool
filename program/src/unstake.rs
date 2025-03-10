@@ -33,7 +33,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     recipient_tokens_info
         .is_writable()?
         .as_token_account()?
-        .assert(|t| t.mint == *mint_info.key)?;
+        .assert(|t| t.mint() == *mint_info.key)?;
     stake_info
         .is_writable()?
         .has_owner(&LEGACY_BOOST_PROGRAM_ID)?;
@@ -49,7 +49,7 @@ pub fn process_unstake(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResu
     share.balance = share.balance.checked_sub(amount).unwrap();
 
     // Check how many pending tokens can be distributed back to staker.
-    let pending_amount = pool_tokens.amount.min(amount);
+    let pending_amount = pool_tokens.amount().min(amount);
     let withdraw_amount = amount.checked_sub(pending_amount).unwrap();
 
     // Withdraw remaining amount from staked balance.
