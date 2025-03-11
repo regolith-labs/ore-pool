@@ -58,6 +58,7 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
                 proof_info.clone(),
                 reservation_info.clone(),
                 system_program.clone(),
+                slot_hashes_sysvar.clone(),
             ],
             &ore_pool_api::ID,
             &[POOL, signer_info.key.as_ref()],
@@ -84,4 +85,3 @@ pub fn process_launch(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
 
     Ok(())
 }
-
