@@ -121,10 +121,7 @@ async fn main() -> Result<(), error::Error> {
                         break;
                     }
                     // send tick
-                    if let Err(err) = clock_tx.send(unix_timestamp) {
-                        log::error!("{:?}", err);
-                        continue;
-                    }
+                    let _ = clock_tx.send(unix_timestamp);
                     // simulate tick of rpc clock
                     unix_timestamp += 1;
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
