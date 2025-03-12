@@ -116,6 +116,7 @@ async fn main() -> Result<(), error::Error> {
                 // every 1 seconds simulate a tick
                 loop {
                     // reset every 10 ticks
+                    ticks += 1;
                     if ticks.eq(&10) {
                         break;
                     }
@@ -125,7 +126,6 @@ async fn main() -> Result<(), error::Error> {
                         continue;
                     }
                     // simulate tick of rpc clock
-                    ticks += 1;
                     unix_timestamp += 1;
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                 }
