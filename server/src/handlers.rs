@@ -66,13 +66,14 @@ pub async fn member(
 }
 
 pub async fn challenge(
-    operator: web::Data<Operator>,
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
+    clock_tx: web::Data<tokio::sync::broadcast::Sender<i64>>,
     _path: web::Path<GetChallengePayload>,
 ) -> impl Responder {
-    // Fetch clock
-    let clock = match operator.as_ref().get_clock().await {
-        Ok(clock) => clock,
+    // Read from clock
+    let mut clock_rx = clock_tx.subscribe();
+    let unix_timestamp = match clock_rx.recv().await {
+        Ok(ts) => ts,
         Err(err) => {
             log::error!("{:?}", err);
             return HttpResponse::InternalServerError().body(err.to_string());
@@ -91,7 +92,7 @@ pub async fn challenge(
         num_total_members: last_num_members,
         device_id: 0,
         num_devices: NUM_CLIENT_DEVICES,
-        unix_timestamp: clock.unix_timestamp,
+        unix_timestamp: unix_timestamp,
     };
     HttpResponse::Ok().json(&member_challenge)
 }
