@@ -20,7 +20,6 @@ pub struct GetEventPayload {
     pub authority: String,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct GetChallengePayload {
     /// The authority of the member account sending the payload.
@@ -149,11 +148,17 @@ pub struct MemberChallenge {
     pub num_total_members: u64,
 
     /// The id/index for distinguishing devices the client is using.
-    #[deprecated(since = "1.2.0", note = "The pool server no longer automatically assigns device IDs. Miners should set their device IDs manually.")]
+    #[deprecated(
+        since = "1.2.0",
+        note = "The pool server no longer automatically assigns device IDs. Miners should set their device IDs manually."
+    )]
     pub device_id: u8,
 
     /// The number of client devices permitted per member.
     pub num_devices: u8,
+
+    /// The unix timestamp from the onchain clock.
+    pub unix_timestamp: i64,
 }
 
 /// The response from the update-balance request.
@@ -180,5 +185,5 @@ pub struct PoolMemberMiningEvent {
     pub net_miner_boost_reward: u64,
     pub net_staker_boost_reward: u64,
     pub member_difficulty: u64,
-    pub member_reward: u64
+    pub member_reward: u64,
 }

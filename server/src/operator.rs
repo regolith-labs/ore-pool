@@ -138,7 +138,7 @@ impl Operator {
         Ok(*reservation)
     }
 
-    async fn get_clock(&self) -> Result<Clock, Error> {
+    pub async fn get_clock(&self) -> Result<Clock, Error> {
         let rpc_client = &self.rpc_client;
         let data = rpc_client.get_account_data(&sysvar::clock::id()).await?;
         bincode::deserialize(&data).map_err(From::from)
