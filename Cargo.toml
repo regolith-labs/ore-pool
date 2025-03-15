@@ -49,3 +49,4 @@ steel = { features = ["spl"], version = "3.0" }
 thiserror = "1.0.57"
 tokio = "1.39"
 tokio-postgres = "0.7"
+rand = "0.8.5"
