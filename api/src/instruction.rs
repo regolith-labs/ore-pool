@@ -6,18 +6,30 @@ pub enum PoolInstruction {
     // User
     Claim = 0,
     Join = 1,
-    #[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+    #[deprecated(
+        since = "0.3.0",
+        note = "Staking has moved to the global boost program"
+    )]
     OpenShare = 2,
-    #[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+    #[deprecated(
+        since = "0.3.0",
+        note = "Staking has moved to the global boost program"
+    )]
     Stake = 3,
     Unstake = 4,
 
     // Operator
     Attribute = 100,
-    #[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+    #[deprecated(
+        since = "0.3.0",
+        note = "Staking has moved to the global boost program"
+    )]
     Commit = 101,
     Launch = 102,
-    #[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+    #[deprecated(
+        since = "0.3.0",
+        note = "Staking has moved to the global boost program"
+    )]
     OpenStake = 103,
     Submit = 104,
 }
@@ -36,7 +48,10 @@ pub struct Claim {
     pub pool_bump: u8,
 }
 
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Commit {}
@@ -51,14 +66,20 @@ pub struct Launch {
     pub url: [u8; 128],
 }
 
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct OpenShare {
     pub share_bump: u8,
 }
 
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct OpenStake {}
@@ -70,7 +91,10 @@ pub struct Join {
     pub member_bump: u8,
 }
 
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Stake {

@@ -94,7 +94,7 @@ pub async fn challenge(
         num_devices: NUM_CLIENT_DEVICES,
         unix_timestamp: unix_timestamp,
     };
-    HttpResponse::Ok().json(&member_challenge)
+    HttpResponse::Ok().json(member_challenge)
 }
 
 /// Accepts solutions from pool members. If their solutions are valid, it

@@ -43,7 +43,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
             "expected instruction to be pool program".to_string(),
         ));
     }
-    
+
     // validate attribution amount
     let data = last.data.as_slice();
     let (_tag, data) = data
