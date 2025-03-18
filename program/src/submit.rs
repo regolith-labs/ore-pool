@@ -50,8 +50,8 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         instructions_sysvar.clone(),
         slot_hashes_sysvar.clone(),
     ];
-    if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
-        boost_keys = Some((*boost_info.key, *reservation_info.key));
+    if let [boost_info, _boost_proof_info, boost_config_info] = boost_accounts {
+        boost_keys = Some([*boost_info.key, *boost_config_info.key]);
         mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
     }
 

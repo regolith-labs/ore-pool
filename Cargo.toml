@@ -3,7 +3,7 @@ resolver = "2"
 members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
-version = "1.4.0"
+version = "1.5.0"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://ore.supply"
@@ -29,8 +29,8 @@ futures-channel = "0.3"
 futures-util = "0.3"
 log = "0.4"
 num_enum = "0.7.2"
-ore-api = "3.1"
-ore-boost-api = "1.4"
+ore-api = "3.2.0-boostv3"
+ore-boost-api = "3.0"
 ore-pool-api = { path = "api" }
 ore-pool-types = { path = "types" }
 postgres-types = { featuers = ["derive"], version = "0.2.6" }
@@ -45,7 +45,16 @@ solana-transaction-status = "=2.1"
 spl-token = { features = ["no-entrypoint"], version = "^4" }
 spl-associated-token-account = { features = ["no-entrypoint"], version = "^6" }
 static_assertions = "1.1.0"
-steel = { features = ["spl"], version = "3.0" }
+steel = { features = ["spl"], version = "4.0" }
 thiserror = "1.0.57"
 tokio = "1.39"
 tokio-postgres = "0.7"
+
+[patch.crates-io]
+ore-boost-api = { git = "https://github.com/regolith-labs/ore-boost", rev = "924105c" }
+
+[profile.release]
+overflow-checks = true
+
+[profile.dev]
+overflow-checks = true
