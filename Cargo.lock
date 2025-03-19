@@ -227,10 +227,10 @@ checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
 name = "admin"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "ore-api",
- "ore-boost-api 3.0.0",
+ "ore-boost-api",
  "ore-pool-api",
  "solana-client",
  "solana-program",
@@ -3059,9 +3059,9 @@ dependencies = [
 
 [[package]]
 name = "ore-api"
-version = "3.2.0-boostv3"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06956691f3138fabb379f1e991c94eb9f924715efaafbd1af8df07fc451c8ea6"
+checksum = "759a7970fa49d3561d1f16b0543be5d05532a5ae45572bcdf81e643e7ef76f84"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -3079,27 +3079,9 @@ dependencies = [
 
 [[package]]
 name = "ore-boost-api"
-version = "1.5.0-boostv3"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c423e9bcedb910473119e3a6ee8fa81e73875f3f15df92fc7e0de045091d6fd3"
-dependencies = [
- "array-const-fn-init",
- "bytemuck",
- "const-crypto",
- "num_enum",
- "ore-api",
- "solana-program",
- "spl-associated-token-account 6.0.0",
- "spl-token 4.0.2",
- "static_assertions",
- "steel",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "ore-boost-api"
-version = "3.0.0"
-source = "git+https://github.com/regolith-labs/ore-boost?rev=924105c#924105c494d950a2e2c3322972d18d6da83a5384"
+checksum = "3500a9e03d7cf4acc920400476fea51883261247f89796a3b7aedb5a921a8fb0"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -3107,7 +3089,6 @@ dependencies = [
  "fixed",
  "num_enum",
  "ore-api",
- "ore-boost-api 1.5.0-boostv3",
  "solana-program",
  "spl-associated-token-account 6.0.0",
  "spl-token 4.0.2",
@@ -3118,7 +3099,7 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-api"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "array-const-fn-init",
  "bytemuck",
@@ -3126,7 +3107,7 @@ dependencies = [
  "drillx",
  "num_enum",
  "ore-api",
- "ore-boost-api 3.0.0",
+ "ore-boost-api",
  "solana-program",
  "spl-associated-token-account 6.0.0",
  "spl-token 4.0.2",
@@ -3137,13 +3118,13 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-program"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
  "drillx",
  "ore-api",
- "ore-boost-api 3.0.0",
+ "ore-boost-api",
  "ore-pool-api",
  "rand 0.8.5",
  "solana-program",
@@ -3170,7 +3151,7 @@ dependencies = [
  "futures-util",
  "log",
  "ore-api",
- "ore-boost-api 3.0.0",
+ "ore-boost-api",
  "ore-pool-api",
  "ore-pool-types",
  "postgres-types",
@@ -3190,7 +3171,7 @@ dependencies = [
 
 [[package]]
 name = "ore-pool-types"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "drillx",
  "serde",
