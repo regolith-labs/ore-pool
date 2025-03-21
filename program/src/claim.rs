@@ -18,13 +18,14 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     beneficiary_info
         .is_writable()?
         .as_token_account()?
-        .assert(|t| t.mint == MINT_ADDRESS)?;
+        .assert(|t| t.mint() == MINT_ADDRESS)?;
     let member: &mut Member = member_info
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.authority == *signer_info.key)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
     let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
-    proof_info.as_account::<Proof>(&ore_api::ID)?
+    proof_info
+        .as_account::<Proof>(&ore_api::ID)?
         .assert(|p| p.authority == *pool_info.key)?;
     treasury_info.has_address(&ore_api::consts::TREASURY_ADDRESS)?;
     treasury_tokens_info.has_address(&ore_api::consts::TREASURY_TOKENS_ADDRESS)?;
@@ -36,7 +37,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
 
     // Claim tokens to the beneficiary
     let pool_authority = pool.authority;
-    solana_program::program::invoke_signed(
+    invoke_signed(
         &ore_api::sdk::claim(*pool_info.key, *beneficiary_info.key, amount),
         &[
             pool_info.clone(),
@@ -46,7 +47,8 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
             treasury_tokens_info.clone(),
             token_program.clone(),
         ],
-        &[&[POOL, pool_authority.as_ref(), &[args.pool_bump]]],
+        &ore_pool_api::ID,
+        &[POOL, pool_authority.as_ref()],
     )?;
 
     Ok(())

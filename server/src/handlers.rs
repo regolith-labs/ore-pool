@@ -2,16 +2,14 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse, Responder};
 use ore_pool_types::{
-    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload, PoolMemberMiningEvent, MemberChallenge, PoolAddress, RegisterPayload, UpdateBalancePayload
+    BalanceUpdate, ContributePayloadV2, GetChallengePayload, GetEventPayload, GetMemberPayload,
+    MemberChallenge, PoolAddress, PoolMemberMiningEvent, RegisterPayload, UpdateBalancePayload,
 };
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
-use crate::{
-    aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution,
-};
+use crate::{aggregator::Aggregator, database, error::Error, operator::Operator, tx, Contribution};
 
 const NUM_CLIENT_DEVICES: u8 = 5;
-
 
 pub async fn register(
     operator: web::Data<Operator>,
@@ -69,28 +67,32 @@ pub async fn member(
 
 pub async fn challenge(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
-    path: web::Path<GetChallengePayload>,
+    clock_tx: web::Data<tokio::sync::broadcast::Sender<i64>>,
+    _path: web::Path<GetChallengePayload>,
 ) -> impl Responder {
-    let miner = match Pubkey::from_str(path.authority.as_str()) {
-        Ok(authority) => authority,
+    // Read from clock
+    let mut clock_rx = clock_tx.subscribe();
+    let unix_timestamp = match clock_rx.recv().await {
+        Ok(ts) => ts,
         Err(err) => {
-            return HttpResponse::BadRequest().body(err.to_string());
+            log::error!("{:?}", err);
+            return HttpResponse::InternalServerError().body(err.to_string());
         }
     };
-
-    // acquire write on aggregator for challenge
-    let (challenge, last_num_members, device_id) = {
-        let mut aggregator = aggregator.write().await;
-        let device_id = aggregator.get_device_id(miner);
-        (aggregator.current_challenge, aggregator.num_members, device_id)
+    // Acquire write on aggregator for challenge
+    let (challenge, last_num_members) = {
+        let aggregator = aggregator.read().await;
+        (aggregator.current_challenge, aggregator.num_members)
     };
 
-    // build member challenge
+    // Build member challenge
+    #[allow(deprecated)]
     let member_challenge = MemberChallenge {
         challenge,
         num_total_members: last_num_members,
-        device_id,
+        device_id: 0,
         num_devices: NUM_CLIENT_DEVICES,
+        unix_timestamp: unix_timestamp,
     };
     HttpResponse::Ok().json(&member_challenge)
 }
@@ -116,7 +118,12 @@ pub async fn contribute(
 
     // error if solution below min difficulty
     if difficulty < (challenge.min_difficulty as u32) {
-        log::error!("solution below min difficulity: {:?} received: {:?} required: {:?}", payload.authority, difficulty, challenge.min_difficulty);
+        log::error!(
+            "solution below min difficulity: {:?} received: {:?} required: {:?}",
+            payload.authority,
+            difficulty,
+            challenge.min_difficulty
+        );
         return HttpResponse::BadRequest().finish();
     }
 
@@ -140,7 +147,6 @@ pub async fn contribute(
     }
     HttpResponse::Ok().finish()
 }
-
 
 pub async fn latest_event(
     aggregator: web::Data<tokio::sync::RwLock<Aggregator>>,
@@ -170,8 +176,15 @@ pub async fn latest_event(
                 net_base_reward: pool_event.mine_event.net_base_reward,
                 net_miner_boost_reward: pool_event.mine_event.net_miner_boost_reward,
                 net_staker_boost_reward: pool_event.mine_event.net_staker_boost_reward,
-                member_difficulty: pool_event.member_scores.get(&miner).unwrap_or(&0).ilog2() as u64,
-                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0)
+                member_difficulty: {
+                    let score = pool_event.member_scores.get(&miner).unwrap_or(&0);
+                    if *score > 0 {
+                        score.ilog2() as u64
+                    } else {
+                        0
+                    }
+                },
+                member_reward: *pool_event.member_rewards.get(&miner).unwrap_or(&0),
             };
             return HttpResponse::Ok().json(resp);
         }

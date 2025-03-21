@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
 use ore_api::state::{Config, Proof};
-use ore_boost_api::state::Reservation;
 use ore_pool_api::state::{Member, Pool};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -127,18 +126,7 @@ impl Operator {
         Ok(*config)
     }
 
-    pub async fn get_reservation(&self) -> Result<Reservation, Error> {
-        let authority = self.keypair.pubkey();
-        let rpc_client = &self.rpc_client;
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
-        let (proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
-        let (reservation_pda, _) = ore_boost_api::state::reservation_pda(proof_pda);
-        let data = rpc_client.get_account_data(&reservation_pda).await?;
-        let reservation = Reservation::try_from_bytes(data.as_slice())?;
-        Ok(*reservation)
-    }
-
-    async fn get_clock(&self) -> Result<Clock, Error> {
+    pub async fn get_clock(&self) -> Result<Clock, Error> {
         let rpc_client = &self.rpc_client;
         let data = rpc_client.get_account_data(&sysvar::clock::id()).await?;
         bincode::deserialize(&data).map_err(From::from)

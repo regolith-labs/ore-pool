@@ -14,7 +14,6 @@ array-const-fn-init.workspace = true
 bytemuck.workspace = true
 const-crypto.workspace = true
 drillx.workspace = true
-mpl-token-metadata.workspace = true
 num_enum.workspace = true
 ore-api.workspace = true
 ore-boost-api.workspace = true
@@ -24,3 +23,4 @@ spl-associated-token-account.workspace = true
 static_assertions.workspace = true
 steel.workspace = true
 thiserror.workspace = true
+

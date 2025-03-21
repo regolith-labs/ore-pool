@@ -17,10 +17,8 @@ crate-type = ["cdylib", "lib"]
 default = []
 
 [dependencies]
-base64.workspace = true
 bytemuck.workspace = true
 drillx.workspace = true
-mpl-token-metadata.workspace = true
 ore-api.workspace = true
 ore-boost-api.workspace = true
 ore-pool-api.workspace = true

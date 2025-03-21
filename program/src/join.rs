@@ -21,7 +21,7 @@ pub fn process_join(accounts: &[AccountInfo<'_>], _data: &[u8]) -> ProgramResult
     system_program.is_program(&system_program::ID)?;
 
     // Initialize member account
-    create_account::<Member>(
+    create_program_account::<Member>(
         member_info,
         system_program,
         signer_info,

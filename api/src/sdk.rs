@@ -1,19 +1,26 @@
 use drillx::Solution;
-use ore_api::{consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS}, state::proof_pda};
+use ore_api::{
+    consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
+    state::proof_pda,
+};
 use steel::*;
 
 use crate::{
+    consts::LEGACY_BOOST_PROGRAM_ID,
     error::ApiError,
     instruction::*,
-    state::{member_pda, migration_pda, pool_pda, pool_proof_pda, share_pda},
+    state::{
+        legacy_boost_pda, legacy_stake_pda, member_pda, migration_pda, pool_pda, pool_proof_pda,
+        share_pda,
+    },
 };
 
 /// Builds a launch instruction.
+#[allow(deprecated)]
 pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction, ApiError> {
     let url = url_to_bytes(url.as_str())?;
     let (pool_pda, pool_bump) = pool_pda(signer);
     let (proof_pda, proof_bump) = pool_proof_pda(pool_pda);
-    let (reservation_pda, _) = ore_boost_api::state::reservation_pda(proof_pda);
     let ix = Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -21,7 +28,6 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
             AccountMeta::new_readonly(miner, false),
             AccountMeta::new(pool_pda, false),
             AccountMeta::new(proof_pda, false),
-            AccountMeta::new(reservation_pda, false),
             AccountMeta::new_readonly(ore_api::ID, false),
             AccountMeta::new_readonly(ore_boost_api::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
@@ -40,6 +46,7 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
 }
 
 /// Builds an join instruction.
+#[allow(deprecated)]
 pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instruction {
     let (member_pda, member_bump) = member_pda(member_authority, pool);
     Instruction {
@@ -56,11 +63,11 @@ pub fn join(member_authority: Pubkey, pool: Pubkey, payer: Pubkey) -> Instructio
 }
 
 /// Builds a claim instruction.
+#[allow(deprecated)]
 pub fn claim(
     signer: Pubkey,
     beneficiary: Pubkey,
     pool_address: Pubkey,
-    pool_bump: u8,
     amount: u64,
 ) -> Instruction {
     let (member_pda, _) = member_pda(signer, pool_address);
@@ -80,7 +87,7 @@ pub fn claim(
         ],
         data: Claim {
             amount: amount.to_le_bytes(),
-            pool_bump,
+            pool_bump: 0,
         }
         .to_bytes(),
     }
@@ -105,30 +112,13 @@ pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -
 }
 
 /// Builds a commit instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
-pub fn commit(signer: Pubkey, mint: Pubkey) -> Instruction {
-    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
-    let boost_tokens =
-        spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
-    let (pool_pda, _) = pool_pda(signer);
-    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool_pda, boost_pda);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(boost_pda, false),
-            AccountMeta::new(boost_tokens, false),
-            AccountMeta::new_readonly(mint, false),
-            AccountMeta::new(pool_pda, false),
-            AccountMeta::new(pool_tokens, false),
-            AccountMeta::new(stake_pda, false),
-            AccountMeta::new_readonly(spl_token::ID, false),
-            AccountMeta::new_readonly(ore_boost_api::ID, false),
-        ],
-        data: Commit {}.to_bytes(),
-    }
+pub fn commit(_signer: Pubkey, _mint: Pubkey) -> Instruction {
+    panic!("Staking has moved to the global boost program");
 }
 
 /// Builds an submit instruction.
@@ -169,7 +159,7 @@ pub fn submit(
     }
 }
 
-/// builds an unstake instruction.
+/// Builds an unstake instruction for legacy boost program.
 pub fn unstake(
     signer: Pubkey,
     mint: Pubkey,
@@ -177,13 +167,13 @@ pub fn unstake(
     recipient: Pubkey,
     amount: u64,
 ) -> Instruction {
-    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
+    let (boost_pda, _) = legacy_boost_pda(mint);
     let boost_tokens =
         spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
     let (member_pda, _) = member_pda(signer, pool);
     let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
     let (share_pda, _) = share_pda(signer, pool, mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool, boost_pda);
+    let (stake_pda, _) = legacy_stake_pda(pool, boost_pda);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -198,7 +188,7 @@ pub fn unstake(
             AccountMeta::new(share_pda, false),
             AccountMeta::new(stake_pda, false),
             AccountMeta::new_readonly(spl_token::ID, false),
-            AccountMeta::new_readonly(ore_boost_api::ID, false),
+            AccountMeta::new_readonly(LEGACY_BOOST_PROGRAM_ID, false),
         ],
         data: Unstake {
             amount: amount.to_le_bytes(),
@@ -208,7 +198,10 @@ pub fn unstake(
 }
 
 /// builds a stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
 pub fn stake(
     signer: Pubkey,
@@ -240,51 +233,23 @@ pub fn stake(
 }
 
 /// Builds an open share instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
-pub fn open_share(signer: Pubkey, mint: Pubkey, pool: Pubkey) -> Instruction {
-    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
-    let (share_pda, share_bump) = share_pda(signer, pool, mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool, boost_pda);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new_readonly(boost_pda, false),
-            AccountMeta::new_readonly(mint, false),
-            AccountMeta::new_readonly(pool, false),
-            AccountMeta::new(share_pda, false),
-            AccountMeta::new_readonly(stake_pda, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: OpenShare { share_bump }.to_bytes(),
-    }
+pub fn open_share(_signer: Pubkey, _mint: Pubkey, _pool: Pubkey) -> Instruction {
+    panic!("Staking has moved to the global boost program");
 }
 
 /// Builds an open stake instruction.
-#[deprecated(since = "0.3.0", note = "Staking has moved to the global boost program")]
+#[deprecated(
+    since = "0.3.0",
+    note = "Staking has moved to the global boost program"
+)]
 #[allow(deprecated)]
-pub fn open_stake(signer: Pubkey, mint: Pubkey) -> Instruction {
-    let (boost_pda, _) = ore_boost_api::state::boost_pda(mint);
-    let (pool_pda, _) = pool_pda(signer);
-    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool_pda, &mint);
-    let (stake_pda, _) = ore_boost_api::state::stake_pda(pool_pda, boost_pda);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new_readonly(boost_pda, false),
-            AccountMeta::new_readonly(mint, false),
-            AccountMeta::new(pool_pda, false),
-            AccountMeta::new(pool_tokens, false),
-            AccountMeta::new(stake_pda, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(spl_token::ID, false),
-            AccountMeta::new_readonly(spl_associated_token_account::ID, false),
-            AccountMeta::new_readonly(ore_boost_api::ID, false),
-        ],
-        data: OpenStake {}.to_bytes(),
-    }
+pub fn open_stake(_signer: Pubkey, _mint: Pubkey) -> Instruction {
+    panic!("Staking has moved to the global boost program");
 }
 
 pub fn migrate_pool(signer: Pubkey, pool: Pubkey) -> Instruction {
