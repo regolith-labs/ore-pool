@@ -304,16 +304,23 @@ impl Aggregator {
     ) -> Result<(), Error> {
         log::info!("{:?}", event);
 
+        // Calculate pool
+        let net_pool_rewards = event
+            .mine_event
+            .net_base_reward
+            .checked_add(event.mine_event.net_miner_boost_reward)
+            .unwrap();
+
         // Compute operator rewards
         let operator_rewards = self.rewards_distribution_operator(
             operator.keypair.pubkey(),
-            &event.mine_event,
+            net_pool_rewards,
             operator.operator_commission,
         );
 
         // Compute miner rewards
         let mut rewards_distribution =
-            self.rewards_distribution(&event.mine_event, operator_rewards.1);
+            self.rewards_distribution(net_pool_rewards, operator_rewards.1);
 
         println!("rewards_distribution: {:?}", rewards_distribution);
 
@@ -353,7 +360,7 @@ impl Aggregator {
 
     fn rewards_distribution(
         &mut self,
-        event: &ore_api::event::MineEvent,
+        net_pool_rewards: u64,
         operator_rewards: u64,
     ) -> Vec<(Pubkey, u64)> {
         // Get attributed scores
@@ -361,7 +368,7 @@ impl Aggregator {
         let (total_score, scores) = contributions.scores();
 
         // Calculate total miner rewards
-        let miner_rewards = event.net_reward.checked_sub(operator_rewards).unwrap();
+        let miner_rewards = net_pool_rewards.checked_sub(operator_rewards).unwrap();
         log::info!("total miner rewards: {}", miner_rewards);
 
         // compute member split
@@ -381,10 +388,10 @@ impl Aggregator {
     fn rewards_distribution_operator(
         &self,
         pool_authority: Pubkey,
-        event: &ore_api::event::MineEvent,
+        net_pool_rewards: u64,
         operator_commission: u64,
     ) -> (Pubkey, u64) {
-        let operator_rewards = (event.net_reward as u128)
+        let operator_rewards = (net_pool_rewards as u128)
             .saturating_mul(operator_commission as u128)
             .saturating_div(100) as u64;
         log::info!("total operator rewards: {}", operator_rewards);
