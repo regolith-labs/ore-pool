@@ -31,7 +31,7 @@ pub struct Pool {
     /// The total number of members in this pool.
     pub total_members: u64,
 
-    // The total number of members in this pool at the last submission.
+    /// The total number of members in this pool at the last submission.
     pub last_total_members: u64,
 }
 
