@@ -9,7 +9,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
-    let [signer_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
+    let [signer_info, beneficiary_info, member_info, pool_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -23,7 +23,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
         .as_account_mut::<Member>(&ore_pool_api::ID)?
         .assert_mut(|m| m.authority == *signer_info.key)?
         .assert_mut(|m| m.pool == *pool_info.key)?;
-    let pool = pool_info.as_account::<Pool>(&ore_pool_api::ID)?;
+    let pool = pool_info.as_account_mut::<Pool>(&ore_pool_api::ID)?;
     proof_info
         .as_account::<Proof>(&ore_api::ID)?
         .assert(|p| p.authority == *pool_info.key)?;
@@ -33,7 +33,10 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     token_program.is_program(&spl_token::ID)?;
 
     // Update member balance
-    member.balance = member.balance.checked_sub(amount).unwrap();
+    member.balance -= amount;
+
+    // Update pool balance
+    pool.total_rewards -= amount;
 
     // Claim tokens to the beneficiary
     let pool_authority = pool.authority;

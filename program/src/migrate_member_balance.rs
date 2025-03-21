@@ -13,15 +13,24 @@ pub fn process_migrate_member_balance(accounts: &[AccountInfo<'_>], _data: &[u8]
         .assert(|m| m.pool == *pool_info.key)?;
     let migration = migration_info
         .as_account_mut::<Migration>(&ore_pool_api::ID)?
-        .assert_mut(|m| m.pool == *pool_info.key)?
-        .assert_mut(|m| m.members_migrated == member.id)?;
+        .assert_mut(|m| m.pool == *pool_info.key)?;
     system_program.is_program(&system_program::ID)?;
 
+    // Assert migraiton does not happen out of order
+    if member.id != migration.members_migrated {
+        return Ok(());
+    }
+
+    // Reset pool total rewards
+    if member.id == 0 {
+        pool.total_rewards = 0;
+    }
+
     // Increment pool total rewards counter
-    pool.total_rewards = pool.total_rewards.checked_add(member.balance).unwrap();
+    pool.total_rewards += member.balance;
 
     // Increment migrated balance
-    migration.members_migrated = migration.members_migrated.checked_add(1).unwrap();
+    migration.members_migrated += 1;
 
     // End migration if done,
     if migration.members_migrated == pool.total_members {

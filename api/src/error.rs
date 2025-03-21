@@ -9,6 +9,8 @@ pub enum PoolError {
     CouldNotParseMiningReward = 1,
     #[error("Staking is in withdraw only mode")]
     WithdrawOnlyMode = 2,
+    #[error("Cannot attribute more rewards than are currently claimable")]
+    AttributionTooLarge = 3,
 }
 
 #[derive(Debug, Error)]

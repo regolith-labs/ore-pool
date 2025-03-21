@@ -47,7 +47,7 @@ pub fn process_instruction(
         // PoolInstruction::Commit => process_commit(accounts, data)?,
         // PoolInstruction::Launch => process_launch(accounts, data)?,
         // PoolInstruction::OpenStake => process_open_stake(accounts, data)?,
-        // PoolInstruction::Submit => process_submit(accounts, data)?,
+        PoolInstruction::Submit => process_submit(accounts, data)?,
 
         // Migration
         PoolInstruction::MigratePool => process_migrate_pool(accounts, data)?,
