@@ -1,3 +1,4 @@
+use ore_api::prelude::*;
 use ore_pool_api::prelude::*;
 use steel::*;
 
