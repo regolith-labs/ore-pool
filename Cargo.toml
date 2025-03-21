@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["admin", "api", "program", "server", "types", "migration"]
+members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
 version = "1.5.1"
