@@ -3176,42 +3176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ore-pool-migration"
-version = "0.0.1"
-dependencies = [
- "actix-cors",
- "actix-web",
- "base64 0.22.1",
- "bincode",
- "bytemuck",
- "deadpool-postgres",
- "drillx",
- "env_logger",
- "futures",
- "futures-channel",
- "futures-util",
- "log",
- "ore-api",
- "ore-boost-api",
- "ore-pool-api",
- "ore-pool-types",
- "postgres-types",
- "rand 0.8.5",
- "reqwest 0.12.15",
- "serde",
- "serde_json",
- "sha3",
- "solana-account-decoder",
- "solana-client",
- "solana-sdk",
- "solana-transaction-status",
- "steel",
- "thiserror 1.0.69",
- "tokio",
- "tokio-postgres",
-]
-
-[[package]]
 name = "ore-pool-program"
 version = "1.5.1"
 dependencies = [
