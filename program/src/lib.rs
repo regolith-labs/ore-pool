@@ -8,7 +8,7 @@ mod migrate_pool;
 // mod open_share;
 // mod open_stake;
 // mod stake;
-// mod submit;
+mod submit;
 // mod unstake;
 
 // use attribute::*;
@@ -21,7 +21,7 @@ use migrate_pool::*;
 // use open_share::*;
 // use open_stake::*;
 // use stake::*;
-// use submit::*;
+use submit::*;
 // use unstake::*;
 
 use ore_pool_api::prelude::*;

@@ -18,7 +18,7 @@ pub fn process_migrate_pool(accounts: &[AccountInfo<'_>], _data: &[u8]) -> Progr
     pool.total_rewards = 0;
 
     // Create migration account
-    create_account::<Migration>(
+    create_program_account::<Migration>(
         migration_info,
         system_program,
         signer_info,
