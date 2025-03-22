@@ -32,7 +32,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
         }
     }
 
-    // Validate that the third instruction is an attribution instruction
+    // Validate as an ore pool instruction
     let third_ix = &instructions[2];
     let third_program_id = transaction
         .message
@@ -70,6 +70,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
 
     // If there are four instructions, validate that the fourth is a claim instruction
     if n == 4 {
+        // Validate as an ore pool instruction
         let fourth_ix = &instructions[3];
         let fourth_program_id = transaction
             .message
@@ -85,7 +86,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
             ));
         }
 
-        // Validate that the fourth instruction is specifically a claim instruction
+        // Validate as specifically a claim instruction
         let fourth_data = fourth_ix.data.as_slice();
         let (fourth_tag, _fourth_data) = fourth_data
             .split_first()
