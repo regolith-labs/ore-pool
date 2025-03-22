@@ -1,32 +1,24 @@
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use helius::jito::JITO_TIP_ACCOUNTS;
-use helius::types::{Cluster, CreateSmartTransactionSeedConfig, Timeout};
-use ore_boost_api::state::{Boost, Stake};
-use rand::seq::IndexedRandom;
+use helius::types::Cluster;
+use ore_api::state::Proof;
+use ore_pool_api::state::{Member, Migration, Pool};
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_config::{
-    RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcSendTransactionConfig,
-};
+use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::address_lookup_table::state::AddressLookupTable;
 use solana_sdk::address_lookup_table::AddressLookupTableAccount;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
-use solana_sdk::system_instruction;
-use solana_sdk::transaction::{Transaction, VersionedTransaction};
+use solana_sdk::transaction::VersionedTransaction;
 use solana_sdk::{signature::Keypair, signer::EncodableKey};
 use steel::{sysvar, AccountDeserialize, Clock, Discriminator, Instruction};
 
-use crate::error::Error::{
-    EmptyJitoBundle, EmptyJitoBundleConfirmation, EmptyTipAccounts, InvalidHeliusCluster,
-    MissingHeliusSolanaAsyncClient, TooManyTransactionsInJitoBundle, UnconfirmedJitoBundle,
-};
+use crate::error::Error::InvalidHeliusCluster;
 
 pub struct Client {
     pub rpc: solana_client::nonblocking::rpc_client::RpcClient,
@@ -72,16 +64,20 @@ impl Client {
 #[async_trait]
 pub trait AsyncClient {
     // fn get_async_client(&self) -> Result<Arc<RpcClient>>;
-    async fn get_boost(&self, boost: &Pubkey) -> Result<Boost>;
-    async fn get_boosts(&self) -> Result<Vec<Boost>>;
-    async fn get_boost_stake_accounts(&self, boost: &Pubkey) -> Result<Vec<(Pubkey, Stake)>>;
-    async fn get_boosts_v1(&self) -> Result<Vec<ore_boost_api_v1::state::Boost>>;
-    async fn get_boost_v1_stake_accounts(
-        &self,
-        boost: &Pubkey,
-    ) -> Result<Vec<(Pubkey, ore_boost_api_v1::state::Stake)>>;
-    async fn get_stake(&self, stake: &Pubkey) -> Result<ore_boost_api::state::Stake>;
-    async fn get_stake_v1(&self, stake: &Pubkey) -> Result<ore_boost_api_v1::state::Stake>;
+    // async fn get_boost(&self, boost: &Pubkey) -> Result<Boost>;
+    async fn get_migration(&self, migration: &Pubkey) -> Result<Migration>;
+    async fn get_pools(&self) -> Result<Vec<(Pubkey, Pool)>>;
+    async fn get_pool(&self, pool: &Pubkey) -> Result<Pool>;
+    async fn get_pool_members(&self, pool: &Pubkey) -> Result<Vec<(Pubkey, Member)>>;
+    async fn get_proof(&self, address: &Pubkey) -> Result<Proof>;
+    // async fn get_boost_stake_accounts(&self, boost: &Pubkey) -> Result<Vec<(Pubkey, Stake)>>;
+    // async fn get_boosts_v1(&self) -> Result<Vec<ore_boost_api_v1::state::Boost>>;
+    // async fn get_boost_v1_stake_accounts(
+    //     &self,
+    //     boost: &Pubkey,
+    // ) -> Result<Vec<(Pubkey, ore_boost_api_v1::state::Stake)>>;
+    // async fn get_stake(&self, stake: &Pubkey) -> Result<ore_boost_api::state::Stake>;
+    // async fn get_stake_v1(&self, stake: &Pubkey) -> Result<ore_boost_api_v1::state::Stake>;
     async fn get_clock(&self) -> Result<Clock>;
     async fn get_lookup_table(&self, lut: &Pubkey) -> Result<AddressLookupTableAccount>;
     async fn get_lookup_tables(&self, luts: &[Pubkey]) -> Result<Vec<AddressLookupTableAccount>>;
@@ -109,14 +105,28 @@ impl AsyncClient for solana_client::nonblocking::rpc_client::RpcClient {
     //     let accounts = accounts.into_iter().map(|(_, boost)| boost).collect();
     //     Ok(accounts)
     // }
-    async fn get_pools(&self) -> Result<Vec<Pool>> {
-        let accounts = get_program_accounts::<Pool>(self, &ore_pool_api::ID, vec![]).await?;
-        let accounts = accounts.into_iter().map(|(_, pool)| pool).collect();
-        Ok(accounts)
+    async fn get_migration(&self, migration: &Pubkey) -> Result<Migration> {
+        let data = self.get_account_data(migration).await?;
+        let migration = Migration::try_from_bytes(data.as_slice())?;
+        Ok(*migration)
     }
-    async fn get_pool_members(&self, pool: &Pubkey) -> Result<Vec<Member>> {
-        let filter = RpcFilterType::Memcmp(Memcmp::new_raw_bytes(16, pool.0.to_bytes().to_vec()));
-        let accounts = get_program_accounts::<Member>(self, &ore_pool_api::ID, vec![filter]).await?;
+    async fn get_proof(&self, address: &Pubkey) -> Result<Proof> {
+        let data = self.get_account_data(address).await?;
+        let proof = Proof::try_from_bytes(data.as_slice())?;
+        Ok(*proof)
+    }
+    async fn get_pool(&self, pool: &Pubkey) -> Result<Pool> {
+        let data = self.get_account_data(pool).await?;
+        let pool = Pool::try_from_bytes(data.as_slice())?;
+        Ok(*pool)
+    }
+    async fn get_pools(&self) -> Result<Vec<(Pubkey, Pool)>> {
+        get_program_accounts::<Pool>(self, &ore_pool_api::ID, vec![]).await
+    }
+    async fn get_pool_members(&self, pool: &Pubkey) -> Result<Vec<(Pubkey, Member)>> {
+        let filter = RpcFilterType::Memcmp(Memcmp::new_raw_bytes(16, pool.to_bytes().to_vec()));
+        let accounts =
+            get_program_accounts::<Member>(self, &ore_pool_api::ID, vec![filter]).await?;
         let accounts = accounts
             .into_iter()
             .filter(|(_, member)| member.pool.eq(pool))
