@@ -281,13 +281,13 @@ impl Aggregator {
             boost_accounts,
         );
         let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey());
-        let rpc_client = &operator.rpc_client;
+        let rpc_client = &operator.jito_client;
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix, rotate_ix],
-            800_000,
-            500_000,
+            550_000,
+            2_000,
         )
         .await?;
         log::info!("{:?}", sig);

@@ -25,6 +25,9 @@ pub struct Operator {
     /// Solana RPC client.
     pub rpc_client: RpcClient,
 
+    /// JITO RPC client.
+    pub jito_client: RpcClient,
+
     /// Postgres connection pool.
     pub db_client: deadpool_postgres::Pool,
 
@@ -37,12 +40,14 @@ impl Operator {
     pub fn new() -> Result<Operator, Error> {
         let keypair = Self::keypair()?;
         let rpc_client = Self::rpc_client()?;
+        let jito_client = Self::jito_client();
         let db_client = database::create_pool();
         let operator_commission = Self::operator_commission()?;
         log::info!("operator commision: {}", operator_commission);
         Ok(Operator {
             keypair,
             rpc_client,
+            jito_client,
             db_client,
             operator_commission,
         })
@@ -149,6 +154,11 @@ impl Operator {
             rpc_url,
             CommitmentConfig::confirmed(),
         ))
+    }
+
+    fn jito_client() -> RpcClient {
+        let rpc_url = "https://mainnet.block-engine.jito.wtf";
+        RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed())
     }
 
     fn rpc_url() -> Result<String, Error> {
