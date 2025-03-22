@@ -1,7 +1,4 @@
-use ore_pool_api::{
-    instruction::Attribute,
-    prelude::{Claim, PoolInstruction},
-};
+use ore_pool_api::{instruction::Attribute, prelude::PoolInstruction};
 use solana_sdk::{program_error::ProgramError, transaction::Transaction};
 
 use crate::error::Error;
@@ -56,8 +53,6 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
     let (third_tag, third_data) = third_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
-
-    // Check if the third instruction is an attribute instruction
     let third_tag =
         PoolInstruction::try_from(*third_tag).or(Err(ProgramError::InvalidInstructionData))?;
     if third_tag.ne(&PoolInstruction::Attribute) {
@@ -95,9 +90,6 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
         let (fourth_tag, fourth_data) = fourth_data
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
-
-        // Check if the fourth instruction is a claim instruction
-        // We assume the first byte (tag) identifies the instruction type
         let fourth_tag =
             PoolInstruction::try_from(*fourth_tag).or(Err(ProgramError::InvalidInstructionData))?;
         if fourth_tag.ne(&PoolInstruction::Claim) {
@@ -105,9 +97,6 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
                 "fourth instruction must be a claim instruction".to_string(),
             ));
         }
-
-        // Validate that it's a valid claim instruction
-        let _ = Claim::try_from_bytes(fourth_data)?;
     }
 
     Ok(())
