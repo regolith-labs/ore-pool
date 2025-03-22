@@ -87,7 +87,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
 
         // Validate that the fourth instruction is specifically a claim instruction
         let fourth_data = fourth_ix.data.as_slice();
-        let (fourth_tag, fourth_data) = fourth_data
+        let (fourth_tag, _fourth_data) = fourth_data
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
         let fourth_tag =
