@@ -9,10 +9,14 @@ use crate::error::Error;
 pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Result<(), Error> {
     let instructions = &transaction.message.instructions;
 
+    // Validate transaction size
+    // at least three instructions (just an attribution)
+    // and no more than four (both an attribution and a claim)
     let n = instructions.len();
-    if n < 3 {
+    if n < 3 || n > 4 {
         return Err(Error::Internal(
-            "attribution transactions must contain at least three instructions".to_string(),
+            "transaction must contain at least three and no more than four instructions"
+                .to_string(),
         ));
     }
 
