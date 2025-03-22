@@ -157,7 +157,7 @@ impl Operator {
     }
 
     fn jito_client() -> RpcClient {
-        let rpc_url = "https://mainnet.block-engine.jito.wtf";
+        let rpc_url = "https://mainnet.block-engine.jito.wtf/api/v1/transactions";
         RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed())
     }
 

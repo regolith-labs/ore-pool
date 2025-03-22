@@ -16,6 +16,7 @@ const TIP_AMOUNT: u64 = 2_000;
 pub async fn submit_and_confirm_instructions(
     signer: &Keypair,
     rpc_client: &RpcClient,
+    jito_client: &RpcClient,
     ixs: &[Instruction],
     cu_limit: u32,
     cu_price: u64,
@@ -23,7 +24,8 @@ pub async fn submit_and_confirm_instructions(
     let max_retries = 5;
     let mut retries = 0;
     while retries < max_retries {
-        let sig = submit_instructions(signer, rpc_client, ixs, cu_limit, cu_price).await;
+        let sig =
+            submit_instructions(signer, rpc_client, jito_client, ixs, cu_limit, cu_price).await;
         match sig {
             Ok(sig) => match confirm_transaction(rpc_client, &sig).await {
                 Ok(()) => return Ok(sig),
@@ -48,6 +50,7 @@ pub async fn submit_and_confirm_instructions(
 pub async fn submit_instructions(
     signer: &Keypair,
     rpc_client: &RpcClient,
+    jito_client: &RpcClient,
     ixs: &[Instruction],
     cu_limit: u32,
     cu_price: u64,
@@ -60,7 +63,7 @@ pub async fn submit_instructions(
     let hash = rpc_client.get_latest_blockhash().await?;
     let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
     tx.sign(&[signer], hash);
-    rpc_client.send_transaction(&tx).await.map_err(From::from)
+    jito_client.send_transaction(&tx).await.map_err(From::from)
 }
 
 pub async fn submit_and_confirm_transaction(

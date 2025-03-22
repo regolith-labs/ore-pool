@@ -83,6 +83,7 @@ pub async fn stream_members_attribution(
                 async move {
                     match tx::submit::submit_and_confirm_instructions(
                         &operator.keypair,
+                        &operator.rpc_client,
                         &operator.jito_client,
                         ix_buffer.as_slice(),
                         30_000,
