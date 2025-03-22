@@ -286,8 +286,8 @@ impl Aggregator {
             &operator.keypair,
             rpc_client,
             &[auth_ix, submit_ix, rotate_ix],
-            800_000,
-            500_000,
+            550_000,
+            2_000,
         )
         .await?;
         log::info!("{:?}", sig);
