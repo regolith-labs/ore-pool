@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
 use ore_api::state::{Config, Proof};
-use ore_boost_api::state::Reservation;
 use ore_pool_api::state::{Member, Pool};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -26,6 +25,9 @@ pub struct Operator {
     /// Solana RPC client.
     pub rpc_client: RpcClient,
 
+    /// JITO RPC client.
+    pub jito_client: RpcClient,
+
     /// Postgres connection pool.
     pub db_client: deadpool_postgres::Pool,
 
@@ -38,12 +40,14 @@ impl Operator {
     pub fn new() -> Result<Operator, Error> {
         let keypair = Self::keypair()?;
         let rpc_client = Self::rpc_client()?;
+        let jito_client = Self::jito_client();
         let db_client = database::create_pool();
         let operator_commission = Self::operator_commission()?;
         log::info!("operator commision: {}", operator_commission);
         Ok(Operator {
             keypair,
             rpc_client,
+            jito_client,
             db_client,
             operator_commission,
         })
@@ -127,18 +131,7 @@ impl Operator {
         Ok(*config)
     }
 
-    pub async fn get_reservation(&self) -> Result<Reservation, Error> {
-        let authority = self.keypair.pubkey();
-        let rpc_client = &self.rpc_client;
-        let (pool_pda, _) = ore_pool_api::state::pool_pda(authority);
-        let (proof_pda, _) = ore_pool_api::state::pool_proof_pda(pool_pda);
-        let (reservation_pda, _) = ore_boost_api::state::reservation_pda(proof_pda);
-        let data = rpc_client.get_account_data(&reservation_pda).await?;
-        let reservation = Reservation::try_from_bytes(data.as_slice())?;
-        Ok(*reservation)
-    }
-
-    async fn get_clock(&self) -> Result<Clock, Error> {
+    pub async fn get_clock(&self) -> Result<Clock, Error> {
         let rpc_client = &self.rpc_client;
         let data = rpc_client.get_account_data(&sysvar::clock::id()).await?;
         bincode::deserialize(&data).map_err(From::from)
@@ -161,6 +154,11 @@ impl Operator {
             rpc_url,
             CommitmentConfig::confirmed(),
         ))
+    }
+
+    fn jito_client() -> RpcClient {
+        let rpc_url = "https://mainnet.block-engine.jito.wtf/api/v1/transactions";
+        RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed())
     }
 
     fn rpc_url() -> Result<String, Error> {

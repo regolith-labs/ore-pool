@@ -28,17 +28,6 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     instructions_sysvar.is_sysvar(&sysvar::instructions::ID)?;
     slot_hashes_sysvar.is_sysvar(&sysvar::slot_hashes::ID)?;
 
-    // Update pool submissions count
-    pool.total_submissions = pool.total_submissions.checked_add(1).unwrap();
-
-    // And the attestation of observed hash-power
-    pool.attestation = args.attestation;
-
-    // Parse the proof balance before submitting solution
-    // as previous balance to compute reward.
-    pool.last_total_members = pool.total_members;
-    let previous_balance = proof.balance;
-
     // Build instruction for submitting solution to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
     let mut boost_keys = None;
@@ -50,12 +39,12 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         instructions_sysvar.clone(),
         slot_hashes_sysvar.clone(),
     ];
-    if let [boost_info, _boost_proof_info, reservation_info] = boost_accounts {
-        boost_keys = Some((*boost_info.key, *reservation_info.key));
+    if let [boost_info, _boost_proof_info, boost_config_info] = boost_accounts {
+        boost_keys = Some([*boost_info.key, *boost_config_info.key]);
         mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
     }
 
-    // Invoke CPI
+    // Invoke mine CPI
     solana_program::program::invoke(
         &ore_api::sdk::mine(
             *signer_info.key,
@@ -67,12 +56,11 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
         &mine_accounts,
     )?;
 
-    // Parse the proof balance again
-    // to compute the diff which gives us the reward for attribution.
-    let new_balance = proof.balance;
-    let reward = new_balance.saturating_sub(previous_balance);
-    pool.reward = reward;
+    // Update pool state.
+    pool.attestation = args.attestation;
     pool.last_hash_at = proof.last_hash_at;
+    pool.last_total_members = pool.total_members;
+    pool.total_submissions += 1;
 
     Ok(())
 }

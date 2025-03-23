@@ -44,6 +44,8 @@ pub fn process_instruction(
         PoolInstruction::Launch => process_launch(accounts, data)?,
         PoolInstruction::OpenStake => process_open_stake(accounts, data)?,
         PoolInstruction::Submit => process_submit(accounts, data)?,
+
+        _ => panic!("Temporarily disabled for migration."),
     }
     Ok(())
 }
