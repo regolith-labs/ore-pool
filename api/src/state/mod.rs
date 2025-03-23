@@ -1,10 +1,8 @@
 mod member;
-mod migration;
 mod pool;
 mod share;
 
 pub use member::*;
-pub use migration::*;
 pub use pool::*;
 pub use share::*;
 
@@ -18,17 +16,10 @@ pub enum AccountDiscriminator {
     Member = 100,
     Pool = 101,
     Share = 102,
-
-    // Migration account
-    Migration = 200,
 }
 
 pub fn pool_pda(authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[POOL, authority.as_ref()], &crate::id())
-}
-
-pub fn migration_pda(pool: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[MIGRATION, pool.as_ref()], &crate::id())
 }
 
 pub fn pool_proof_pda(pool: Pubkey) -> (Pubkey, u8) {
@@ -55,12 +46,21 @@ pub fn share_pda(authority: Pubkey, pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) 
     )
 }
 
-
 /// Legacy boost PDAs
 pub fn legacy_boost_pda(mint: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[ore_boost_api::consts::BOOST, mint.as_ref()], &LEGACY_BOOST_PROGRAM_ID)
+    Pubkey::find_program_address(
+        &[ore_boost_api::consts::BOOST, mint.as_ref()],
+        &LEGACY_BOOST_PROGRAM_ID,
+    )
 }
 
 pub fn legacy_stake_pda(authority: Pubkey, boost: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[ore_boost_api::consts::STAKE, authority.as_ref(), boost.as_ref()], &LEGACY_BOOST_PROGRAM_ID)
+    Pubkey::find_program_address(
+        &[
+            ore_boost_api::consts::STAKE,
+            authority.as_ref(),
+            boost.as_ref(),
+        ],
+        &LEGACY_BOOST_PROGRAM_ID,
+    )
 }

@@ -9,10 +9,7 @@ use crate::{
     consts::LEGACY_BOOST_PROGRAM_ID,
     error::ApiError,
     instruction::*,
-    state::{
-        legacy_boost_pda, legacy_stake_pda, member_pda, migration_pda, pool_pda, pool_proof_pda,
-        share_pda,
-    },
+    state::{legacy_boost_pda, legacy_stake_pda, member_pda, pool_pda, pool_proof_pda, share_pda},
 };
 
 /// Builds a launch instruction.
@@ -258,52 +255,6 @@ pub fn open_share(_signer: Pubkey, _mint: Pubkey, _pool: Pubkey) -> Instruction 
 #[allow(deprecated)]
 pub fn open_stake(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
-}
-
-pub fn migrate_pool(signer: Pubkey, pool: Pubkey) -> Instruction {
-    let (migration_address, _) = migration_pda(pool);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(pool, false),
-            AccountMeta::new(migration_address, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: MigratePool {}.to_bytes(),
-    }
-}
-
-pub fn migrate_quick(signer: Pubkey, pool: Pubkey, amount: u64) -> Instruction {
-    let (migration_address, _) = migration_pda(pool);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(pool, false),
-            AccountMeta::new(migration_address, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: QuickMigrate {
-            amount: amount.to_le_bytes(),
-        }
-        .to_bytes(),
-    }
-}
-
-pub fn migrate_member_balance(signer: Pubkey, pool: Pubkey, member: Pubkey) -> Instruction {
-    let (migration_address, _) = migration_pda(pool);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(pool, false),
-            AccountMeta::new_readonly(member, false),
-            AccountMeta::new(migration_address, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: MigrateMemberBalance {}.to_bytes(),
-    }
 }
 
 fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {
