@@ -15,11 +15,9 @@ pub async fn main() -> anyhow::Result<()> {
     let client = client::Client::new()?;
     let client = std::sync::Arc::new(client);
 
-    let pools = client.rpc.get_pools().await?;
-
-    println!("Total pools: {}", pools.len());
-
     // Phase 1: Initialize migration
+    let pools = client.rpc.get_pools().await?;
+    println!("Total pools: {}\n", pools.len());
     for (pool_address, pool) in pools.clone() {
         // Skip other pools
         // if pool_address != Pubkey::from_str("9tQd8NkKUx1J3UJFtZHgBCKjk4fvWhwFCDh882MKgQiP")? {
@@ -33,8 +31,8 @@ pub async fn main() -> anyhow::Result<()> {
         verify_pool_total_rewards(client.clone(), pool_address).await?;
     }
 
-    // TODO: Phase 2: Migrate member balances
-    for (pool_address, pool) in pools {
+    // Phase 2: Migrate member balances
+    for (pool_address, pool) in pools.clone() {
         // Skip other pools
         if pool_address != Pubkey::from_str("9tQd8NkKUx1J3UJFtZHgBCKjk4fvWhwFCDh882MKgQiP")? {
             continue;
@@ -60,13 +58,18 @@ pub async fn main() -> anyhow::Result<()> {
             //     println!("Skipping...");
             //     continue;
             // }
-            println!(
-                "[{}/{}] {} {}",
-                member.id, pool.total_members, member.authority, member.total_balance
-            );
+            // println!(
+            //     "[{}/{}] {} {}",
+            //     member.id, pool.total_members, member.authority, member.total_balance
+            // );
             // sleep(Duration::from_secs(1)).await;
             // migrate_member_balance(client.clone(), pool_address, member_address).await?;
         }
+    }
+
+    // Phase 3: Verify migration
+    for (pool_address, pool) in pools {
+        verify_pool_is_migrated(client.clone(), pool_address).await?;
     }
 
     Ok(())
@@ -114,14 +117,22 @@ async fn verify_pool_total_rewards(
     // assert!(net_total_rewards <= proof.total_rewards);
     println!("  {} {}", net_total_rewards, proof.balance);
     if net_total_rewards > proof.balance {
-        println!("  INVALID POOL!\n");
-        println!(
-            "  Difference: {}",
-            amount_to_ui_amount(net_total_rewards - proof.balance)
-        );
+        println!("  INVALID POOL!");
+        println!("  Difference: {}\n", net_total_rewards - proof.balance);
     } else {
         println!("  Pool rewards are valid.\n");
     }
 
+    Ok(())
+}
+
+async fn verify_pool_is_migrated(client: Arc<Client>, pool_address: Pubkey) -> anyhow::Result<()> {
+    let pool = client.clone().rpc.get_pool(&pool_address).await?;
+    let members = client.clone().rpc.get_pool_members(&pool_address).await?;
+    let mut expected_total_rewards = 0;
+    for member in members {
+        expected_total_rewards += member.1.balance;
+    }
+    assert_eq!(expected_total_rewards, pool.total_rewards);
     Ok(())
 }

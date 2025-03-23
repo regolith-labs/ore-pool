@@ -31,7 +31,10 @@ impl Client {
         // let helius_cluster = helius_cluster()?;
         let keypair = keypair()?;
         // let rpc = helius::Helius::new_with_async_solana(helius_api_key.as_str(), helius_cluster)?;
-        let rpc = RpcClient::new("http://localhost:8899".to_string());
+        let rpc = RpcClient::new(
+            "https://mainnet.helius-rpc.com/?api-key=3e5756b4-fdcb-4a95-883c-8d6603611d1a"
+                .to_string(),
+        );
         let client = Self {
             rpc,
             keypair: Arc::new(keypair),
