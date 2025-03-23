@@ -38,10 +38,8 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     // Update pool balance
     pool.total_rewards -= amount;
 
-    // Amount claimed
-    let mut amount_claimed = 0;
-
     // Claim first from pool tokens
+    let mut amount_claimed = 0;
     if !pool_tokens_info.data_is_empty() {
         // Verify pool tokens account
         let pool_tokens = pool_tokens_info
