@@ -1,6 +1,6 @@
 use drillx::Solution;
 use ore_api::{
-    consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
+    consts::{CONFIG_ADDRESS, MINT_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
     state::proof_pda,
 };
 use steel::*;
@@ -9,7 +9,10 @@ use crate::{
     consts::LEGACY_BOOST_PROGRAM_ID,
     error::ApiError,
     instruction::*,
-    state::{legacy_boost_pda, legacy_stake_pda, member_pda, pool_pda, pool_proof_pda, share_pda},
+    state::{
+        legacy_boost_pda, legacy_stake_pda, member_pda, migration_pda, pool_pda, pool_proof_pda,
+        share_pda,
+    },
 };
 
 /// Builds a launch instruction.
@@ -69,6 +72,8 @@ pub fn claim(
 ) -> Instruction {
     let (member_pda, _) = member_pda(signer, pool_address);
     let (pool_proof_pda, _) = proof_pda(pool_address);
+    let pool_tokens_address =
+        spl_associated_token_account::get_associated_token_address(&pool_address, &MINT_ADDRESS);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -76,6 +81,7 @@ pub fn claim(
             AccountMeta::new(beneficiary, false),
             AccountMeta::new(member_pda, false),
             AccountMeta::new(pool_address, false),
+            AccountMeta::new(pool_tokens_address, false),
             AccountMeta::new(pool_proof_pda, false),
             AccountMeta::new_readonly(TREASURY_ADDRESS, false),
             AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),
@@ -92,14 +98,19 @@ pub fn claim(
 
 /// Builds an attribute instruction.
 pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -> Instruction {
-    let (pool_pda, _) = pool_pda(signer);
-    let (member_pda, _) = member_pda(member_authority, pool_pda);
+    let (pool_address, _) = pool_pda(signer);
+    let (proof_address, _) = pool_proof_pda(pool_address);
+    let (member_address, _) = member_pda(member_authority, pool_address);
+    let pool_tokens_address =
+        spl_associated_token_account::get_associated_token_address(&pool_address, &MINT_ADDRESS);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
-            AccountMeta::new_readonly(pool_pda, false),
-            AccountMeta::new(member_pda, false),
+            AccountMeta::new(pool_address, false),
+            AccountMeta::new(pool_tokens_address, false),
+            AccountMeta::new(proof_address, false),
+            AccountMeta::new(member_address, false),
         ],
         data: Attribute {
             total_balance: total_balance.to_le_bytes(),
@@ -247,6 +258,52 @@ pub fn open_share(_signer: Pubkey, _mint: Pubkey, _pool: Pubkey) -> Instruction 
 #[allow(deprecated)]
 pub fn open_stake(_signer: Pubkey, _mint: Pubkey) -> Instruction {
     panic!("Staking has moved to the global boost program");
+}
+
+pub fn migrate_pool(signer: Pubkey, pool: Pubkey) -> Instruction {
+    let (migration_address, _) = migration_pda(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(pool, false),
+            AccountMeta::new(migration_address, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: MigratePool {}.to_bytes(),
+    }
+}
+
+pub fn migrate_quick(signer: Pubkey, pool: Pubkey, amount: u64) -> Instruction {
+    let (migration_address, _) = migration_pda(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(pool, false),
+            AccountMeta::new(migration_address, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: QuickMigrate {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
+pub fn migrate_member_balance(signer: Pubkey, pool: Pubkey, member: Pubkey) -> Instruction {
+    let (migration_address, _) = migration_pda(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(pool, false),
+            AccountMeta::new_readonly(member, false),
+            AccountMeta::new(migration_address, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: MigrateMemberBalance {}.to_bytes(),
+    }
 }
 
 fn url_to_bytes(input: &str) -> Result<[u8; 128], ApiError> {

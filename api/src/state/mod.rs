@@ -1,8 +1,10 @@
 mod member;
+mod migration;
 mod pool;
 mod share;
 
 pub use member::*;
+pub use migration::*;
 pub use pool::*;
 pub use share::*;
 
@@ -16,10 +18,17 @@ pub enum AccountDiscriminator {
     Member = 100,
     Pool = 101,
     Share = 102,
+
+    // Migration account
+    Migration = 200,
 }
 
 pub fn pool_pda(authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[POOL, authority.as_ref()], &crate::id())
+}
+
+pub fn migration_pda(pool: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[MIGRATION, pool.as_ref()], &crate::id())
 }
 
 pub fn pool_proof_pda(pool: Pubkey) -> (Pubkey, u8) {

@@ -22,8 +22,8 @@ pub struct Pool {
     /// Foreign key to the ORE proof account.
     pub last_hash_at: i64,
 
-    /// The reward from the most recent solution.
-    pub reward: u64,
+    /// The net sum of rewards claimable by members in the pool.
+    pub total_rewards: u64,
 
     /// The total number of hashes this pool has submitted.
     pub total_submissions: u64,
@@ -31,7 +31,7 @@ pub struct Pool {
     /// The total number of members in this pool.
     pub total_members: u64,
 
-    // The total number of members in this pool at the last submission.
+    /// The total number of members in this pool at the last submission.
     pub last_total_members: u64,
 }
 
