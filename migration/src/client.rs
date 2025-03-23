@@ -27,10 +27,7 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Result<Self> {
-        // let helius_api_key = helius_api_key()?;
-        // let helius_cluster = helius_cluster()?;
         let keypair = keypair()?;
-        // let rpc = helius::Helius::new_with_async_solana(helius_api_key.as_str(), helius_cluster)?;
         let rpc = RpcClient::new(
             "https://mainnet.helius-rpc.com/?api-key=3e5756b4-fdcb-4a95-883c-8d6603611d1a"
                 .to_string(),
@@ -66,21 +63,11 @@ impl Client {
 
 #[async_trait]
 pub trait AsyncClient {
-    // fn get_async_client(&self) -> Result<Arc<RpcClient>>;
-    // async fn get_boost(&self, boost: &Pubkey) -> Result<Boost>;
     async fn get_migration(&self, migration: &Pubkey) -> Result<Migration>;
     async fn get_pools(&self) -> Result<Vec<(Pubkey, Pool)>>;
     async fn get_pool(&self, pool: &Pubkey) -> Result<Pool>;
     async fn get_pool_members(&self, pool: &Pubkey) -> Result<Vec<(Pubkey, Member)>>;
     async fn get_proof(&self, address: &Pubkey) -> Result<Proof>;
-    // async fn get_boost_stake_accounts(&self, boost: &Pubkey) -> Result<Vec<(Pubkey, Stake)>>;
-    // async fn get_boosts_v1(&self) -> Result<Vec<ore_boost_api_v1::state::Boost>>;
-    // async fn get_boost_v1_stake_accounts(
-    //     &self,
-    //     boost: &Pubkey,
-    // ) -> Result<Vec<(Pubkey, ore_boost_api_v1::state::Stake)>>;
-    // async fn get_stake(&self, stake: &Pubkey) -> Result<ore_boost_api::state::Stake>;
-    // async fn get_stake_v1(&self, stake: &Pubkey) -> Result<ore_boost_api_v1::state::Stake>;
     async fn get_clock(&self) -> Result<Clock>;
     async fn get_lookup_table(&self, lut: &Pubkey) -> Result<AddressLookupTableAccount>;
     async fn get_lookup_tables(&self, luts: &[Pubkey]) -> Result<Vec<AddressLookupTableAccount>>;
@@ -88,26 +75,6 @@ pub trait AsyncClient {
 
 #[async_trait]
 impl AsyncClient for solana_client::nonblocking::rpc_client::RpcClient {
-    // fn get_async_client(&self) -> Result<Arc<RpcClient>> {
-    //     let res = match &self {
-    //         Some(rpc) => {
-    //             let rpc = Arc::clone(rpc);
-    //             Ok(rpc)
-    //         }
-    //         None => Err(MissingHeliusSolanaAsyncClient),
-    //     };
-    //     res.map_err(From::from)
-    // }
-    // async fn get_boost(&self, boost: &Pubkey) -> Result<Boost> {
-    //     let data = self.get_account_data(boost).await?;
-    //     let boost = Boost::try_from_bytes(data.as_slice())?;
-    //     Ok(*boost)
-    // }
-    // async fn get_boosts(&self) -> Result<Vec<Boost>> {
-    //     let accounts = get_program_accounts::<Boost>(self, &ore_boost_api::ID, vec![]).await?;
-    //     let accounts = accounts.into_iter().map(|(_, boost)| boost).collect();
-    //     Ok(accounts)
-    // }
     async fn get_migration(&self, migration: &Pubkey) -> Result<Migration> {
         let data = self.get_account_data(migration).await?;
         let migration = Migration::try_from_bytes(data.as_slice())?;
@@ -136,42 +103,6 @@ impl AsyncClient for solana_client::nonblocking::rpc_client::RpcClient {
             .collect();
         Ok(accounts)
     }
-    // async fn get_boosts_v1(&self) -> Result<Vec<ore_boost_api_v1::state::Boost>> {
-    //     let accounts = get_program_accounts::<ore_boost_api_v1::state::Boost>(
-    //         self,
-    //         &ore_boost_api_v1::ID,
-    //         vec![],
-    //     )
-    //     .await?;
-    //     let accounts = accounts.into_iter().map(|(_, boost)| boost).collect();
-    //     Ok(accounts)
-    // }
-    // async fn get_boost_v1_stake_accounts(
-    //     &self,
-    //     boost: &Pubkey,
-    // ) -> Result<Vec<(Pubkey, ore_boost_api_v1::state::Stake)>> {
-    //     let accounts = get_program_accounts::<ore_boost_api_v1::state::Stake>(
-    //         self,
-    //         &ore_boost_api_v1::ID,
-    //         vec![],
-    //     )
-    //     .await?;
-    //     let accounts = accounts
-    //         .into_iter()
-    //         .filter(|(_, stake)| stake.boost.eq(boost))
-    //         .collect();
-    //     Ok(accounts)
-    // }
-    // async fn get_stake(&self, stake: &Pubkey) -> Result<ore_boost_api::state::Stake> {
-    //     let data = self.get_account_data(stake).await?;
-    //     let stake = ore_boost_api::state::Stake::try_from_bytes(data.as_slice())?;
-    //     Ok(*stake)
-    // }
-    // async fn get_stake_v1(&self, stake: &Pubkey) -> Result<ore_boost_api_v1::state::Stake> {
-    //     let data = self.get_account_data(stake).await?;
-    //     let stake = ore_boost_api_v1::state::Stake::try_from_bytes(data.as_slice())?;
-    //     Ok(*stake)
-    // }
     async fn get_clock(&self) -> Result<Clock> {
         let data = self.get_account_data(&sysvar::clock::ID).await?;
         let clock = bincode::deserialize::<Clock>(data.as_slice())?;
