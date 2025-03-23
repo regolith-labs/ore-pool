@@ -45,10 +45,9 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
         proof.balance + pool_tokens.amount()
     };
 
-    // Validate there are claimable rewards in the proof account for this attribution.
-    //
-    // This protects pool members from the scenario of a malicious pool operator or pool operator
-    // key compromise. It prevents a pool operator from being able to steal previously attributed member rewards.
+    // Validate there are enough reserves to cover the total rewards owed to miners.
+    // This protects pool members from the scenario of a malicious pool operator or compromised key
+    // stealing previously attributed member rewards.
     if pool.total_rewards > reserves {
         return Err(PoolError::AttributionTooLarge.into());
     }
