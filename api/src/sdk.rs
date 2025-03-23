@@ -1,6 +1,6 @@
 use drillx::Solution;
 use ore_api::{
-    consts::{CONFIG_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
+    consts::{CONFIG_ADDRESS, MINT_ADDRESS, TREASURY_ADDRESS, TREASURY_TOKENS_ADDRESS},
     state::proof_pda,
 };
 use steel::*;
@@ -72,6 +72,8 @@ pub fn claim(
 ) -> Instruction {
     let (member_pda, _) = member_pda(signer, pool_address);
     let (pool_proof_pda, _) = proof_pda(pool_address);
+    let pool_tokens_address =
+        spl_associated_token_account::get_associated_token_address(&pool_address, &MINT_ADDRESS);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -79,6 +81,7 @@ pub fn claim(
             AccountMeta::new(beneficiary, false),
             AccountMeta::new(member_pda, false),
             AccountMeta::new(pool_address, false),
+            AccountMeta::new(pool_tokens_address, false),
             AccountMeta::new(pool_proof_pda, false),
             AccountMeta::new_readonly(TREASURY_ADDRESS, false),
             AccountMeta::new(TREASURY_TOKENS_ADDRESS, false),
@@ -95,16 +98,19 @@ pub fn claim(
 
 /// Builds an attribute instruction.
 pub fn attribute(signer: Pubkey, member_authority: Pubkey, total_balance: u64) -> Instruction {
-    let (pool_pda, _) = pool_pda(signer);
-    let (proof_pda, _) = pool_proof_pda(pool_pda);
-    let (member_pda, _) = member_pda(member_authority, pool_pda);
+    let (pool_address, _) = pool_pda(signer);
+    let (proof_address, _) = pool_proof_pda(pool_address);
+    let (member_address, _) = member_pda(member_authority, pool_address);
+    let pool_tokens_address =
+        spl_associated_token_account::get_associated_token_address(&pool_address, &MINT_ADDRESS);
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
-            AccountMeta::new(pool_pda, false),
-            AccountMeta::new_readonly(proof_pda, false),
-            AccountMeta::new(member_pda, false),
+            AccountMeta::new(pool_address, false),
+            AccountMeta::new(pool_tokens_address, false),
+            AccountMeta::new(proof_address, false),
+            AccountMeta::new(member_address, false),
         ],
         data: Attribute {
             total_balance: total_balance.to_le_bytes(),

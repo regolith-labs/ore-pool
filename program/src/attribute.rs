@@ -13,7 +13,7 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     let total_balance = u64::from_le_bytes(args.total_balance);
 
     // Load accounts.
-    let [signer_info, pool_info, proof_info, member_info] = accounts else {
+    let [signer_info, pool_info, pool_tokens_info, proof_info, member_info] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     signer_info.is_signer()?;
@@ -36,11 +36,20 @@ pub fn process_attribute(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramRe
     // Update claimable balance
     pool.total_rewards += balance_change;
 
+    // Calculate the total reserves of the pool.
+    let reserves = if pool_tokens_info.data_is_empty() {
+        proof.balance
+    } else {
+        let pool_tokens =
+            pool_tokens_info.as_associated_token_account(pool_info.key, &MINT_ADDRESS)?;
+        proof.balance + pool_tokens.amount()
+    };
+
     // Validate there are claimable rewards in the proof account for this attribution.
     //
     // This protects pool members from the scenario of a malicious pool operator or pool operator
     // key compromise. It prevents a pool operator from being able to steal previously attributed member rewards.
-    if pool.total_rewards > proof.balance {
+    if pool.total_rewards > reserves {
         return Err(PoolError::AttributionTooLarge.into());
     }
 

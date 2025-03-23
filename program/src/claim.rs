@@ -9,7 +9,7 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     let amount = u64::from_le_bytes(args.amount);
 
     // Load accounts.
-    let [signer_info, beneficiary_info, member_info, pool_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
+    let [signer_info, beneficiary_info, member_info, pool_info, pool_tokens_info, proof_info, treasury_info, treasury_tokens_info, ore_program, token_program] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -38,21 +38,49 @@ pub fn process_claim(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResult
     // Update pool balance
     pool.total_rewards -= amount;
 
-    // Claim tokens to the beneficiary
-    let pool_authority = pool.authority;
-    invoke_signed(
-        &ore_api::sdk::claim(*pool_info.key, *beneficiary_info.key, amount),
-        &[
-            pool_info.clone(),
-            beneficiary_info.clone(),
-            proof_info.clone(),
-            treasury_info.clone(),
-            treasury_tokens_info.clone(),
-            token_program.clone(),
-        ],
-        &ore_pool_api::ID,
-        &[POOL, pool_authority.as_ref()],
-    )?;
+    // Amount claimed
+    let mut amount_claimed = 0;
+
+    // Claim first from pool tokens
+    if !pool_tokens_info.data_is_empty() {
+        // Verify pool tokens account
+        let pool_tokens = pool_tokens_info
+            .is_writable()?
+            .as_associated_token_account(pool_info.key, &MINT_ADDRESS)?;
+
+        // Calculate how much we can claim from pool tokens
+        amount_claimed = pool_tokens.amount().min(amount);
+
+        // Transfer available tokens from pool to beneficiary
+        if amount_claimed > 0 {
+            transfer_signed(
+                pool_info,
+                pool_tokens_info,
+                beneficiary_info,
+                token_program,
+                amount_claimed,
+                &[POOL, pool.authority.as_ref()],
+            )?;
+        }
+    }
+
+    // If we still have tokens to claim after claiming from pool tokens, claim from ore program
+    let remaining_amount = amount - amount_claimed;
+    if remaining_amount > 0 {
+        invoke_signed(
+            &ore_api::sdk::claim(*pool_info.key, *beneficiary_info.key, remaining_amount),
+            &[
+                pool_info.clone(),
+                beneficiary_info.clone(),
+                proof_info.clone(),
+                treasury_info.clone(),
+                treasury_tokens_info.clone(),
+                token_program.clone(),
+            ],
+            &ore_pool_api::ID,
+            &[POOL, pool.authority.as_ref()],
+        )?;
+    }
 
     Ok(())
 }
