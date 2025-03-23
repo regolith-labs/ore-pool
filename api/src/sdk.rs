@@ -274,6 +274,23 @@ pub fn migrate_pool(signer: Pubkey, pool: Pubkey) -> Instruction {
     }
 }
 
+pub fn migrate_quick(signer: Pubkey, pool: Pubkey, amount: u64) -> Instruction {
+    let (migration_address, _) = migration_pda(pool);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(pool, false),
+            AccountMeta::new(migration_address, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: QuickMigrate {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
 pub fn migrate_member_balance(signer: Pubkey, pool: Pubkey, member: Pubkey) -> Instruction {
     let (migration_address, _) = migration_pda(pool);
     Instruction {

@@ -5,6 +5,7 @@
 // mod launch;
 mod migrate_member_balance;
 mod migrate_pool;
+mod migrate_quick;
 // mod open_share;
 // mod open_stake;
 // mod stake;
@@ -18,6 +19,7 @@ mod submit;
 // use launch::*;
 use migrate_member_balance::*;
 use migrate_pool::*;
+use migrate_quick::*;
 // use open_share::*;
 // use open_stake::*;
 // use stake::*;
@@ -52,6 +54,7 @@ pub fn process_instruction(
         // Migration
         PoolInstruction::MigratePool => process_migrate_pool(accounts, data)?,
         PoolInstruction::MigrateMemberBalance => process_migrate_member_balance(accounts, data)?,
+        PoolInstruction::QuickMigrate => process_migrate_quick(accounts, data)?,
 
         _ => panic!("Temporarily disabled for migration."),
     }

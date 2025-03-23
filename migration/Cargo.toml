@@ -22,6 +22,8 @@ serde_json = "1.0.138"
 solana-account-decoder = "2.1.12"
 solana-client.workspace = true
 solana-sdk.workspace = true
+spl-token.workspace = true
+spl-associated-token-account.workspace = true
 steel.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }

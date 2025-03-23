@@ -28,10 +28,7 @@ pub struct Client {
 impl Client {
     pub fn new() -> Result<Self> {
         let keypair = keypair()?;
-        let rpc = RpcClient::new(
-            "https://mainnet.helius-rpc.com/?api-key=3e5756b4-fdcb-4a95-883c-8d6603611d1a"
-                .to_string(),
-        );
+        let rpc = RpcClient::new("http://localhost:8899");
         let client = Self {
             rpc,
             keypair: Arc::new(keypair),
