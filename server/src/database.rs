@@ -84,9 +84,10 @@ pub async fn stream_members_attribution(
                     match tx::submit::submit_and_confirm_instructions(
                         &operator.keypair,
                         &operator.rpc_client,
+                        &operator.jito_client,
                         ix_buffer.as_slice(),
                         30_000,
-                        20_000,
+                        2_000,
                     )
                     .await
                     {
@@ -106,7 +107,7 @@ pub async fn stream_members_attribution(
                 }
             });
             handles.push(handle);
-            
+
             // clear buffers
             address_buffer.clear();
             ix_buffer.clear();
