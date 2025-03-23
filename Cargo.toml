@@ -30,7 +30,7 @@ futures-channel = "0.3"
 futures-util = "0.3"
 log = "0.4"
 num_enum = "0.7.2"
-ore-api = "3.2.0"
+ore-api = "3.3.0"
 ore-boost-api = "3.0.1"
 ore-pool-api = { path = "api" }
 ore-pool-types = { path = "types" }
