@@ -24,7 +24,7 @@ impl Contributions {
             winner: None,
             total_score: 0,
         };
-        if let Some(_) = self.miners.insert(ts, contributions) {
+        if self.miners.insert(ts, contributions).is_some() {
             log::error!("contributions at last-hash-at already exist: {}", ts);
         }
         self.attribution_filter.push(ts);
@@ -33,7 +33,7 @@ impl Contributions {
     pub fn scores(&mut self) -> (TotalScore, Vec<(Miner, u64)>) {
         // filter for valid timestamps
         self.filter();
-        
+
         // sum contribution scores for each member
         let mut total_score: u64 = 0;
         let mut merge: HashMap<Miner, u64> = HashMap::new();

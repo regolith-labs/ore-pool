@@ -10,7 +10,7 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
     // at least three instructions (just an attribution)
     // and no more than four (both an attribution and a claim)
     let n = instructions.len();
-    if n < 3 || n > 4 {
+    if !(3..=4).contains(&n) {
         return Err(Error::Internal(
             "transaction must contain at least three and no more than four instructions"
                 .to_string(),
@@ -18,13 +18,13 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
     }
 
     // Check that the first two instructions are compute budget instructions
-    for i in 0..2 {
-        let ix = &instructions[i];
+    for ix in instructions.iter().take(2) {
         let program_id = transaction
             .message
             .account_keys
             .get(ix.program_id_index as usize)
             .ok_or(Error::Internal("missing program id".to_string()))?;
+
         if program_id.ne(&solana_sdk::compute_budget::id()) {
             return Err(Error::Internal(
                 "the first two instructions must be compute budget instructions".to_string(),
