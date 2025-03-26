@@ -30,13 +30,13 @@ pub async fn submit_and_confirm_instructions(
             Ok(sig) => match confirm_transaction(rpc_client, &sig).await {
                 Ok(()) => return Ok(sig),
                 Err(err) => {
-                    log::info!("{:?}", err);
+                    log::error!("failed to confirm signature: {:?}", err);
                     retries += 1;
                     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 }
             },
             Err(err) => {
-                log::info!("{:?}", err);
+                log::error!("failed to submit transaction: {:?}", err);
                 retries += 1;
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             }
