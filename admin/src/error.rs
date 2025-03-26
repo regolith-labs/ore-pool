@@ -4,6 +4,8 @@ use std::env::VarError;
 pub enum Error {
     #[error("std env")]
     StdEnv(#[from] VarError),
+    #[error("std io")]
+    StdIo(#[from] std::io::Error),
     #[error("could not ready keypair from provided path: {0}")]
     KeypairRead(String),
     #[error("pool api")]
@@ -18,4 +20,6 @@ pub enum Error {
     MissingPoolUrl,
     #[error("invalid command")]
     InvalidCommand,
+    #[error("member pool mismatch")]
+    MemberPoolMismatch,
 }

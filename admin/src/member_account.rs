@@ -34,3 +34,39 @@ pub async fn member_account_lookup(
     println!("{:?}", member);
     Ok(())
 }
+
+pub async fn member_account_gpa(
+    rpc_client: &RpcClient,
+    pool_authority: Result<Pubkey, Error>,
+) -> Result<(), Error> {
+    let pool_authority = pool_authority?;
+    let (pool_pda, _) = ore_pool_api::state::pool_pda(pool_authority);
+    let vec = rpc_client.get_program_accounts(&ore_pool_api::ID).await?;
+    let vec: Vec<_> = vec
+        .into_iter()
+        .flat_map(|(pubkey, account)| {
+            let member = Member::try_from_bytes(account.data.as_slice())?;
+            if member.pool.eq(&pool_pda) {
+                Ok((pubkey, *member))
+            } else {
+                Err(Error::MemberPoolMismatch)
+            }
+        })
+        .collect();
+    // create a TSV file with member data
+    let file_path = "members.tsv";
+    let mut file = std::fs::File::create(file_path)?;
+    // write header
+    use std::io::Write;
+    writeln!(file, "pubkey\tid\tauthority\tbalance\ttotal_balance")?;
+    // write data rows
+    for (pubkey, member) in vec {
+        writeln!(
+            file,
+            "{}\t{}\t{}\t{}\t{}",
+            pubkey, member.id, member.authority, member.balance, member.total_balance
+        )?;
+    }
+    println!("Member data written to {}", file_path);
+    Ok(())
+}

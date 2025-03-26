@@ -27,6 +27,7 @@ async fn main() -> Result<(), error::Error> {
         "member-account-lookup" => {
             member_account::member_account_lookup(&rpc_client, &keypair, pubkey).await
         }
+        "member-account-gpa" => member_account::member_account_gpa(&rpc_client, pubkey).await,
         _ => Err(error::Error::InvalidCommand),
     }
 }
