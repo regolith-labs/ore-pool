@@ -1,7 +1,8 @@
+use std::str::FromStr;
+
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig, signature::Keypair, signer::EncodableKey,
-};
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::EncodableKey};
 
 mod error;
 mod init;
@@ -16,12 +17,16 @@ async fn main() -> Result<(), error::Error> {
     let keypair = keypair()?;
     let rpc_client = rpc_client()?;
     let pool_url = pool_url();
+    let pubkey = pubkey();
     // run
     match command.as_str() {
         "init" => init::init(&rpc_client, &keypair, pool_url).await,
         "pool-account" => pool_account::pool_account(&rpc_client, &keypair).await,
         "proof-account" => proof_account::proof_account(&rpc_client, &keypair).await,
         "member-account" => member_account::member_account(&rpc_client, &keypair).await,
+        "member-account-lookup" => {
+            member_account::member_account_lookup(&rpc_client, &keypair, pubkey).await
+        }
         _ => Err(error::Error::InvalidCommand),
     }
 }
@@ -45,4 +50,10 @@ fn keypair() -> Result<Keypair, error::Error> {
 
 fn pool_url() -> Option<String> {
     std::env::var("POOL_URL").ok()
+}
+
+fn pubkey() -> Result<Pubkey, error::Error> {
+    let pubkey_str = std::env::var("PUBKEY")?;
+    let pubkey = Pubkey::from_str(pubkey_str.as_str())?;
+    Ok(pubkey)
 }
