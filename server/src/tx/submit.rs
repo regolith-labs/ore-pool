@@ -63,6 +63,8 @@ pub async fn submit_instructions(
     let hash = rpc_client.get_latest_blockhash().await?;
     let mut tx = Transaction::new_with_payer(final_ixs.as_slice(), Some(&signer.pubkey()));
     tx.sign(&[signer], hash);
+    let sim = rpc_client.simulate_transaction(&tx).await?;
+    log::info!("sim: {:?}", sim);
     jito_client.send_transaction(&tx).await.map_err(From::from)
 }
 
