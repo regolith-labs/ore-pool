@@ -101,7 +101,7 @@ pub async fn stream_members_attribution(
                             }
                         }
                         Err(err) => {
-                            log::error!("{:?}", err);
+                            log::error!("attribution failure: {:?}", err);
                         }
                     }
                 }
