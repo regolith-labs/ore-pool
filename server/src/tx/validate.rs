@@ -1,8 +1,11 @@
 use ore_pool_api::{instruction::Attribute, prelude::PoolInstruction};
+use solana_sdk::pubkey;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::{program_error::ProgramError, transaction::Transaction};
 
 use crate::error::Error;
+
+const LH_PUBKEY: Pubkey = pubkey!("L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95");
 
 pub fn validate_attribution(
     transaction: &Transaction,
@@ -38,12 +41,10 @@ pub fn validate_attribution(
     }
 
     // After compute budget instructions, we need at least one instruction (attribution)
-    // and at most two instructions (attribution and claim)
     let remaining_instructions = n - first_non_compute_budget_idx;
-    if remaining_instructions < 1 || remaining_instructions > 2 {
+    if remaining_instructions < 1 {
         return Err(Error::Internal(
-            "after compute budget instructions, transaction must contain at least one and at most two instructions"
-                .to_string(),
+            "transaction must contain at least one non-compute budget instruction".to_string(),
         ));
     }
 
@@ -100,34 +101,56 @@ pub fn validate_attribution(
         ));
     }
 
-    // If there's a second non-compute budget instruction, validate it as a claim instruction
-    if remaining_instructions == 2 {
-        let claim_idx = first_non_compute_budget_idx + 1;
-        let claim_ix = &instructions[claim_idx];
-        let claim_program_id = transaction
+    // Check for a second ore_pool instruction (claim)
+    let mut ore_pool_end_idx = first_non_compute_budget_idx + 1;
+
+    if ore_pool_end_idx < n {
+        let second_ix = &instructions[ore_pool_end_idx];
+        let second_program_id = transaction
             .message
             .account_keys
-            .get(claim_ix.program_id_index as usize)
+            .get(second_ix.program_id_index as usize)
             .ok_or(Error::Internal(
-                "missing program id for claim instruction".to_string(),
+                "missing program id for second instruction".to_string(),
             ))?;
 
-        if claim_program_id.ne(&ore_pool_api::id()) {
-            return Err(Error::Internal(
-                "second non-compute budget instruction must be an ore_pool instruction".to_string(),
-            ));
-        }
+        // If the second instruction is from ore_pool, validate it as a claim instruction
+        if second_program_id.eq(&ore_pool_api::id()) {
+            // Validate as specifically a claim instruction
+            let claim_data = second_ix.data.as_slice();
+            let (claim_tag, _claim_data) = claim_data
+                .split_first()
+                .ok_or(ProgramError::InvalidInstructionData)?;
+            let claim_tag = PoolInstruction::try_from(*claim_tag)
+                .or(Err(ProgramError::InvalidInstructionData))?;
+            if claim_tag.ne(&PoolInstruction::Claim) {
+                return Err(Error::Internal(
+                    "second ore_pool instruction must be a claim instruction".to_string(),
+                ));
+            }
 
-        // Validate as specifically a claim instruction
-        let claim_data = claim_ix.data.as_slice();
-        let (claim_tag, _claim_data) = claim_data
-            .split_first()
-            .ok_or(ProgramError::InvalidInstructionData)?;
-        let claim_tag =
-            PoolInstruction::try_from(*claim_tag).or(Err(ProgramError::InvalidInstructionData))?;
-        if claim_tag.ne(&PoolInstruction::Claim) {
+            ore_pool_end_idx += 1;
+        }
+    }
+
+    // Validate any remaining instructions belong to LH_PUBKEY
+    for i in ore_pool_end_idx..n {
+        let ix = &instructions[i];
+        let program_id = transaction
+            .message
+            .account_keys
+            .get(ix.program_id_index as usize)
+            .ok_or(Error::Internal(
+                format!("missing program id for instruction at index {}", i).to_string(),
+            ))?;
+
+        if program_id.ne(&LH_PUBKEY) {
             return Err(Error::Internal(
-                "second non-compute budget instruction must be a claim instruction".to_string(),
+                format!(
+                    "instruction at index {} must belong to LH_PUBKEY program",
+                    i
+                )
+                .to_string(),
             ));
         }
     }
