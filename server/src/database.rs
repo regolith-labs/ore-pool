@@ -86,7 +86,7 @@ pub async fn stream_members_attribution(
                         &operator.rpc_client,
                         &operator.jito_client,
                         ix_buffer.as_slice(),
-                        30_000,
+                        60_000,
                         2_000,
                     )
                     .await
