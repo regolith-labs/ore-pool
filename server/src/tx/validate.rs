@@ -136,7 +136,7 @@ pub fn validate_attribution(
         }
     }
 
-    // Validate any remaining instructions belong to LH_PUBKEY
+    // Validate any remaining instructions belong to lighthouse program
     for i in ore_pool_end_idx..n {
         let ix = &instructions[i];
         let program_id = transaction
@@ -150,7 +150,7 @@ pub fn validate_attribution(
         if program_id.ne(&LH_PUBKEY) {
             return Err(Error::Internal(
                 format!(
-                    "instruction at index {} must belong to LH_PUBKEY program",
+                    "instruction at index {} must belong to lighthouse program",
                     i
                 )
                 .to_string(),
