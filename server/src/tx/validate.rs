@@ -1,9 +1,15 @@
 use ore_pool_api::{instruction::Attribute, prelude::PoolInstruction};
+use solana_sdk::pubkey::Pubkey;
 use solana_sdk::{program_error::ProgramError, transaction::Transaction};
 
 use crate::error::Error;
 
-pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Result<(), Error> {
+pub fn validate_attribution(
+    transaction: &Transaction,
+    member_authority: Pubkey,
+    pool: Pubkey,
+    total_balance: i64,
+) -> Result<(), Error> {
     let instructions = &transaction.message.instructions;
     let n = instructions.len();
 
@@ -76,6 +82,22 @@ pub fn validate_attribution(transaction: &Transaction, total_balance: i64) -> Re
     let args_total_balance = u64::from_le_bytes(args.total_balance);
     if args_total_balance.ne(&(total_balance as u64)) {
         return Err(Error::Internal("invalid total balance arg".to_string()));
+    }
+
+    // Validate attribution member authority
+    //
+    // The fifth account in the attribution instruction is the member account
+    let member_authority_index = attr_ix.accounts.get(4).ok_or(Error::MemberDoesNotExist)?;
+    let member_parsed = transaction
+        .message
+        .account_keys
+        .get((*member_authority_index) as usize)
+        .ok_or(Error::MemberDoesNotExist)?;
+    let (member_pda, _) = ore_pool_api::state::member_pda(member_authority, pool);
+    if member_pda.ne(member_parsed) {
+        return Err(Error::Internal(
+            "payload and instruction member accounts do not match".to_string(),
+        ));
     }
 
     // If there's a second non-compute budget instruction, validate it as a claim instruction
