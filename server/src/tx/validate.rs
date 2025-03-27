@@ -5,6 +5,8 @@ use solana_sdk::{program_error::ProgramError, transaction::Transaction};
 
 use crate::error::Error;
 
+/// Lighthouse protocol pubkey,
+/// web-browser wallets typically insert these instructions.
 const LH_PUBKEY: Pubkey = pubkey!("L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95");
 
 pub fn validate_attribution(
@@ -23,33 +25,34 @@ pub fn validate_attribution(
         ));
     }
 
-    // Find the index of the first non-compute budget instruction
-    let mut first_non_compute_budget_idx = 0;
-    while first_non_compute_budget_idx < n {
-        let ix = &instructions[first_non_compute_budget_idx];
+    // Find the index of the first instruction that is neither compute budget nor lighthouse
+    let mut first_non_allowed_prefix_idx = 0;
+    while first_non_allowed_prefix_idx < n {
+        let ix = &instructions[first_non_allowed_prefix_idx];
         let program_id = transaction
             .message
             .account_keys
             .get(ix.program_id_index as usize)
             .ok_or(Error::Internal("missing program id".to_string()))?;
 
-        if program_id.ne(&solana_sdk::compute_budget::id()) {
+        // Allow both compute budget and lighthouse instructions at the beginning
+        if program_id.ne(&solana_sdk::compute_budget::id()) && program_id.ne(&LH_PUBKEY) {
             break;
         }
 
-        first_non_compute_budget_idx += 1;
+        first_non_allowed_prefix_idx += 1;
     }
 
-    // After compute budget instructions, we need at least one instruction (attribution)
-    let remaining_instructions = n - first_non_compute_budget_idx;
+    // After compute budget and lighthouse instructions, we need at least one instruction (attribution)
+    let remaining_instructions = n - first_non_allowed_prefix_idx;
     if remaining_instructions < 1 {
         return Err(Error::Internal(
-            "transaction must contain at least one non-compute budget instruction".to_string(),
+            "transaction must contain at least one instruction after compute budget and lighthouse instructions".to_string(),
         ));
     }
 
-    // Validate the first non-compute budget instruction as an ore pool attribution instruction
-    let attr_idx = first_non_compute_budget_idx;
+    // Validate the first non-compute budget/lighthouse instruction as an ore pool attribution instruction
+    let attr_idx = first_non_allowed_prefix_idx;
     let attr_ix = &instructions[attr_idx];
     let attr_program_id = transaction
         .message
@@ -61,7 +64,7 @@ pub fn validate_attribution(
 
     if attr_program_id.ne(&ore_pool_api::id()) {
         return Err(Error::Internal(
-            "first non-compute budget instruction must be an ore_pool instruction".to_string(),
+            "first instruction after compute budget and lighthouse instructions must be an ore_pool instruction".to_string(),
         ));
     }
 
@@ -74,7 +77,7 @@ pub fn validate_attribution(
         PoolInstruction::try_from(*attr_tag).or(Err(ProgramError::InvalidInstructionData))?;
     if attr_tag.ne(&PoolInstruction::Attribute) {
         return Err(Error::Internal(
-            "first non-compute budget instruction must be an attribution instruction".to_string(),
+            "first instruction after compute budget and lighthouse instructions must be an attribution instruction".to_string(),
         ));
     }
 
@@ -102,7 +105,7 @@ pub fn validate_attribution(
     }
 
     // Check for a second ore_pool instruction (claim)
-    let mut ore_pool_end_idx = first_non_compute_budget_idx + 1;
+    let mut ore_pool_end_idx = first_non_allowed_prefix_idx + 1;
 
     if ore_pool_end_idx < n {
         let second_ix = &instructions[ore_pool_end_idx];
