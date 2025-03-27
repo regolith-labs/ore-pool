@@ -219,7 +219,8 @@ async fn update_balance_onchain(
     }
 
     // validate transaction
-    tx::validate::validate_attribution(&tx, member.total_balance)?;
+    let (pool_address, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
+    tx::validate::validate_attribution(&tx, member_authority, pool_address, member.total_balance)?;
 
     // sign transaction and submit
     let mut tx = tx;
@@ -231,7 +232,6 @@ async fn update_balance_onchain(
     // set member as synced in db
     let db_client = &operator.db_client;
     let db_client = db_client.get().await?;
-    let (pool_address, _) = ore_pool_api::state::pool_pda(keypair.pubkey());
     let (member_address, _) = ore_pool_api::state::member_pda(member_authority, pool_address);
     database::write_synced_members(&db_client, &[member_address.to_string()]).await?;
     Ok(BalanceUpdate {
