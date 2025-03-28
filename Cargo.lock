@@ -3221,6 +3221,7 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-associated-token-account 6.0.0",
  "steel",
  "thiserror 1.0.69",
  "tokio",

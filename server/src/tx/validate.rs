@@ -2,6 +2,7 @@ use ore_pool_api::{instruction::Attribute, prelude::PoolInstruction};
 use solana_sdk::pubkey;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::{program_error::ProgramError, transaction::Transaction};
+use spl_associated_token_account::ID as SPL_ASSOCIATED_TOKEN_ID;
 
 use crate::error::Error;
 
@@ -104,23 +105,42 @@ pub fn validate_attribution(
         ));
     }
 
-    // Check for a second ore_pool instruction (claim)
+    // Check for subsequent instructions after the attribution instruction
     let mut ore_pool_end_idx = first_non_allowed_prefix_idx + 1;
 
+    // Check for an spl-associated-token-account instruction that might come before the claim
     if ore_pool_end_idx < n {
-        let second_ix = &instructions[ore_pool_end_idx];
-        let second_program_id = transaction
+        let next_ix = &instructions[ore_pool_end_idx];
+        let next_program_id = transaction
             .message
             .account_keys
-            .get(second_ix.program_id_index as usize)
+            .get(next_ix.program_id_index as usize)
             .ok_or(Error::Internal(
-                "missing program id for second instruction".to_string(),
+                "missing program id for instruction after attribution".to_string(),
             ))?;
 
-        // If the second instruction is from ore_pool, validate it as a claim instruction
-        if second_program_id.eq(&ore_pool_api::id()) {
+        // If the next instruction is from spl-associated-token-account, advance the index
+        if next_program_id.eq(&SPL_ASSOCIATED_TOKEN_ID) {
+            log::info!("Found spl-associated-token-account instruction");
+            ore_pool_end_idx += 1;
+        }
+    }
+
+    // Check for a claim instruction (which may come after spl-associated-token-account)
+    if ore_pool_end_idx < n {
+        let claim_ix = &instructions[ore_pool_end_idx];
+        let claim_program_id = transaction
+            .message
+            .account_keys
+            .get(claim_ix.program_id_index as usize)
+            .ok_or(Error::Internal(
+                "missing program id for potential claim instruction".to_string(),
+            ))?;
+
+        // If the instruction is from ore_pool, validate it as a claim instruction
+        if claim_program_id.eq(&ore_pool_api::id()) {
             // Validate as specifically a claim instruction
-            let claim_data = second_ix.data.as_slice();
+            let claim_data = claim_ix.data.as_slice();
             let (claim_tag, _claim_data) = claim_data
                 .split_first()
                 .ok_or(ProgramError::InvalidInstructionData)?;
@@ -128,7 +148,8 @@ pub fn validate_attribution(
                 .or(Err(ProgramError::InvalidInstructionData))?;
             if claim_tag.ne(&PoolInstruction::Claim) {
                 return Err(Error::Internal(
-                    "second ore_pool instruction must be a claim instruction".to_string(),
+                    "ore_pool instruction after attribution must be a claim instruction"
+                        .to_string(),
                 ));
             }
 

@@ -29,6 +29,7 @@ sha3 = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
+spl-associated-token-account = { workspace = true }
 steel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
