@@ -158,26 +158,20 @@ pub fn validate_attribution(
     }
 
     // Validate any remaining instructions belong to lighthouse program
-    for i in ore_pool_end_idx..n {
-        let ix = &instructions[i];
+    for (i, ix) in instructions.iter().enumerate().skip(ore_pool_end_idx).take(n - ore_pool_end_idx) {
         let program_id = transaction
             .message
             .account_keys
             .get(ix.program_id_index as usize)
-            .ok_or(Error::Internal(
-                format!("missing program id for instruction at index {}", i).to_string(),
-            ))?;
-
+            .ok_or(Error::Internal(format!("missing program id for instruction at index {}", i)))?;
+    
         if program_id.ne(&LH_PUBKEY) {
-            return Err(Error::Internal(
-                format!(
-                    "instruction at index {} must belong to lighthouse program",
-                    i
-                )
-                .to_string(),
-            ));
+            return Err(Error::Internal(format!(
+                "instruction at index {} must belong to lighthouse program",
+                i
+            )));
         }
-    }
+    }    
 
     Ok(())
 }
