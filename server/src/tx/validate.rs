@@ -85,7 +85,7 @@ pub fn validate_attribution(
     // Validate attribution amount
     let args = Attribute::try_from_bytes(attr_data)?;
     let args_total_balance = u64::from_le_bytes(args.total_balance);
-    if args_total_balance.ne(&(total_balance as u64)) {
+    if args_total_balance.gt(&(total_balance as u64)) {
         return Err(Error::Internal("invalid total balance arg".to_string()));
     }
 
