@@ -1,7 +1,10 @@
+use crate::tx::submit::JITO_TIP_ADDRESSES;
 use ore_pool_api::{instruction::Attribute, prelude::PoolInstruction};
 use solana_sdk::pubkey;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::{program_error::ProgramError, transaction::Transaction};
+use solana_sdk::{
+    program_error::ProgramError, system_instruction, system_program, transaction::Transaction,
+};
 use spl_associated_token_account::ID as SPL_ASSOCIATED_TOKEN_ID;
 
 use crate::error::Error;
@@ -157,26 +160,55 @@ pub fn validate_attribution(
         }
     }
 
-    // Validate any remaining instructions belong to lighthouse program
+    // Validate any remaining instructions belong to lighthouse program or are Jito tips
     for i in ore_pool_end_idx..n {
         let ix = &instructions[i];
+        let program_id_index = ix.program_id_index as usize;
         let program_id = transaction
             .message
             .account_keys
-            .get(ix.program_id_index as usize)
+            .get(program_id_index)
             .ok_or(Error::Internal(
                 format!("missing program id for instruction at index {}", i).to_string(),
             ))?;
 
-        if program_id.ne(&LH_PUBKEY) {
-            return Err(Error::Internal(
-                format!(
-                    "instruction at index {} must belong to lighthouse program",
-                    i
-                )
-                .to_string(),
-            ));
+        // Allow lighthouse instructions
+        if program_id.eq(&LH_PUBKEY) {
+            continue;
         }
+
+        // Allow system program transfer to Jito tip addresses
+        if program_id.eq(&system_program::id()) {
+            // Check if it's a transfer instruction by attempting deserialization
+            if let Ok(system_instruction::SystemInstruction::Transfer { lamports: _ }) =
+                bincode::deserialize(&ix.data)
+            {
+                // Get the destination account index (second account for transfer)
+                if let Some(to_account_index) = ix.accounts.get(1) {
+                    // Get the destination pubkey from the transaction message's account keys
+                    if let Some(to_pubkey) = transaction
+                        .message
+                        .account_keys
+                        .get(*to_account_index as usize)
+                    {
+                        // Check if the destination is a known Jito tip address
+                        if JITO_TIP_ADDRESSES.contains(to_pubkey) {
+                            log::debug!("Allowing Jito tip transfer instruction at index {}", i);
+                            continue; // It's a valid Jito tip, allow it
+                        }
+                    }
+                }
+            }
+        }
+
+        // If it's neither lighthouse nor a valid Jito tip transfer, return error
+        return Err(Error::Internal(
+            format!(
+                "instruction at index {} must belong to lighthouse program or be a Jito tip transfer. Found program id: {}",
+                i, program_id
+            )
+            .to_string(),
+        ));
     }
 
     Ok(())
