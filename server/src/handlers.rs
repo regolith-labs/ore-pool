@@ -223,6 +223,7 @@ async fn update_balance_onchain(
     tx::validate::validate_attribution(&tx, member_authority, pool_address, member.total_balance)?;
 
     // sign transaction and submit
+    // TODO: submit jito
     let mut tx = tx;
     let rpc_client = &operator.rpc_client;
     tx.partial_sign(&[keypair], hash);
