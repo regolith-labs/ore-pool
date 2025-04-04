@@ -7577,8 +7577,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "ore-boost-api"
-version = "4.0.0-alpha"
-source = "git+https://github.com/regolith-labs/ore-boost?rev=8656721#86567219431bfc29748d675ff709dd2853217754"

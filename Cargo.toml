@@ -54,7 +54,6 @@ tokio-postgres = "0.7"
 rand = "0.8.5"
 
 [patch.crates-io]
-ore-boost-api = { git = "https://github.com/regolith-labs/ore-boost", rev = "8656721" }
 
 [profile.release]
 overflow-checks = true
