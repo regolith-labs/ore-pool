@@ -28,21 +28,13 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
     instructions_sysvar.is_sysvar(&sysvar::instructions::ID)?;
     slot_hashes_sysvar.is_sysvar(&sysvar::slot_hashes::ID)?;
 
-    // Build instruction for submitting solution to the ORE program
+    // Parse boost accounts
+    let [boost_config, boost_proof] = boost_accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    // Build solution for submitting to the ORE program
     let solution = Solution::new(args.digest, args.nonce);
-    let mut boost_keys = None;
-    let mut mine_accounts = vec![
-        signer_info.clone(),
-        bus_info.clone(),
-        config_info.clone(),
-        proof_info.clone(),
-        instructions_sysvar.clone(),
-        slot_hashes_sysvar.clone(),
-    ];
-    if let [boost_info, _boost_proof_info, boost_config_info] = boost_accounts {
-        boost_keys = Some([*boost_info.key, *boost_config_info.key]);
-        mine_accounts = [mine_accounts, boost_accounts.to_vec()].concat();
-    }
 
     // Invoke mine CPI
     solana_program::program::invoke(
@@ -51,9 +43,18 @@ pub fn process_submit(accounts: &[AccountInfo<'_>], data: &[u8]) -> ProgramResul
             *pool_info.key,
             *bus_info.key,
             solution,
-            boost_keys,
+            *boost_config.key,
         ),
-        &mine_accounts,
+        &[
+            signer_info.clone(),
+            bus_info.clone(),
+            config_info.clone(),
+            proof_info.clone(),
+            instructions_sysvar.clone(),
+            slot_hashes_sysvar.clone(),
+            boost_config.clone(),
+            boost_proof.clone(),
+        ],
     )?;
 
     // Update pool state.

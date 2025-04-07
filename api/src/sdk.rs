@@ -132,11 +132,13 @@ pub fn submit(
     solution: Solution,
     attestation: [u8; 32],
     bus: Pubkey,
-    boost_accounts: Option<[Pubkey; 3]>,
+    // boost_accounts: Option<[Pubkey; 3]>,
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
-    let mut accounts = vec![
+    let (boost_config, _) = ore_boost_api::state::config_pda();
+    let (boost_proof, _) = ore_api::state::proof_pda(boost_config);
+    let accounts = vec![
         AccountMeta::new(signer, true),
         AccountMeta::new(bus, false),
         AccountMeta::new_readonly(CONFIG_ADDRESS, false),
@@ -146,12 +148,9 @@ pub fn submit(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(sysvar::instructions::ID, false),
         AccountMeta::new_readonly(sysvar::slot_hashes::ID, false),
+        AccountMeta::new_readonly(boost_config, false),
+        AccountMeta::new(boost_proof, false),
     ];
-    if let Some(boost_accounts) = boost_accounts {
-        accounts.push(AccountMeta::new_readonly(boost_accounts[0], false));
-        accounts.push(AccountMeta::new(boost_accounts[1], false));
-        accounts.push(AccountMeta::new_readonly(boost_accounts[2], false));
-    }
     Instruction {
         program_id: crate::ID,
         accounts,

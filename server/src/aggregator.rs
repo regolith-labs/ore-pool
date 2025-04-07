@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ore_api::{
     consts::{BUS_ADDRESSES, BUS_COUNT},
-    state::{proof_pda, Bus},
+    state::Bus,
 };
 use ore_pool_types::Challenge;
 use rand::Rng;
@@ -258,34 +258,15 @@ impl Aggregator {
         let (pool_proof_address, _) = ore_pool_api::state::pool_proof_pda(pool_address);
         let bus = self.find_bus(operator).await?;
 
-        // Get boost accounts
-        let mut boost_accounts: Option<[Pubkey; 3]> = None;
-        let boost_config_address = ore_boost_api::state::config_pda().0;
-        let rpc_client = &operator.rpc_client;
-        let accounts = rpc_client.get_account(&boost_config_address).await?;
-        if let Ok(boost_config) = ore_boost_api::state::Config::try_from_bytes(&accounts.data) {
-            boost_accounts = Some([
-                boost_config.current,
-                proof_pda(boost_config.current).0,
-                boost_config_address,
-            ]);
-        }
-
         // build instructions
         let auth_ix = ore_api::sdk::auth(pool_proof_address);
-        let submit_ix = ore_pool_api::sdk::submit(
-            operator.keypair.pubkey(),
-            best_solution,
-            attestation,
-            bus,
-            boost_accounts,
-        );
-        let rotate_ix = ore_boost_api::sdk::rotate(operator.keypair.pubkey());
+        let submit_ix =
+            ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
         let sig = tx::submit::submit_instructions(
             &operator.keypair,
             &operator.rpc_client,
             &operator.jito_client,
-            &[auth_ix, submit_ix, rotate_ix],
+            &[auth_ix, submit_ix],
             550_000,
             2_000,
         )

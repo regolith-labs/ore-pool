@@ -3,7 +3,7 @@ resolver = "2"
 members = ["admin", "api", "program", "server", "types"]
 
 [workspace.package]
-version = "1.6.1"
+version = "1.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://ore.supply"
@@ -30,8 +30,8 @@ futures-channel = "0.3"
 futures-util = "0.3"
 log = "0.4"
 num_enum = "0.7.2"
-ore-api = "3.3.0"
-ore-boost-api = "3.0.1"
+ore-api = "3.6.0-beta"
+ore-boost-api = "4.0.0-beta"
 ore-pool-api = { path = "api" }
 ore-pool-types = { path = "types" }
 postgres-types = "0.2.6"
