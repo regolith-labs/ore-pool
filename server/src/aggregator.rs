@@ -260,7 +260,7 @@ impl Aggregator {
 
         // build instructions
         let auth_ix = ore_api::sdk::auth(pool_proof_address);
-        let reset_ix = ore_api::sdk::reset(pool_proof_address);
+        let reset_ix = ore_api::sdk::reset(operator.keypair.pubkey());
         let submit_ix =
             ore_pool_api::sdk::submit(operator.keypair.pubkey(), best_solution, attestation, bus);
         let sig = tx::submit::submit_instructions(
