@@ -30,10 +30,10 @@ pub fn pool_pending_stake_token_address(pool: Pubkey, mint: Pubkey) -> Pubkey {
     spl_associated_token_account::get_associated_token_address(&pool, &mint)
 }
 
-pub fn pool_stake_pda(pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) {
-    let boost_pda = ore_boost_api::state::boost_pda(mint);
-    ore_boost_api::state::stake_pda(pool, boost_pda.0)
-}
+// pub fn pool_stake_pda(pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) {
+//     let boost_pda = ore_boost_api::state::boost_pda(mint);
+//     ore_boost_api::state::stake_pda(pool, boost_pda.0)
+// }
 
 pub fn member_pda(authority: Pubkey, pool: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[MEMBER, authority.as_ref(), pool.as_ref()], &crate::id())
@@ -46,21 +46,21 @@ pub fn share_pda(authority: Pubkey, pool: Pubkey, mint: Pubkey) -> (Pubkey, u8) 
     )
 }
 
-/// Legacy boost PDAs
-pub fn legacy_boost_pda(mint: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[ore_boost_api::consts::BOOST, mint.as_ref()],
-        &LEGACY_BOOST_PROGRAM_ID,
-    )
-}
+// Legacy boost PDAs
+// pub fn legacy_boost_pda(mint: Pubkey) -> (Pubkey, u8) {
+//     Pubkey::find_program_address(
+//         &[ore_boost_api::consts::BOOST, mint.as_ref()],
+//         &LEGACY_BOOST_PROGRAM_ID,
+//     )
+// }
 
-pub fn legacy_stake_pda(authority: Pubkey, boost: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            ore_boost_api::consts::STAKE,
-            authority.as_ref(),
-            boost.as_ref(),
-        ],
-        &LEGACY_BOOST_PROGRAM_ID,
-    )
-}
+// pub fn legacy_stake_pda(authority: Pubkey, boost: Pubkey) -> (Pubkey, u8) {
+//     Pubkey::find_program_address(
+//         &[
+//             ore_boost_api::consts::STAKE,
+//             authority.as_ref(),
+//             boost.as_ref(),
+//         ],
+//         &LEGACY_BOOST_PROGRAM_ID,
+//     )
+// }

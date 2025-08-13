@@ -9,7 +9,7 @@ use crate::{
     consts::LEGACY_BOOST_PROGRAM_ID,
     error::ApiError,
     instruction::*,
-    state::{legacy_boost_pda, legacy_stake_pda, member_pda, pool_pda, pool_proof_pda, share_pda},
+    state::{member_pda, pool_pda, pool_proof_pda, share_pda},
 };
 
 /// Builds a launch instruction.
@@ -26,7 +26,7 @@ pub fn launch(signer: Pubkey, miner: Pubkey, url: String) -> Result<Instruction,
             AccountMeta::new(pool_pda, false),
             AccountMeta::new(proof_pda, false),
             AccountMeta::new_readonly(ore_api::ID, false),
-            AccountMeta::new_readonly(ore_boost_api::ID, false),
+            // AccountMeta::new_readonly(ore_boost_api::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
             AccountMeta::new_readonly(spl_associated_token_account::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
@@ -136,8 +136,8 @@ pub fn submit(
 ) -> Instruction {
     let (pool_pda, _) = pool_pda(signer);
     let (proof_pda, _) = pool_proof_pda(pool_pda);
-    let (boost_config, _) = ore_boost_api::state::config_pda();
-    let (boost_proof, _) = ore_api::state::proof_pda(boost_config);
+    // let (boost_config, _) = ore_boost_api::state::config_pda();
+    // let (boost_proof, _) = ore_api::state::proof_pda(boost_config);
     let accounts = vec![
         AccountMeta::new(signer, true),
         AccountMeta::new(bus, false),
@@ -148,8 +148,8 @@ pub fn submit(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(sysvar::instructions::ID, false),
         AccountMeta::new_readonly(sysvar::slot_hashes::ID, false),
-        AccountMeta::new_readonly(boost_config, false),
-        AccountMeta::new(boost_proof, false),
+        // AccountMeta::new_readonly(boost_config, false),
+        // AccountMeta::new(boost_proof, false),
     ];
     Instruction {
         program_id: crate::ID,
@@ -164,42 +164,42 @@ pub fn submit(
 }
 
 /// Builds an unstake instruction for legacy boost program.
-pub fn unstake(
-    signer: Pubkey,
-    mint: Pubkey,
-    pool: Pubkey,
-    recipient: Pubkey,
-    amount: u64,
-) -> Instruction {
-    let (boost_pda, _) = legacy_boost_pda(mint);
-    let boost_tokens =
-        spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
-    let (member_pda, _) = member_pda(signer, pool);
-    let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
-    let (share_pda, _) = share_pda(signer, pool, mint);
-    let (stake_pda, _) = legacy_stake_pda(pool, boost_pda);
-    Instruction {
-        program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(signer, true),
-            AccountMeta::new(boost_pda, false),
-            AccountMeta::new(boost_tokens, false),
-            AccountMeta::new_readonly(mint, false),
-            AccountMeta::new_readonly(member_pda, false),
-            AccountMeta::new(pool, false),
-            AccountMeta::new(pool_tokens, false),
-            AccountMeta::new(recipient, false),
-            AccountMeta::new(share_pda, false),
-            AccountMeta::new(stake_pda, false),
-            AccountMeta::new_readonly(spl_token::ID, false),
-            AccountMeta::new_readonly(LEGACY_BOOST_PROGRAM_ID, false),
-        ],
-        data: Unstake {
-            amount: amount.to_le_bytes(),
-        }
-        .to_bytes(),
-    }
-}
+// pub fn unstake(
+//     signer: Pubkey,
+//     mint: Pubkey,
+//     pool: Pubkey,
+//     recipient: Pubkey,
+//     amount: u64,
+// ) -> Instruction {
+//     let (boost_pda, _) = legacy_boost_pda(mint);
+//     let boost_tokens =
+//         spl_associated_token_account::get_associated_token_address(&boost_pda, &mint);
+//     let (member_pda, _) = member_pda(signer, pool);
+//     let pool_tokens = spl_associated_token_account::get_associated_token_address(&pool, &mint);
+//     let (share_pda, _) = share_pda(signer, pool, mint);
+//     let (stake_pda, _) = legacy_stake_pda(pool, boost_pda);
+//     Instruction {
+//         program_id: crate::ID,
+//         accounts: vec![
+//             AccountMeta::new(signer, true),
+//             AccountMeta::new(boost_pda, false),
+//             AccountMeta::new(boost_tokens, false),
+//             AccountMeta::new_readonly(mint, false),
+//             AccountMeta::new_readonly(member_pda, false),
+//             AccountMeta::new(pool, false),
+//             AccountMeta::new(pool_tokens, false),
+//             AccountMeta::new(recipient, false),
+//             AccountMeta::new(share_pda, false),
+//             AccountMeta::new(stake_pda, false),
+//             AccountMeta::new_readonly(spl_token::ID, false),
+//             AccountMeta::new_readonly(LEGACY_BOOST_PROGRAM_ID, false),
+//         ],
+//         data: Unstake {
+//             amount: amount.to_le_bytes(),
+//         }
+//         .to_bytes(),
+//     }
+// }
 
 /// builds a stake instruction.
 #[deprecated(
